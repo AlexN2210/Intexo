@@ -1,73 +1,56 @@
-# Welcome to your Lovable project
+# Impexo — Front e‑commerce React (style Apple)
 
-## Project info
+Front-end React premium pour une marque de luxe “Impexo”, spécialisée dans la vente de coques d’iPhone haut de gamme.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- React + TypeScript (Vite)
+- Tailwind + shadcn-ui
+- React Router
+- React Query (données WooCommerce)
+- Zustand (panier)
+- Framer Motion (animations subtiles)
 
-There are several ways of editing your application.
+## Démarrer
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+```bash
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Par défaut, si `VITE_WP_BASE_URL` n’est pas configuré, l’app utilise des **produits mock**.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Configuration WordPress / WooCommerce (headless)
 
-**Use GitHub Codespaces**
+Copie `.env.example` en `.env` puis adapte :
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+VITE_WP_BASE_URL=https://ton-site-wordpress.com
+VITE_WC_CONSUMER_KEY=ck_...
+VITE_WC_CONSUMER_SECRET=cs_...
+VITE_IMPEXO_USE_MOCKS=false
+```
 
-## What technologies are used for this project?
+### Notes importantes (sécurité / prod)
 
-This project is built with:
+- **Ne mets pas** `consumer_secret` dans un front public en production.
+- Recommandé : un **proxy backend** (Edge Function / Node API) qui signe les requêtes WooCommerce et applique les règles d’accès.
+- Vérifie aussi **CORS** côté WordPress.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Routes
 
-## How can I deploy this project?
+- `/` Accueil
+- `/boutique` Boutique (grille + filtres)
+- `/produit/:slug` Fiche produit (zoom + sélecteurs + ajout panier)
+- `/panier` Panier
+- `/contact` Support + FAQ
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Organisation du code
 
-## Can I connect a custom domain to my Lovable project?
+- `src/components/` UI & layout (Header/Footer, cards, animations)
+- `src/pages/` Pages
+- `src/hooks/` Hooks (React Query)
+- `src/services/` API WooCommerce + env + mocks
+- `src/store/` Zustand (panier)
+- `src/utils/` helpers (prix, attributs)
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)

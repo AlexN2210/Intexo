@@ -8,35 +8,42 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Impexo — palette luxe (équivalents HSL) */
+    --impexo-black: 0 0% 0%; /* #000000 */
+    --impexo-white: 0 0% 100%; /* #FFFFFF */
+    --impexo-gray-50: 240 11% 97%; /* #F5F5F7 */
+    --impexo-gray-100: 240 6% 90%; /* #E5E5E7 */
+    --impexo-silver: 0 0% 75%; /* #C0C0C0 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --background: var(--impexo-white);
+    --foreground: var(--impexo-black);
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --card: var(--impexo-white);
+    --card-foreground: var(--impexo-black);
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --popover: var(--impexo-white);
+    --popover-foreground: var(--impexo-black);
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --primary: var(--impexo-black);
+    --primary-foreground: var(--impexo-white);
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --secondary: var(--impexo-gray-50);
+    --secondary-foreground: var(--impexo-black);
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --muted: var(--impexo-gray-50);
+    --muted-foreground: 0 0% 35%;
+
+    --accent: var(--impexo-gray-50);
+    --accent-foreground: var(--impexo-black);
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: var(--impexo-gray-100);
+    --input: var(--impexo-gray-100);
+    --ring: var(--impexo-silver);
 
-    --radius: 0.5rem;
+    --radius: 1rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -99,7 +106,79 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+      "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image:
+      radial-gradient(1200px 600px at 70% -10%, hsla(0, 0%, 0%, 0.06), transparent 60%),
+      radial-gradient(900px 500px at -10% 20%, hsla(0, 0%, 0%, 0.04), transparent 55%),
+      linear-gradient(180deg, hsl(var(--impexo-white)) 0%, hsl(var(--impexo-gray-50)) 100%);
+  }
+
+  ::selection {
+    background: hsla(0, 0%, 0%, 0.9);
+    color: #ffffff;
+  }
+}
+
+@layer utilities {
+  .impexo-grid {
+    background-image: radial-gradient(closest-side, hsl(var(--impexo-gray-100)) 0, transparent 70%);
+    background-size: 24px 24px;
+    background-position: 0 0;
+    opacity: 0.25;
+  }
+
+  .impexo-glow {
+    box-shadow: 0 10px 30px hsla(0, 0%, 0%, 0.08), 0 1px 0 hsla(0, 0%, 100%, 0.65) inset;
+  }
+
+  .impexo-hairline {
+    box-shadow: 0 0 0 0.5px hsl(var(--border));
+  }
+
+  .impexo-surface {
+    background: hsl(var(--impexo-white) / 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow:
+      0 22px 50px -35px hsla(0, 0%, 0%, 0.40),
+      0 1px 0 hsla(0, 0%, 100%, 0.70) inset;
+  }
+
+  .impexo-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .impexo-sheen::after {
+    content: "";
+    position: absolute;
+    inset: -40% -40%;
+    background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.20) 48%, transparent 60%);
+    transform: translateX(-35%) rotate(12deg);
+    opacity: 0;
+    transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1), opacity 350ms ease-out;
+    pointer-events: none;
+  }
+  .impexo-sheen:hover::after {
+    transform: translateX(35%) rotate(12deg);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+  .impexo-sheen::after {
+    transition: none !important;
   }
 }
