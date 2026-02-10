@@ -67,14 +67,14 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
 
         {/* 4rem = header h-16, + safe-area iOS */}
         <div className="absolute inset-0 flex items-center pt-[calc(4rem+env(safe-area-inset-top))]">
-          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl text-white text-center md:text-left">
               <div className="text-xs font-medium tracking-[0.32em] text-white/70">IMPEXO</div>
-              <h1 className="mt-5 text-balance text-3xl font-semibold leading-[1.04] tracking-tight sm:text-5xl lg:text-6xl">
+              <h1 className="mt-5 text-balance font-semibold leading-[1.04] tracking-tight text-[clamp(2.05rem,5vw,4.15rem)]">
                 Coques d’iPhone haut de gamme.
                 <span className="block text-white/70">Sobriété. Finesse. Luxe.</span>
               </h1>
-              <p className="mt-6 max-w-2xl text-pretty text-base leading-relaxed text-white/75 sm:text-lg">
+              <p className="mt-6 max-w-2xl text-pretty leading-relaxed text-white/75 text-[clamp(1rem,2.2vw,1.125rem)]">
                 {subtitle}
               </p>
 
