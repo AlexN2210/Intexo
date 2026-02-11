@@ -57,7 +57,7 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
             key={activeKey}
             src={img}
             alt={active.product.images?.[0]?.alt || active.product.name}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full bg-black object-contain md:object-cover"
             initial={reduce ? false : { opacity: 0.85, scale: 1.01 }}
             animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1 }}
             exit={reduce ? { opacity: 1 } : { opacity: 0.0 }}
@@ -66,10 +66,10 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
         </AnimatePresence>
 
         {/* overlays premium (zéro “card”, mais lisibilité) */}
-        <div className="pointer-events-none absolute inset-0 bg-black/25" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.14),transparent_55%)] mix-blend-overlay" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.55),transparent_55%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/22 to-black/0" />
+        <div className="pointer-events-none absolute inset-0 bg-black/15 md:bg-black/25" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.12),transparent_55%)] mix-blend-overlay md:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.14),transparent_55%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.40),transparent_60%)] md:bg-[linear-gradient(90deg,rgba(0,0,0,0.55),transparent_55%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/18 to-black/0 md:from-black/70 md:via-black/22" />
 
         {/* 4rem = header h-16, + safe-area iOS */}
         <div className="absolute inset-0 flex items-center pt-[calc(4rem+env(safe-area-inset-top))]">
