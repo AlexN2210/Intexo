@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useProductsQuery } from "@/hooks/useWooProducts";
 import type { WooProduct } from "@/types/woocommerce";
 import { collectOptions, findAttribute } from "@/utils/productAttributes";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 function hasOption(product: WooProduct, attrName: string, option: string) {
   const attr = product.attributes?.find((a) => a.name === attrName);
@@ -16,10 +17,19 @@ function hasOption(product: WooProduct, attrName: string, option: string) {
 }
 
 export default function Shop() {
-  const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const initialQ = searchParams.get("q") ?? "";
+
+  const [search, setSearch] = useState(initialQ);
   const [model, setModel] = useState<string>("all");
   const [color, setColor] = useState<string>("all");
   const [material, setMaterial] = useState<string>("all");
+
+  useEffect(() => {
+    // Si on arrive depuis une section (Collections) qui change le query param,
+    // on synchronise le champ de recherche.
+    setSearch(initialQ);
+  }, [initialQ]);
 
   const q = useProductsQuery({ search: search || undefined, per_page: 48, orderby: "date" });
   const products = q.data ?? [];

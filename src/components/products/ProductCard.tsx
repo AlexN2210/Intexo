@@ -19,14 +19,14 @@ export function ProductCard({ product }: { product: WooProduct }) {
     >
       <div className="absolute inset-0 bg-gradient-to-b from-white/0 via-white/0 to-black/[0.02] opacity-0 transition group-hover:opacity-100" />
 
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted/40">
+      <div className="relative aspect-[4/3] overflow-hidden bg-muted/30">
         {img ? (
           <img
             src={img.src}
             alt={img.alt || product.name}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.05]"
+            className="h-full w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.02] sm:p-7"
           />
         ) : (
           <div className="h-full w-full bg-muted" />

@@ -11,17 +11,18 @@ import { useCartStore } from "@/store/cartStore";
 import { formatEUR, parsePrice } from "@/utils/money";
 import { findMatchingVariation, getAttributeOptions } from "@/utils/productAttributes";
 import { Minus, Plus, Shield, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 
 export default function Product() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const addItem = useCartStore((s) => s.addItem);
 
   const [qty, setQty] = useState(1);
-  const [model, setModel] = useState<string>("auto");
-  const [color, setColor] = useState<string>("auto");
+  const [model, setModel] = useState<string>("");
+  const [color, setColor] = useState<string>("");
 
   const q = useProductBySlugQuery(slug);
   const product = q.data ?? null;
@@ -34,10 +35,68 @@ export default function Product() {
   const colors = useMemo(() => (product ? getAttributeOptions(product, "color") : []), [product]);
   const materials = useMemo(() => (product ? getAttributeOptions(product, "material") : []), [product]);
 
+  const availableColorsByModel = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!hasVariations) return map;
+    variations.forEach((v) => {
+      const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
+      const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
+      if (!m || !c) return;
+      const list = map.get(m) ?? [];
+      if (!list.includes(c)) list.push(c);
+      map.set(m, list);
+    });
+    // tri pour un affichage stable
+    Array.from(map.entries()).forEach(([k, list]) => {
+      map.set(k, [...list].sort((a, b) => a.localeCompare(b)));
+    });
+    return map;
+  }, [hasVariations, variations]);
+
+  const allowedColorsForSelectedModel = useMemo(() => {
+    if (!hasVariations) return colors;
+    const m = model || models[0];
+    return (m ? availableColorsByModel.get(m) : undefined) ?? [];
+  }, [hasVariations, colors, availableColorsByModel, model, models]);
+
+  const findModelForColor = (wantedColor: string): string | undefined => {
+    for (const [m, list] of availableColorsByModel.entries()) {
+      if (list.includes(wantedColor)) return m;
+    }
+    return undefined;
+  };
+
+  const preferredModel = searchParams.get("model") ?? "";
+  const preferredColor = searchParams.get("color") ?? "";
+
+  // Sélection initiale : prend en compte ?model= & ?color= si possible.
+  useEffect(() => {
+    if (!product) return;
+    const initialModel =
+      (preferredModel && models.includes(preferredModel) ? preferredModel : "") || model || models[0] || "";
+    if (initialModel && initialModel !== model) setModel(initialModel);
+
+    const allowedForModel = hasVariations ? availableColorsByModel.get(initialModel) ?? [] : colors;
+    const initialColor =
+      (preferredColor && allowedForModel.includes(preferredColor) ? preferredColor : "") || color || allowedForModel[0] || colors[0] || "";
+    if (initialColor && initialColor !== color) setColor(initialColor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor]);
+
+  // Si l’utilisateur change de modèle, on force une couleur valide pour ce modèle.
+  useEffect(() => {
+    if (!hasVariations) return;
+    const m = model || models[0];
+    if (!m) return;
+    const allowed = availableColorsByModel.get(m) ?? [];
+    if (!allowed.length) return;
+    if (!color || !allowed.includes(color)) {
+      setColor(allowed[0]);
+    }
+  }, [hasVariations, model, models, availableColorsByModel, color]);
+
   const selected = useMemo(() => {
-    const m = model === "auto" ? models[0] : model;
-    const c = color === "auto" ? colors[0] : color;
-    return { model: m, color: c };
+    return { model: model || models[0], color: color || colors[0] };
   }, [model, color, models, colors]);
 
   const matchedVariation = useMemo(() => {
@@ -45,8 +104,43 @@ export default function Product() {
     return findMatchingVariation(variations, selected);
   }, [hasVariations, variations, selected]);
 
-  const heroImage = product?.images?.[0]?.src;
+  const heroImage = matchedVariation?.image?.src ?? product?.images?.[0]?.src;
   const price = parsePrice(matchedVariation?.price ?? product?.price ?? product?.regular_price);
+
+  const selectedMaterial = useMemo(() => {
+    const fromVariation = matchedVariation?.attributes?.find((a) => /mat[ée]riau|material/i.test(a.name))?.option;
+    return fromVariation ?? materials[0];
+  }, [matchedVariation, materials]);
+
+  const gallery = useMemo(() => {
+    if (!product) return [];
+    if (hasVariations) {
+      const uniq = new Map<string, { src: string; alt: string; model?: string; color?: string; isActive: boolean }>();
+      variations.forEach((v) => {
+        const src = v.image?.src;
+        if (!src) return;
+        const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
+        const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
+        const key = `${src}|${m ?? ""}|${c ?? ""}`;
+        if (!uniq.has(key)) {
+          uniq.set(key, {
+            src,
+            alt: `${product.name}${m ? ` — ${m}` : ""}${c ? ` — ${c}` : ""}`,
+            model: m,
+            color: c,
+            isActive: Boolean(matchedVariation && v.id === matchedVariation.id),
+          });
+        }
+      });
+      return Array.from(uniq.values());
+    }
+    // simple product
+    return (product.images ?? []).map((im, idx) => ({
+      src: im.src,
+      alt: im.alt || `${product.name} — ${idx + 1}`,
+      isActive: idx === 0,
+    }));
+  }, [product, hasVariations, variations, matchedVariation]);
 
   const canAdd = Boolean(product) && qty > 0;
 
@@ -62,7 +156,7 @@ export default function Product() {
       options: {
         model: selected.model,
         color: selected.color,
-        material: materials[0],
+        material: selectedMaterial,
       },
       quantity: qty,
     });
@@ -104,20 +198,51 @@ export default function Product() {
                           alt={product.images?.[0]?.alt || product.name}
                           loading="eager"
                           decoding="async"
-                          className="aspect-square w-full object-cover transition duration-700 ease-out group-hover:scale-[1.02]"
+                          className="aspect-square w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.01] sm:p-8"
                         />
                       ) : (
                         <div className="aspect-square w-full bg-muted" />
                       )}
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-4xl p-0">
+                  <DialogContent className="max-w-5xl p-0">
                     {heroImage ? (
-                      <img src={heroImage} alt={product.name} className="h-full w-full object-contain" />
+                      <div className="bg-black">
+                        <img src={heroImage} alt={product.name} className="h-[80vh] w-full object-contain" />
+                      </div>
                     ) : null}
                   </DialogContent>
                 </Dialog>
               </div>
+
+              {gallery.length > 1 ? (
+                <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-6">
+                  {gallery.slice(0, 12).map((g) => (
+                    <button
+                      key={`${g.src}-${g.model ?? ""}-${g.color ?? ""}`}
+                      type="button"
+                      onClick={() => {
+                        if (g.model) setModel(g.model);
+                        if (g.color) setColor(g.color);
+                      }}
+                      className={[
+                        "group overflow-hidden rounded-2xl border bg-muted/30 transition",
+                        g.isActive ? "border-foreground/40" : "hover:border-foreground/25",
+                      ].join(" ")}
+                      aria-label={`Voir ${g.alt}`}
+                    >
+                      <img
+                        src={g.src}
+                        alt={g.alt}
+                        loading="lazy"
+                        decoding="async"
+                        className="aspect-square w-full object-contain p-2 transition duration-300 ease-out group-hover:scale-[1.02]"
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
                 <span>Zoom élégant (cliquer)</span>
                 <span className="tabular-nums">{formatEUR(price)}</span>
@@ -142,7 +267,6 @@ export default function Product() {
                         <SelectValue placeholder="Choisir un modèle" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="auto">Auto</SelectItem>
                         {models.map((m) => (
                           <SelectItem key={m} value={m}>
                             {m}
@@ -155,20 +279,33 @@ export default function Product() {
                   <div className="space-y-2">
                     <div className="text-xs font-medium text-muted-foreground">Couleur</div>
                     <div className="flex flex-wrap gap-2">
-                      {["auto", ...colors].map((c) => {
+                      {colors.map((c) => {
                         const active = color === c;
-                        const label = c === "auto" ? "Auto" : c;
+                        const isAvailable = !hasVariations || allowedColorsForSelectedModel.includes(c);
                         return (
                           <button
                             key={c}
                             type="button"
-                            onClick={() => setColor(c)}
+                            onClick={() => {
+                              if (isAvailable) {
+                                setColor(c);
+                                return;
+                              }
+                              // UX: si la couleur n’existe pas pour ce modèle, on bascule vers un modèle qui l’a.
+                              const nextModel = findModelForColor(c);
+                              if (nextModel) {
+                                setModel(nextModel);
+                                setColor(c);
+                              }
+                            }}
                             className={[
                               "rounded-full border px-3 py-2 text-xs transition",
                               active ? "bg-foreground text-background" : "bg-background hover:bg-muted/60",
+                              isAvailable ? "" : "opacity-40",
                             ].join(" ")}
+                            aria-disabled={!isAvailable}
                           >
-                            {label}
+                            {c}
                           </button>
                         );
                       })}
@@ -184,7 +321,9 @@ export default function Product() {
                     <div className="flex items-center justify-between gap-4">
                       <div className="text-muted-foreground">Variation</div>
                       <div className="font-medium">
-                        {matchedVariation ? `#${matchedVariation.id}` : "Sélectionner modèle/couleur"}
+                        {matchedVariation
+                          ? [selected.model, selected.color, selectedMaterial].filter(Boolean).join(" • ")
+                          : "Sélectionner modèle/couleur"}
                       </div>
                     </div>
                   </div>

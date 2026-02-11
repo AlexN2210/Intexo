@@ -18,6 +18,9 @@ export function Footer() {
           <a className="hover:text-foreground" href="/contact">
             Support
           </a>
+          <a className="hover:text-foreground" href="/mentions-legales">
+            Mentions légales
+          </a>
           <span className="hidden md:inline">•</span>
           <span>© {new Date().getFullYear()} Impexo</span>
         </div>

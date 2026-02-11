@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { impexoMockSlugByCode } from "@/services/mock/impexoCatalog";
 import type { WooProduct } from "@/types/woocommerce";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -38,13 +39,18 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
   const active = looks.find((l) => l.key === activeKey) ?? looks[0];
   if (!active) return null;
 
-  const img = active.product.images?.[0]?.src || "/placeholder.svg";
+  const img = "/fondimpexo.png";
   const subtitle = active.product.short_description
     ? stripHtml(active.product.short_description)
     : "Minimalisme. Finition premium. Ajustement précis.";
 
+  const featuredSlug = impexoMockSlugByCode["JOJO1015-4"];
+  const featuredTo = featuredSlug
+    ? `/produit/${featuredSlug}?model=${encodeURIComponent("iPhone 17 Pro")}&color=${encodeURIComponent("Transparent")}`
+    : "/boutique";
+
   return (
-    <section className="relative w-screen max-w-none overflow-hidden mx-[calc(50%-50vw)]">
+    <section className="relative w-screen w-[100dvw] max-w-none overflow-hidden mx-[calc(50%-50vw)] mx-[calc(50%-50dvw)]">
       <div className="relative h-[100svh] min-h-[560px] sm:min-h-[640px] lg:min-h-[720px] w-full">
         <AnimatePresence mode="wait">
           <motion.img
@@ -87,7 +93,7 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
                   variant="outline"
                   className="h-12 w-full rounded-full border-white/25 bg-white/0 px-6 text-white hover:bg-white/10 hover:text-white sm:w-auto"
                 >
-                  <Link to={`/produit/${active.product.slug}`}>Voir ce modèle</Link>
+                  <Link to={featuredTo}>Voir ce modèle</Link>
                 </Button>
               </div>
 

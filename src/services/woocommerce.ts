@@ -1,5 +1,5 @@
 import { env, assertWpBaseUrl } from "@/services/env";
-import { mockProducts } from "@/services/mock/products";
+import { mockProducts, mockProductVariationsByProductId } from "@/services/mock/products";
 import type { WooProduct, WooVariation } from "@/types/woocommerce";
 
 type Primitive = string | number | boolean;
@@ -56,7 +56,12 @@ export async function getProducts(params?: {
   featured?: boolean;
   search?: string;
 }): Promise<WooProduct[]> {
-  if (env.useMocks || !env.wpBaseUrl) return mockProducts;
+  if (env.useMocks || !env.wpBaseUrl) {
+    const list = [...mockProducts];
+    const search = params?.search?.trim().toLowerCase();
+    if (search) return list.filter((p) => p.name.toLowerCase().includes(search) || p.slug.toLowerCase().includes(search));
+    return list;
+  }
   return await wooFetch<WooProduct[]>("/wp-json/wc/v3/products", {
     per_page: params?.per_page ?? 24,
     page: params?.page ?? 1,
@@ -84,7 +89,7 @@ export async function getProductById(id: number): Promise<WooProduct> {
 }
 
 export async function getProductVariations(productId: number): Promise<WooVariation[]> {
-  if (env.useMocks || !env.wpBaseUrl) return [];
+  if (env.useMocks || !env.wpBaseUrl) return mockProductVariationsByProductId[productId] ?? [];
   return await wooFetch<WooVariation[]>(`/wp-json/wc/v3/products/${productId}/variations`, {
     per_page: 100,
     status: "publish",
