@@ -38,7 +38,8 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
   const active = looks.find((l) => l.key === activeKey) ?? looks[0];
   if (!active) return null;
 
-  const img = "/background1.png";
+  const imgDesktop = "/background1.png";
+  const imgMobile = "/mobilebg.jpg";
   const subtitle =
     "Couleurs signature. Technologie magnétique compatible MagSafe. Une finition premium pensée pour l’iPhone 17 Series.";
 
@@ -46,19 +47,34 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
     <section className="relative left-1/2 w-screen max-w-none -translate-x-1/2 overflow-hidden">
       <div className="relative h-[100svh] min-h-[560px] sm:min-h-[640px] lg:min-h-[720px] w-full">
         <AnimatePresence mode="wait">
-          <motion.img
+          <motion.div
             key={activeKey}
-            src={img}
-            alt={active.product.images?.[0]?.alt || active.product.name}
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-            className="absolute inset-0 h-full w-full object-cover object-[50%_50%] sm:object-center scale-[1.12] sm:scale-100"
             initial={reduce ? false : { opacity: 0.0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduce ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
-          />
+            className="absolute inset-0"
+          >
+            {/* Mobile uniquement */}
+            <img
+              src={imgMobile}
+              alt={active.product.images?.[0]?.alt || active.product.name}
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              className="absolute inset-0 h-full w-full object-cover object-center sm:hidden"
+            />
+
+            {/* Tablette / desktop */}
+            <img
+              src={imgDesktop}
+              alt={active.product.images?.[0]?.alt || active.product.name}
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              className="absolute inset-0 hidden h-full w-full object-cover object-[50%_50%] sm:block sm:object-center"
+            />
+          </motion.div>
         </AnimatePresence>
 
         {/* overlays premium (zéro “card”, mais lisibilité) */}
