@@ -43,53 +43,29 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
     "Couleurs signature. Technologie magnétique compatible MagSafe. Une finition premium pensée pour l’iPhone 17 Series.";
 
   return (
-    <section className="relative w-screen w-[100dvw] max-w-none overflow-hidden mx-[calc(50%-50vw)] mx-[calc(50%-50dvw)]">
+    <section className="relative left-1/2 w-screen max-w-none -translate-x-1/2 overflow-hidden">
       <div className="relative h-[100svh] min-h-[560px] sm:min-h-[640px] lg:min-h-[720px] w-full">
         <AnimatePresence mode="wait">
-          <motion.div
+          <motion.img
             key={activeKey}
-            initial={reduce ? false : { opacity: 0.85, scale: 1.01 }}
-            animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1 }}
-            exit={reduce ? { opacity: 1 } : { opacity: 0.0 }}
+            src={img}
+            alt={active.product.images?.[0]?.alt || active.product.name}
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            className="absolute inset-0 h-full w-full object-cover object-[50%_50%] sm:object-center scale-[1.12] sm:scale-100"
+            initial={reduce ? false : { opacity: 0.0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: reduce ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-0"
-          >
-            {/* Mobile: on garde le sujet visible (contain) + fond flouté full-bleed */}
-            <img
-              src={img}
-              alt=""
-              aria-hidden="true"
-              loading="eager"
-              decoding="async"
-              fetchPriority="high"
-              className="absolute inset-0 h-full w-full object-cover scale-110 blur-[18px] saturate-[1.05] opacity-95"
-            />
-            <img
-              src={img}
-              alt={active.product.images?.[0]?.alt || active.product.name}
-              loading="eager"
-              decoding="async"
-              fetchPriority="high"
-              className="absolute inset-0 h-full w-full object-contain px-5 pt-20 pb-16 sm:hidden"
-            />
-
-            {/* Desktop/tablette: hero immersif (cover) */}
-            <img
-              src={img}
-              alt={active.product.images?.[0]?.alt || active.product.name}
-              loading="eager"
-              decoding="async"
-              fetchPriority="high"
-              className="absolute inset-0 hidden h-full w-full object-cover sm:block"
-            />
-          </motion.div>
+          />
         </AnimatePresence>
 
         {/* overlays premium (zéro “card”, mais lisibilité) */}
-        <div className="pointer-events-none absolute inset-0 bg-black/18 sm:bg-black/25" />
+        <div className="pointer-events-none absolute inset-0 bg-black/20 sm:bg-black/25" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.14),transparent_55%)] mix-blend-overlay" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.55))] sm:bg-[linear-gradient(90deg,rgba(0,0,0,0.55),transparent_55%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/72 via-black/22 to-black/0 sm:from-black/70" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.30),rgba(0,0,0,0.62))] sm:bg-[linear-gradient(90deg,rgba(0,0,0,0.55),transparent_55%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/78 via-black/24 to-black/0 sm:from-black/70" />
 
         {/* 4rem = header h-16, + safe-area iOS */}
         <div className="absolute inset-0 flex items-center pt-[calc(4rem+env(safe-area-inset-top))]">
