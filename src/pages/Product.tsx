@@ -112,6 +112,11 @@ export default function Product() {
     return fromVariation ?? materials[0];
   }, [matchedVariation, materials]);
 
+  const mentionsMagSafe = useMemo(() => {
+    const blob = `${product?.name ?? ""} ${product?.short_description ?? ""} ${product?.description ?? ""}`;
+    return /magsafe/i.test(blob);
+  }, [product?.name, product?.short_description, product?.description]);
+
   const gallery = useMemo(() => {
     if (!product) return [];
     if (hasVariations) {
@@ -390,7 +395,14 @@ export default function Product() {
                 <div className="rounded-3xl border bg-card p-6">
                   <div className="text-sm font-medium tracking-tight">Détails</div>
                   <div className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                    {materials.length ? <div>Matériau&nbsp;: {materials[0]}</div> : null}
+                    {selectedMaterial ? <div>Matériau&nbsp;: {selectedMaterial}</div> : null}
+                    {selected.model ? <div className="mt-1">Compatibilité&nbsp;: {selected.model}</div> : null}
+                    {selected.color ? <div className="mt-1">Couleur&nbsp;: {selected.color}</div> : null}
+                    {models.length ? (
+                      <div className="mt-2 text-xs">
+                        Compatibilités disponibles&nbsp;: {models.join(" · ")}
+                      </div>
+                    ) : null}
                   </div>
                   {product.short_description ? (
                     <div
@@ -398,6 +410,22 @@ export default function Product() {
                       dangerouslySetInnerHTML={{ __html: product.short_description }}
                     />
                   ) : null}
+                  {product.description ? (
+                    <div
+                      className="prose prose-sm mt-4 max-w-none text-muted-foreground prose-p:leading-relaxed prose-ul:my-3 prose-li:my-1"
+                      dangerouslySetInnerHTML={{ __html: product.description }}
+                    />
+                  ) : null}
+
+                  <div className="mt-4 space-y-1 text-xs text-muted-foreground">
+                    <div>iPhone est une marque d’Apple Inc. Impexo n’est pas affiliée à Apple.</div>
+                    {mentionsMagSafe ? (
+                      <div>
+                        MagSafe est une marque d’Apple Inc. La mention « compatible MagSafe » décrit une compatibilité avec des accessoires MagSafe, sans affiliation ni
+                        approbation.
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </FadeIn>

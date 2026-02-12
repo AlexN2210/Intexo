@@ -59,7 +59,19 @@ export async function getProducts(params?: {
   if (env.useMocks || !env.wpBaseUrl) {
     const list = [...mockProducts];
     const search = params?.search?.trim().toLowerCase();
-    if (search) return list.filter((p) => p.name.toLowerCase().includes(search) || p.slug.toLowerCase().includes(search));
+    if (search)
+      return list.filter((p) => {
+        const hay = [
+          p.name,
+          p.slug,
+          p.short_description,
+          p.description,
+          (p.categories ?? []).map((c) => c.name).join(" "),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(search);
+      });
     return list;
   }
   return await wooFetch<WooProduct[]>("/wp-json/wc/v3/products", {

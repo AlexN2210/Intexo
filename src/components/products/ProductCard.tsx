@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { ProductImageFrame } from "@/components/products/ProductImageFrame";
 import { cn } from "@/lib/utils";
 import { formatEUR, parsePrice } from "@/utils/money";
 import type { WooProduct } from "@/types/woocommerce";
@@ -19,14 +20,14 @@ export function ProductCard({ product }: { product: WooProduct }) {
     >
       <div className="absolute inset-0 bg-gradient-to-b from-white/0 via-white/0 to-black/[0.02] opacity-0 transition group-hover:opacity-100" />
 
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted/30">
+      <ProductImageFrame className="aspect-[4/3]">
         {img ? (
           <img
             src={img.src}
             alt={img.alt || product.name}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.02] sm:p-7"
+            className="impexo-product-shadow impexo-image-fade h-full w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.02] sm:p-7"
           />
         ) : (
           <div className="h-full w-full bg-muted" />
@@ -36,7 +37,7 @@ export function ProductCard({ product }: { product: WooProduct }) {
           {product.on_sale ? <Badge className="rounded-full bg-foreground text-background">Offre</Badge> : null}
           {isNew ? <Badge className="rounded-full bg-muted text-foreground">Nouveau</Badge> : null}
         </div>
-      </div>
+      </ProductImageFrame>
 
       <div className="relative space-y-2 p-5">
         <div className="flex items-start justify-between gap-4">

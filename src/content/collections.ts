@@ -16,8 +16,8 @@ export const impexoCollections: ImpexoCollection[] = [
   },
   {
     id: "magsafe",
-    title: "MagSafe",
-    description: "Maintien précis. Expérience fluide. Style signature.",
+    title: "Compatible MagSafe",
+    description: "Technologie magnétique compatible MagSafe. Expérience fluide. Style signature.",
     imageSrc: "/IMPEXO-IPHONE 17 SERIES12-31/JOJO1015-11P.JPG",
     query: "magsafe",
   },

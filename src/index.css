@@ -119,9 +119,11 @@ All colors MUST be HSL.
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Ambiance plus premium (plus “deep”, moins “plat”) */
     background-image:
-      radial-gradient(1200px 600px at 70% -10%, hsla(0, 0%, 0%, 0.06), transparent 60%),
-      radial-gradient(900px 500px at -10% 20%, hsla(0, 0%, 0%, 0.04), transparent 55%),
+      radial-gradient(1100px 650px at 72% -12%, hsla(0, 0%, 0%, 0.07), transparent 62%),
+      radial-gradient(900px 520px at -12% 24%, hsla(0, 0%, 0%, 0.05), transparent 58%),
+      radial-gradient(700px 380px at 50% 110%, hsla(0, 0%, 0%, 0.04), transparent 55%),
       linear-gradient(180deg, hsl(var(--impexo-white)) 0%, hsl(var(--impexo-gray-50)) 100%);
   }
 
@@ -154,6 +156,27 @@ All colors MUST be HSL.
     box-shadow:
       0 22px 50px -35px hsla(0, 0%, 0%, 0.40),
       0 1px 0 hsla(0, 0%, 100%, 0.70) inset;
+  }
+
+  .impexo-studio {
+    /* Fond blanc pur pour fusionner avec les visuels (évite l'effet "carré blanc") */
+    background:
+      linear-gradient(#ffffff, #ffffff),
+      radial-gradient(90% 70% at 18% 10%, rgba(0, 0, 0, 0.025), transparent 60%),
+      radial-gradient(80% 65% at 85% 18%, rgba(0, 0, 0, 0.02), transparent 62%);
+  }
+
+  .impexo-product-shadow {
+    /* Ombre + léger halo pour intégrer le visuel (sans effet "découpé") */
+    filter:
+      drop-shadow(0 18px 30px rgba(0, 0, 0, 0.14))
+      drop-shadow(0 0 22px rgba(255, 255, 255, 0.10));
+  }
+
+  .impexo-image-fade {
+    /* Fond blanc interne -> bords plus doux (compat webkit + standard) */
+    -webkit-mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%);
+    mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%);
   }
 
   .impexo-sheen {

@@ -1,7 +1,9 @@
 import { FadeIn } from "@/components/animations/FadeIn";
+import { TrustBar } from "@/components/commerce/TrustBar";
 import { HeroShowcase } from "@/components/home/HeroShowcase";
 import { Container } from "@/components/layout/Container";
 import { ProductCard } from "@/components/products/ProductCard";
+import { ProductImageFrame } from "@/components/products/ProductImageFrame";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { impexoCollections } from "@/content/collections";
@@ -17,6 +19,7 @@ const Index = () => {
     <div>
       {/* HERO plein écran (la première chose vue) */}
       <HeroShowcase products={hero.data ?? []} />
+      <TrustBar />
 
       {/* Manifesto / storytelling */}
       <section className="bg-background">
@@ -80,7 +83,7 @@ const Index = () => {
                 <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">COLLECTIONS</div>
                 <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Choisis une signature.</h2>
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                  Transparence premium, MagSafe, métal, finition mate… une sélection pensée pour l’iPhone 17 Series.
+                  Transparence premium, compatibilité magnétique, métal, finition mate… une sélection pensée pour l’iPhone 17 Series.
                 </p>
               </div>
               <Button asChild variant="ghost" className="hidden rounded-full md:inline-flex">
@@ -99,15 +102,15 @@ const Index = () => {
                   className="group relative block h-full overflow-hidden rounded-3xl border impexo-surface impexo-sheen transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_30px_80px_-55px_rgba(0,0,0,0.55)]"
                 >
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(0,0,0,0.10),transparent_55%)] opacity-70" />
-                  <div className="relative aspect-[16/10] bg-muted/30">
+                  <ProductImageFrame className="relative aspect-[16/10]">
                     <img
                       src={c.imageSrc}
                       alt={`Collection ${c.title}`}
                       loading="lazy"
                       decoding="async"
-                      className="h-full w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.02]"
+                      className="impexo-product-shadow impexo-image-fade h-full w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.02]"
                     />
-                  </div>
+                  </ProductImageFrame>
                   <div className="relative p-6">
                     <div className="text-sm font-medium tracking-tight">{c.title}</div>
                     <div className="mt-2 text-sm leading-relaxed text-muted-foreground">{c.description}</div>
@@ -143,7 +146,9 @@ const Index = () => {
             {best.isLoading
               ? Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="overflow-hidden rounded-3xl border bg-card">
-                    <Skeleton className="aspect-[4/3] w-full" />
+                    <ProductImageFrame className="aspect-[4/3]">
+                      <Skeleton className="h-full w-full" />
+                    </ProductImageFrame>
                     <div className="space-y-3 p-5">
                       <Skeleton className="h-4 w-3/4" />
                       <Skeleton className="h-3 w-1/2" />

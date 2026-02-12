@@ -41,6 +41,13 @@ export default function Legal() {
             L’ensemble des contenus (textes, visuels, marques) est protégé. Toute reproduction est interdite sans
             autorisation.
           </div>
+
+          <div className="mt-8 text-sm font-medium tracking-tight">Marques & compatibilité</div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            Les marques citées (ex. MagSafe) appartiennent à leurs propriétaires respectifs. Impexo est une marque
+            indépendante et n’est pas affiliée à Apple Inc. Les produits indiqués comme “compatibles MagSafe” le sont à
+            titre informatif.
+          </div>
         </FadeIn>
       </Container>
     </div>

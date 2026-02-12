@@ -62,178 +62,178 @@ type Marketing = {
 
 const marketingByCode: Record<string, Marketing> = {
   "JOJO1015-1": {
-    name: "Coque Camera Shield",
-    tagline: "Protection caméra intégrée. Design minimaliste.",
+    name: "Impexo — Camera Shield",
+    tagline: "Protection caméra intégrée. Silhouette fine.",
     story:
-      "Une coque pensée pour sublimer l’iPhone et protéger l’essentiel : lignes nettes, finition sobre, protection caméra intégrée.",
-    highlights: ["Protection caméra", "Toucher premium", "Profil fin"],
+      "Protection caméra intégrée et lignes nettes, pour une présence premium sans épaisseur inutile. Une prise en main sûre, un rendu propre, au quotidien.",
+    highlights: ["Protection caméra intégrée", "Profil fin", "Toucher premium"],
   },
   "JOJO1015-2": {
-    name: "Coque Crystal Clear",
-    tagline: "Transparence parfaite. Élégance discrète.",
+    name: "Impexo — Crystal Clear",
+    tagline: "Transparence pure. Finition nette.",
     story:
-      "La transparence, sans compromis : une coque claire et raffinée qui laisse le design de l’iPhone s’exprimer.",
-    highlights: ["Ultra transparente", "Protection quotidienne", "Look épuré"],
+      "Une transparence qui respecte le design, sans effet “plastique”. La finition reste nette, la coque se fait oublier — l’allure, elle, reste.",
+    highlights: ["Transparence premium", "Rendu net", "Protection quotidienne"],
   },
   "JOJO1015-3": {
-    name: "Coque Camera Shield Plus",
-    tagline: "Caméra protégée. Présence affirmée.",
+    name: "Impexo — Camera Shield Plus",
+    tagline: "Caméra protégée. Détail signature.",
     story:
-      "Une protection caméra assumée et un toucher premium, pour une coque qui se voit juste ce qu’il faut.",
-    highlights: ["Protection caméra", "Toucher souple", "Finition premium"],
+      "La protection caméra devient un détail de design. Toucher souple, lignes maîtrisées : un style affirmé, toujours minimaliste.",
+    highlights: ["Protection caméra", "Toucher souple", "Détails maîtrisés"],
   },
   "JOJO1015-4": {
-    name: "Coque Crystal Acrylic",
-    tagline: "Acrylique + TPU. Transparence haut de gamme.",
+    name: "Impexo — Crystal Acrylic",
+    tagline: "Acrylique premium. Transparence maîtrisée.",
     story:
-      "Un mélange acrylique/TPU pour une transparence plus “premium”, avec une prise en main confortable et une tenue impeccable.",
-    highlights: ["Acrylique + TPU", "Transparence premium", "Prise en main sûre"],
+      "Acrylique premium et contours confort, pour une transparence plus “studio”. L’allure reste propre, la prise en main reste sûre.",
+    highlights: ["Acrylique + TPU", "Transparence premium", "Tenue impeccable"],
   },
   "JOJO1015-5": {
-    name: "Coque LensGuard Signature",
-    tagline: "Protection caméra signature. Finitions soignées.",
+    name: "Impexo — LensGuard Signature",
+    tagline: "Protection des optiques. Finition signature.",
     story:
-      "Une coque signature qui protège la zone caméra et met en valeur les finitions, avec un style sobre inspiré du luxe.",
-    highlights: ["Protection caméra", "Finition soignée", "Style premium"],
+      "Une protection pensée pour la zone caméra, avec un rendu net et une finition soignée. Le luxe ici, c’est la précision.",
+    highlights: ["Protection des optiques", "Finition soignée", "Rendu premium"],
   },
   "JOJO1015-6": {
-    name: "Coque MagSafe Magnetic",
-    tagline: "Compatible MagSafe. Maintien précis.",
+    name: "Impexo — Magnétique (compatible MagSafe)",
+    tagline: "Technologie magnétique compatible MagSafe. Maintien net.",
     story:
-      "Pensée pour un usage fluide : fixation magnétique et design minimaliste pour une expérience quotidienne sans effort.",
-    highlights: ["Compatible MagSafe", "Maintien magnétique", "Design épuré"],
+      "Pensée pour un usage fluide : maintien magnétique et silhouette épurée. Un geste simple, une sensation précise.",
+    highlights: ["Compatible MagSafe", "Maintien magnétique", "Silhouette épurée"],
   },
   "JOJO1015-7": {
-    name: "Coque Armour Hybrid",
-    tagline: "Hybride PC+TPU. Protection structurée.",
+    name: "Impexo — Armour Hybrid",
+    tagline: "Hybride structurée. Protection maîtrisée.",
     story:
-      "Une coque hybride pour ceux qui veulent une protection plus structurée, sans sacrifier la finesse du design.",
-    highlights: ["PC+TPU", "Protection renforcée", "Finition mate"],
+      "Structure et confort réunis : une protection plus présente, mais toujours propre au regard. L’équilibre entre robustesse et finesse.",
+    highlights: ["PC+TPU", "Protection structurée", "Finition mate"],
   },
   "JOJO1015-8": {
-    name: "Coque Soft TPU",
-    tagline: "Toucher doux. Minimalisme quotidien.",
+    name: "Impexo — Soft TPU",
+    tagline: "Toucher velours. Minimalisme quotidien.",
     story:
-      "Une coque TPU au toucher doux, pensée pour être invisible dans la main et impeccable dans le détail.",
-    highlights: ["TPU soft-touch", "Confort", "Finition premium"],
+      "Une sensation douce en main et une finition propre. La coque du quotidien, pensée comme un objet premium.",
+    highlights: ["TPU soft-touch", "Confort en main", "Finition premium"],
   },
   "JOJO1015-9": {
-    name: "Coque Camera Shield Essential",
+    name: "Impexo — Camera Shield Essential",
     tagline: "Protection caméra. Essentiel premium.",
     story:
-      "L’essentiel, en version premium : une protection caméra propre, un look sobre, une expérience fluide.",
-    highlights: ["Protection caméra", "Profil fin", "Look sobre"],
+      "Une protection caméra propre, un profil fin, un style sobre. Tout ce qu’il faut — rien de trop.",
+    highlights: ["Protection caméra", "Profil fin", "Style sobre"],
   },
   "JOJO1015-10": {
-    name: "Coque Camera Shield Air",
+    name: "Impexo — Camera Shield Air",
     tagline: "Lignes nettes. Caméra protégée.",
     story:
-      "Une esthétique précise, une protection caméra intégrée et des finitions pensées pour un rendu haut de gamme.",
-    highlights: ["Protection caméra", "Finitions nettes", "Toucher premium"],
+      "Une esthétique précise, une protection caméra intégrée et un rendu premium. Simple, mais parfaitement exécuté.",
+    highlights: ["Protection caméra", "Finition nette", "Toucher premium"],
   },
   "JOJO1015-11": {
-    name: "Coque MagSafe Signature",
-    tagline: "MagSafe. Minimalisme. Précision.",
+    name: "Impexo — Magnétique Signature (compatible MagSafe)",
+    tagline: "Technologie magnétique compatible MagSafe. Style signature.",
     story:
-      "La coque magnétique au style signature : fixation fluide, silhouette épurée, détails premium.",
-    highlights: ["MagSafe", "Silhouette épurée", "Détails premium"],
+      "Fixation magnétique fluide, silhouette épurée, détails premium. Une signature sobre, pensée pour durer.",
+    highlights: ["Compatible MagSafe", "Silhouette épurée", "Détails premium"],
   },
   "JOJO1015-12": {
-    name: "Coque Matte Studio",
+    name: "Impexo — Matte Studio",
     tagline: "Finition mate. Sobriété absolue.",
     story:
-      "Une finition mate élégante et moderne, pour un rendu premium sans reflets superflus.",
+      "Une finition mate élégante, sans reflets superflus. Toucher velours, lignes propres, allure premium.",
     highlights: ["Finition mate", "Toucher velours", "Style minimaliste"],
   },
   "JOJO1015-13": {
-    name: "Coque Camera Shield PC",
-    tagline: "Rigide PC. Caméra protégée.",
+    name: "Impexo — Camera Shield PC",
+    tagline: "Rigide et nette. Caméra protégée.",
     story:
-      "Une coque rigide au rendu net, avec une protection caméra intégrée et un look résolument premium.",
+      "Une coque rigide au rendu net, avec protection caméra intégrée. Un style précis, sans compromis.",
     highlights: ["PC rigide", "Protection caméra", "Rendu net"],
   },
   "JOJO1015-14": {
-    name: "Coque Hybrid Studio",
-    tagline: "TPU + PC. Équilibre parfait.",
+    name: "Impexo — Hybrid Studio",
+    tagline: "Hybride TPU + PC. Équilibre parfait.",
     story:
-      "Un équilibre entre structure et confort : hybride TPU/PC, silhouette propre, finitions soignées.",
+      "Structure et confort : une hybridation TPU/PC pour un rendu net et une tenue fiable. Finitions soignées.",
     highlights: ["Hybride TPU+PC", "Confort", "Protection structurée"],
   },
   "JOJO1015-15": {
-    name: "Coque Grip Texture",
-    tagline: "Texture antidérapante. Contrôle premium.",
+    name: "Impexo — Grip Texture",
+    tagline: "Texture grip subtile. Contrôle premium.",
     story:
-      "Une texture subtilement antidérapante pour une prise en main sûre, avec une présence élégante et premium.",
+      "Une texture discrète, pensée pour sécuriser la prise en main. Contrôle, confort et élégance — sans effet “tech”.",
     highlights: ["Texture grip", "PC+TPU", "Confort en main"],
   },
   "JOJO1015-16": {
-    name: "Coque Denim Leather",
-    tagline: "Cuir + denim. Luxe tactile.",
+    name: "Impexo — Denim Leather",
+    tagline: "Texture denim. Luxe tactile.",
     story:
-      "Une finition textile premium, entre cuir et denim, pour une sensation unique et une élégance différente.",
+      "Une finition textile premium au toucher unique. Pour celles et ceux qui veulent une élégance différente, plus tactile.",
     highlights: ["TPU + denim", "Toucher unique", "Style premium"],
   },
   "JOJO1015-17": {
-    name: "Coque Rigide Classique",
+    name: "Impexo — Rigide Classique",
     tagline: "Classique premium. Lignes propres.",
     story:
-      "Une coque rigide au style classique, pensée pour un rendu propre et une protection quotidienne élégante.",
+      "Une coque rigide au style intemporel. Rendu propre, protection quotidienne, sensation premium.",
     highlights: ["Protection quotidienne", "Look sobre", "Finition premium"],
   },
   "JOJO1015-18": {
-    name: "Coque Metal Edge Ring",
+    name: "Impexo — Metal Edge Ring",
     tagline: "Contour métal. Anneau intégré.",
     story:
-      "Des détails métalliques précis et un anneau intégré, pour une coque qui combine fonctionnalité et élégance premium.",
+      "Détails métalliques précis et anneau intégré. Fonctionnel, mais toujours élégant.",
     highlights: ["PC+Metal", "Anneau intégré", "Détails métal"],
   },
   "JOJO1015-19": {
-    name: "Coque LensGuard Pro",
-    tagline: "Protection caméra. Présence luxe.",
+    name: "Impexo — LensGuard Pro",
+    tagline: "Protection des optiques. Présence luxe.",
     story:
-      "Une protection caméra plus marquée, des finitions premium et un rendu luxueux au quotidien.",
+      "Une protection des optiques plus marquée, avec une finition premium. Présence affirmée, lignes maîtrisées.",
     highlights: ["Protection caméra", "Finition premium", "Style affirmé"],
   },
   "JOJO1015-20": {
-    name: "Coque TPU Studio",
-    tagline: "Simple. Premium. Efficace.",
+    name: "Impexo — TPU Studio",
+    tagline: "Simple. Premium. Précise.",
     story:
-      "Une coque TPU épurée pour ceux qui veulent un style minimaliste, confortable et premium.",
+      "Une coque TPU épurée, confortable et nette. Le minimalisme, exécuté avec précision.",
     highlights: ["TPU", "Confort", "Minimalisme"],
   },
   "JOJO1015-21": {
-    name: "Coque MagSafe Luxe",
-    tagline: "Magnétique. Fluide. Élégante.",
+    name: "Impexo — Magnétique Luxe (compatible MagSafe)",
+    tagline: "Compatible MagSafe. Détails luxe.",
     story:
-      "Compatible MagSafe, pensée pour une expérience sans friction : maintien précis, silhouette premium.",
+      "Compatible MagSafe, pensée pour une expérience sans friction. Maintien précis, silhouette premium.",
     highlights: ["Compatible MagSafe", "Maintien précis", "Style épuré"],
   },
   "JOJO1015-22": {
-    name: "Coque Metal Frame Ring",
-    tagline: "Cadre métal. Anneau luxe.",
+    name: "Impexo — Metal Frame Ring",
+    tagline: "Cadre métal. Anneau intégré.",
     story:
-      "Un cadre métal et un anneau intégré, pour une finition plus luxueuse et une présence premium.",
+      "Cadre métal et anneau intégré, pour une finition plus luxueuse. Détails précis, rendu premium.",
     highlights: ["Cadre métal", "Anneau intégré", "Finitions luxe"],
   },
   "JOJO1015-23": {
-    name: "Coque Metal Frame",
+    name: "Impexo — Metal Frame",
     tagline: "Cadre luxe. Silhouette nette.",
     story:
-      "Un style plus luxueux, un rendu plus net, et une protection pensée pour rester élégante en toutes circonstances.",
+      "Un cadre plus luxueux, une silhouette plus nette. Protection pensée pour rester élégante, partout.",
     highlights: ["Finition luxe", "Silhouette nette", "Protection premium"],
   },
   "JOJO1015-24": {
-    name: "Coque Crystal Luxe",
+    name: "Impexo — Crystal Luxe",
     tagline: "Transparence luxe. Détails lumineux.",
     story:
-      "Une transparence premium rehaussée de détails lumineux, pour un rendu chic sans excès.",
+      "Transparence premium et détails lumineux, dosés avec justesse. Chic, sans excès.",
     highlights: ["Détails lumineux", "TPU premium", "Look luxe"],
   },
   "JOJO1015-25": {
-    name: "Coque Crystal Luxe+",
+    name: "Impexo — Crystal Luxe+",
     tagline: "Transparence luxe. Finition premium.",
     story:
-      "Une transparence haut de gamme et des finitions premium pour une coque qui reste élégante, partout.",
+      "Transparence haut de gamme, finitions premium. Une coque élégante, partout.",
     highlights: ["Transparence premium", "Finition luxe", "Protection quotidienne"],
   },
 };
@@ -317,7 +317,7 @@ const defs: ProductDef[] = [
   },
   {
     code: "JOJO1015-6",
-    title: "Magnetic MagSafe #1",
+    title: "Technologie magnétique compatible MagSafe",
     fallbackImageFile: "JOJO1015-6.JPG",
     variants: [
       { model: "iPhone 17", color: "Black", material: "PC", priceEUR: "19,90", imageFile: "JOJO1015-6.JPG" },
@@ -383,7 +383,7 @@ const defs: ProductDef[] = [
   },
   {
     code: "JOJO1015-11",
-    title: "Magnetic MagSafe #2",
+    title: "Technologie magnétique compatible MagSafe",
     fallbackImageFile: "JOJO1015-11.jpg",
     variants: [
       { model: "iPhone 17", color: "Black", material: "TPU", priceEUR: "22,90", imageFile: "JOJO1015-11.jpg" },
@@ -471,7 +471,7 @@ const defs: ProductDef[] = [
   },
   {
     code: "JOJO1015-21",
-    title: "Magnetic MagSafe",
+    title: "Technologie magnétique compatible MagSafe",
     fallbackImageFile: "JOJO1015-21.JPG",
     variants: [
       { model: "iPhone 17", color: "Fushcia", material: "PC", priceEUR: "26,90", imageFile: "JOJO1015-21.JPG" },

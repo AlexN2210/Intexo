@@ -3,7 +3,7 @@ import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { selectCartSubtotal, useCartStore } from "@/store/cartStore";
+import { selectCartCount, selectCartDiscount, selectCartSubtotal, useCartStore } from "@/store/cartStore";
 import { formatEUR } from "@/utils/money";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -14,7 +14,12 @@ export default function Cart() {
   const setQuantity = useCartStore((s) => s.setQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clear = useCartStore((s) => s.clear);
+  const packOfferId = useCartStore((s) => s.packOfferId);
+  const setPackOfferId = useCartStore((s) => s.setPackOfferId);
   const subtotal = selectCartSubtotal(items);
+  const count = selectCartCount(items);
+  const discount = selectCartDiscount(subtotal, count, packOfferId);
+  const total = Math.max(0, subtotal - discount);
 
   const checkout = () => {
     toast({
@@ -125,6 +130,57 @@ export default function Cart() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Sous-total</span>
                 <span className="font-medium tabular-nums">{formatEUR(subtotal)}</span>
+              </div>
+              <div className="mt-4 rounded-3xl border p-4 impexo-surface">
+                <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground">OFFRES</div>
+                <div className="mt-2 text-sm font-medium tracking-tight">Packs (mock)</div>
+                <div className="mt-1 text-xs text-muted-foreground">Choisis une offre pour optimiser la conversion.</div>
+
+                <div className="mt-4 grid gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPackOfferId(packOfferId === "pack2" ? null : "pack2")}
+                    className={[
+                      "rounded-2xl border px-4 py-3 text-left text-sm transition",
+                      packOfferId === "pack2" ? "bg-foreground text-background" : "bg-background hover:bg-muted/60",
+                      count < 2 ? "opacity-50" : "",
+                    ].join(" ")}
+                    aria-pressed={packOfferId === "pack2"}
+                  >
+                    Pack 2 — <span className="font-semibold">-10%</span>
+                    <div className={packOfferId === "pack2" ? "text-background/80 text-xs mt-1" : "text-muted-foreground text-xs mt-1"}>
+                      Actif dès 2 articles au panier.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPackOfferId(packOfferId === "pack3" ? null : "pack3")}
+                    className={[
+                      "rounded-2xl border px-4 py-3 text-left text-sm transition",
+                      packOfferId === "pack3" ? "bg-foreground text-background" : "bg-background hover:bg-muted/60",
+                      count < 3 ? "opacity-50" : "",
+                    ].join(" ")}
+                    aria-pressed={packOfferId === "pack3"}
+                  >
+                    Pack 3 — <span className="font-semibold">-15%</span>
+                    <div className={packOfferId === "pack3" ? "text-background/80 text-xs mt-1" : "text-muted-foreground text-xs mt-1"}>
+                      Actif dès 3 articles au panier.
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {discount > 0 ? (
+                <div className="mt-4 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Remise pack</span>
+                  <span className="font-medium tabular-nums">- {formatEUR(discount)}</span>
+                </div>
+              ) : null}
+
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-semibold tabular-nums">{formatEUR(total)}</span>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
                 Livraison & taxes calculées au checkout WooCommerce.
