@@ -1,41 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { WooProduct } from "@/types/woocommerce";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-
-function stripHtml(html: string) {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-type Look = {
-  key: string;
-  label: string;
-  product: WooProduct;
-};
 
 export function HeroShowcase({ products }: { products: WooProduct[] }) {
   const reduce = useReducedMotion();
 
-  const looks: Look[] = useMemo(() => {
-    const list = (products ?? []).filter(Boolean).slice(0, 4);
-    return list.map((p, idx) => ({
-      key: String(p.id),
-      label:
-        idx === 0
-          ? "Noir"
-          : idx === 1
-            ? "Argent"
-            : idx === 2
-              ? "Gris"
-              : "Édition",
-      product: p,
-    }));
-  }, [products]);
-
-  const [activeKey, setActiveKey] = useState<string>(looks[0]?.key ?? "");
-  const active = looks.find((l) => l.key === activeKey) ?? looks[0];
+  const active = useMemo(() => (products ?? []).filter(Boolean)[0] ?? null, [products]);
   if (!active) return null;
 
   const imgDesktop = "/background1.png";
@@ -48,7 +20,7 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
       <div className="relative h-[100svh] min-h-[560px] sm:min-h-[640px] lg:min-h-[720px] w-full">
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeKey}
+            key="hero"
             initial={reduce ? false : { opacity: 0.0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -58,7 +30,7 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
             {/* Mobile uniquement */}
             <img
               src={imgMobile}
-              alt={active.product.images?.[0]?.alt || active.product.name}
+              alt={active.images?.[0]?.alt || active.name}
               loading="eager"
               decoding="async"
               fetchPriority="high"
@@ -68,7 +40,7 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
             {/* Tablette / desktop */}
             <img
               src={imgDesktop}
-              alt={active.product.images?.[0]?.alt || active.product.name}
+              alt={active.images?.[0]?.alt || active.name}
               loading="eager"
               decoding="async"
               fetchPriority="high"
@@ -100,29 +72,6 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
                 <Button asChild className="h-12 w-full rounded-full px-6 sm:w-auto">
                   <Link to="/boutique">Découvrir la boutique</Link>
                 </Button>
-              </div>
-
-              {/* Looks selector (sans animation agressive) */}
-              <div className="mt-8 flex flex-wrap justify-center gap-2 md:justify-start sm:mt-10">
-                {looks.map((l) => {
-                  const isActive = l.key === activeKey;
-                  return (
-                    <button
-                      key={l.key}
-                      type="button"
-                      onClick={() => setActiveKey(l.key)}
-                      className={cn(
-                        "rounded-full border px-3 py-2 text-xs backdrop-blur transition",
-                        isActive
-                          ? "border-white/35 bg-white/15 text-white"
-                          : "border-white/20 bg-white/5 text-white/75 hover:bg-white/10 hover:text-white",
-                      )}
-                      aria-pressed={isActive}
-                    >
-                      {l.label}
-                    </button>
-                  );
-                })}
               </div>
             </div>
           </div>

@@ -393,17 +393,45 @@ export default function Product() {
                 </div>
 
                 <div className="rounded-3xl border bg-card p-6">
-                  <div className="text-sm font-medium tracking-tight">Détails</div>
-                  <div className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                    {selectedMaterial ? <div>Matériau&nbsp;: {selectedMaterial}</div> : null}
-                    {selected.model ? <div className="mt-1">Compatibilité&nbsp;: {selected.model}</div> : null}
-                    {selected.color ? <div className="mt-1">Couleur&nbsp;: {selected.color}</div> : null}
-                    {models.length ? (
-                      <div className="mt-2 text-xs">
-                        Compatibilités disponibles&nbsp;: {models.join(" · ")}
-                      </div>
-                    ) : null}
+                  <div className="flex items-start justify-between gap-6">
+                    <div>
+                      <div className="text-xs font-medium tracking-[0.22em] text-muted-foreground">DÉTAILS</div>
+                      <div className="mt-2 text-sm font-medium tracking-tight">Fiche produit</div>
+                    </div>
                   </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border bg-background/40 p-4">
+                      <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">MODÈLE</div>
+                      <div className="mt-2 text-sm font-medium tracking-tight">{selected.model || "—"}</div>
+                    </div>
+                    <div className="rounded-2xl border bg-background/40 p-4">
+                      <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">COULEUR</div>
+                      <div className="mt-2 text-sm font-medium tracking-tight">{selected.color || "—"}</div>
+                    </div>
+                    <div className="rounded-2xl border bg-background/40 p-4">
+                      <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">MATÉRIAU</div>
+                      <div className="mt-2 text-sm font-medium tracking-tight">{selectedMaterial || "—"}</div>
+                    </div>
+                  </div>
+
+                  {models.length ? (
+                    <div className="mt-5">
+                      <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground">
+                        COMPATIBILITÉS DISPONIBLES
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {models.map((m) => (
+                          <span
+                            key={m}
+                            className="inline-flex items-center rounded-full border bg-background/40 px-3 py-1 text-xs font-medium text-foreground/90"
+                          >
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   {product.short_description ? (
                     <div
                       className="prose prose-sm mt-4 max-w-none text-muted-foreground prose-p:leading-relaxed"
