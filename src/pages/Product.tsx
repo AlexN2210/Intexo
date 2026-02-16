@@ -248,15 +248,41 @@ export default function Product() {
   // Image principale : utiliser l'image de la variation correspondante, sinon fallback
   const heroImage = useMemo(() => {
     if (matchedVariation?.image?.src) {
-      // Vérifier que l'image correspond bien à la variation sélectionnée
       const ref = matchedVariation.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-      console.log(`[Product ${product?.id}] Image sélectionnée pour ${selected.model} + ${selected.color}: ${matchedVariation.image.src} (Réf: ${ref || 'N/A'})`);
+      const m = matchedVariation.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
+      const c = matchedVariation.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
+      
+      // Vérifier que le nom de l'image correspond à la référence et au modèle
+      const imageUrl = matchedVariation.image.src;
+      const imageFilename = imageUrl.split('/').pop() || '';
+      const imageRef = imageFilename.split('-')[0]?.toUpperCase() || '';
+      const refNormalized = ref ? ref.toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
+      
+      // Vérifier la correspondance
+      if (refNormalized && imageRef && !imageRef.includes(refNormalized) && !refNormalized.includes(imageRef)) {
+        console.warn(`[Product ${product?.id}] ⚠️  INCOHERENCE DETECTEE:`);
+        console.warn(`  → Variation: ${m} + ${c} (Réf: ${ref})`);
+        console.warn(`  → Image URL: ${imageUrl}`);
+        console.warn(`  → Référence dans l'image: ${imageRef}`);
+        console.warn(`  → Référence attendue: ${refNormalized}`);
+      }
+      
+      console.log(`[Product ${product?.id}] ✅ Image sélectionnée pour ${selected.model} + ${selected.color}:`);
+      console.log(`  → Image: ${imageFilename}`);
+      console.log(`  → Référence: ${ref || 'N/A'}`);
+      console.log(`  → Modèle: ${m || 'N/A'}, Couleur: ${c || 'N/A'}`);
+      
       return matchedVariation.image.src;
     }
     if (fallbackVariationForModel?.image?.src) {
+      console.log(`[Product ${product?.id}] Image fallback (variation pour modèle): ${fallbackVariationForModel.image.src}`);
       return fallbackVariationForModel.image.src;
     }
-    return product?.images?.[0]?.src;
+    if (product?.images?.[0]?.src) {
+      console.log(`[Product ${product?.id}] Image fallback (produit parent): ${product.images[0].src}`);
+      return product.images[0].src;
+    }
+    return undefined;
   }, [matchedVariation, fallbackVariationForModel, product?.images, product?.id, selected.model, selected.color]);
   const price = parsePrice(
     matchedVariation?.price ??
