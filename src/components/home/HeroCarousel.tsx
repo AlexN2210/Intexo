@@ -16,7 +16,10 @@ export function HeroCarousel({
   products: WooProduct[];
   className?: string;
 }) {
-  const items = useMemo(() => (products ?? []).filter(Boolean).slice(0, 6), [products]);
+  const items = useMemo(() => {
+    const safeProducts = Array.isArray(products) ? products : [];
+    return safeProducts.filter(Boolean).slice(0, 6);
+  }, [products]);
   const [api, setApi] = useState<CarouselApi | null>(null);
   const [active, setActive] = useState(0);
   const [count, setCount] = useState(0);

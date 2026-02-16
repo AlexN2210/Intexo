@@ -96,9 +96,25 @@ export default async function handler(req, res) {
     const contentType = wooResponse.headers.get('content-type') || '';
     const isJson = contentType.includes('application/json');
     
-    const data = isJson 
-      ? await wooResponse.json()
-      : await wooResponse.text();
+    let data;
+    if (isJson) {
+      data = await wooResponse.json();
+      
+      // Vérification : si on attend un tableau mais qu'on reçoit un objet d'erreur
+      if (!Array.isArray(data) && data && typeof data === 'object') {
+        if ('error' in data || 'message' in data || 'code' in data) {
+          // C'est probablement une erreur WooCommerce
+          console.error('WooCommerce API error response:', data);
+          return res.status(wooResponse.status).json({
+            error: data.message || data.error || 'WooCommerce API error',
+            code: data.code || 'unknown',
+            data: [] // Retourner un tableau vide pour éviter les erreurs côté frontend
+          });
+        }
+      }
+    } else {
+      data = await wooResponse.text();
+    }
 
     // Retour de la réponse avec les mêmes headers et status
     res.status(wooResponse.status);

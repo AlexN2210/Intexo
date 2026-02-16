@@ -18,7 +18,7 @@ const Index = () => {
   return (
     <div>
       {/* HERO plein écran (la première chose vue) */}
-      <HeroShowcase products={hero.data ?? []} />
+      <HeroShowcase products={Array.isArray(hero.data) ? hero.data : []} />
       <TrustBar />
 
       {/* Manifesto / storytelling */}
@@ -155,7 +155,7 @@ const Index = () => {
                     </div>
                   </div>
                 ))
-              : (best.data ?? []).slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
+              : (Array.isArray(best.data) ? best.data : []).slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         </Container>
       </section>

@@ -7,7 +7,10 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 export function HeroShowcase({ products }: { products: WooProduct[] }) {
   const reduce = useReducedMotion();
 
-  const active = useMemo(() => (products ?? []).filter(Boolean)[0] ?? null, [products]);
+  const active = useMemo(() => {
+    const safeProducts = Array.isArray(products) ? products : [];
+    return safeProducts.filter(Boolean)[0] ?? null;
+  }, [products]);
   if (!active) return null;
 
   const imgDesktop = "/backgroundv2.webp";

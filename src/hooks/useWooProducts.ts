@@ -4,7 +4,12 @@ import { getProductBySlug, getProducts, getProductVariations } from "@/services/
 export function useProductsQuery(params?: { search?: string; featured?: boolean; orderby?: string; per_page?: number }) {
   return useQuery({
     queryKey: ["woo", "products", params ?? {}],
-    queryFn: () => getProducts({ ...params, per_page: params?.per_page ?? 24, orderby: params?.orderby ?? "date" }),
+    queryFn: async () => {
+      const result = await getProducts({ ...params, per_page: params?.per_page ?? 24, orderby: params?.orderby ?? "date" });
+      // Garantir qu'on retourne toujours un tableau
+      return Array.isArray(result) ? result : [];
+    },
+    retry: 1, // Réessayer une fois en cas d'erreur
   });
 }
 

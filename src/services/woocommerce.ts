@@ -76,7 +76,19 @@ async function wooFetch<T>(path: string, params?: QueryParams, init?: RequestIni
     const text = await res.text().catch(() => "");
     throw new Error(`WooCommerce API error ${res.status} — ${text || res.statusText}`);
   }
-  return (await res.json()) as T;
+  const data = await res.json();
+  
+  // Vérification de sécurité : si on attend un tableau mais qu'on reçoit un objet d'erreur
+  if (Array.isArray(data)) {
+    return data as T;
+  }
+  
+  // Si ce n'est pas un tableau, vérifier si c'est une erreur
+  if (data && typeof data === 'object' && ('error' in data || 'message' in data)) {
+    throw new Error(`WooCommerce API error: ${data.message || data.error || 'Unknown error'}`);
+  }
+  
+  return data as T;
 }
 
 export async function getProducts(params?: {
@@ -113,15 +125,25 @@ export async function getProducts(params?: {
       });
     return list;
   }
-  return await wooFetch<WooProduct[]>("/wp-json/wc/v3/products", {
-    per_page: params?.per_page ?? 24,
-    page: params?.page ?? 1,
-    orderby: params?.orderby ?? "date",
-    order: params?.order ?? "desc",
-    featured: params?.featured,
-    search: params?.search,
-    status: "publish",
-  });
+  
+  try {
+    const result = await wooFetch<WooProduct[]>("/wp-json/wc/v3/products", {
+      per_page: params?.per_page ?? 24,
+      page: params?.page ?? 1,
+      orderby: params?.orderby ?? "date",
+      order: params?.order ?? "desc",
+      featured: params?.featured,
+      search: params?.search,
+      status: "publish",
+    });
+    
+    // Garantir qu'on retourne toujours un tableau
+    return Array.isArray(result) ? result : [];
+  } catch (error) {
+    console.error("Erreur lors de la récupération des produits:", error);
+    // En cas d'erreur, retourner un tableau vide plutôt que de planter
+    return [];
+  }
 }
 
 export async function getProductBySlug(slug: string): Promise<WooProduct | null> {

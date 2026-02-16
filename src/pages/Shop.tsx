@@ -36,7 +36,7 @@ export default function Shop() {
   }, [initialQ]);
 
   const q = useProductsQuery({ search: search || undefined, per_page: 48, orderby: "date" });
-  const products = q.data ?? [];
+  const products = Array.isArray(q.data) ? q.data : [];
 
   const inferredAttrNames = useMemo(() => {
     const sample = products[0];
