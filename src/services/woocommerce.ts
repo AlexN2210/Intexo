@@ -85,45 +85,61 @@ async function wooFetch<T>(path: string, params?: QueryParams, init?: RequestIni
     
     // Lire le texte une seule fois pour vérifier si c'est du HTML
     const text = await res.text().catch(() => "");
-    const isHtml = text.trim().startsWith("<!") || text.trim().startsWith("<html");
     
-    // Si on reçoit du HTML au lieu de JSON (probablement une 404 du proxy)
-    if ((isHtml || !isJson) && isProxyRequest && !proxyFailed) {
-      console.warn("Proxy retourne du HTML (probablement 404), basculement vers l'API directe");
+    // Détection HTML plus robuste : vérifier plusieurs patterns
+    const isHtml = 
+      text.trim().startsWith("<!") || 
+      text.trim().startsWith("<html") ||
+      text.trim().startsWith("<!doctype") ||
+      text.includes("<html") ||
+      text.includes("<!DOCTYPE") ||
+      (contentType.includes("text/html") && !contentType.includes("json"));
+    
+    // PRIORITÉ 1: Si on reçoit du HTML (même avec status 200), c'est probablement une erreur du proxy
+    if (isHtml && isProxyRequest && !proxyFailed) {
+      console.warn(`[WooCommerce] Proxy retourne du HTML au lieu de JSON (status: ${res.status}), basculement vers l'API directe`);
+      console.warn(`[WooCommerce] URL proxy: ${url}`);
+      console.warn(`[WooCommerce] Content-Type: ${contentType}`);
       proxyFailed = true;
       // Réessayer avec l'API directe
       return wooFetch(path, params, init);
     }
     
+    // PRIORITÉ 2: Si ce n'est pas du JSON et qu'on utilise le proxy, essayer le fallback
+    if (!isJson && isProxyRequest && !proxyFailed) {
+      console.warn(`[WooCommerce] Proxy retourne du non-JSON (${contentType}), basculement vers l'API directe`);
+      proxyFailed = true;
+      return wooFetch(path, params, init);
+    }
+    
     if (!res.ok) {
-      // Si on reçoit du HTML (probablement une page d'erreur 404), essayer le fallback
-      if (isHtml && isProxyRequest && !proxyFailed) {
-        console.warn("Proxy retourne une erreur HTML, basculement vers l'API directe");
-        proxyFailed = true;
-        return wooFetch(path, params, init);
-      }
-      
       // Si c'est une erreur 401 et qu'on utilisait le proxy, essayer l'API directe
       // (peut-être que les variables d'environnement ne sont pas configurées dans le proxy)
       if (res.status === 401 && isProxyRequest && !proxyFailed) {
-        console.warn("Proxy retourne 401, basculement vers l'API directe");
+        console.warn("[WooCommerce] Proxy retourne 401, basculement vers l'API directe");
         proxyFailed = true;
         return wooFetch(path, params, init);
       }
       
       // Si c'est une erreur 401 en mode direct, donner un message plus clair
       if (res.status === 401 && !isProxyRequest) {
-        const errorMsg = text ? JSON.parse(text).message || text : res.statusText;
+        let errorMsg = res.statusText;
+        try {
+          const errorData = JSON.parse(text);
+          errorMsg = errorData.message || errorData.error || text;
+        } catch {
+          errorMsg = text || res.statusText;
+        }
         throw new Error(`Erreur 401 - Permissions insuffisantes: ${errorMsg}. Vérifiez que VITE_WC_CONSUMER_KEY et VITE_WC_CONSUMER_SECRET sont configurées dans Vercel.`);
       }
       
       throw new Error(`WooCommerce API error ${res.status} — ${text.substring(0, 200) || res.statusText}`);
     }
     
-    // Si ce n'est pas du JSON, c'est une erreur
+    // Si ce n'est pas du JSON après avoir vérifié res.ok, c'est une erreur
     if (!isJson) {
       if (isProxyRequest && !proxyFailed) {
-        console.warn("Proxy retourne du non-JSON, basculement vers l'API directe");
+        console.warn(`[WooCommerce] Proxy retourne du non-JSON après status OK, basculement vers l'API directe`);
         proxyFailed = true;
         return wooFetch(path, params, init);
       }
@@ -137,7 +153,7 @@ async function wooFetch<T>(path: string, params?: QueryParams, init?: RequestIni
     } catch (parseError) {
       // Si le parsing échoue et qu'on utilisait le proxy, essayer l'API directe
       if (isProxyRequest && !proxyFailed) {
-        console.warn("Erreur de parsing JSON depuis le proxy, basculement vers l'API directe");
+        console.warn("[WooCommerce] Erreur de parsing JSON depuis le proxy, basculement vers l'API directe");
         proxyFailed = true;
         return wooFetch(path, params, init);
       }
@@ -158,10 +174,18 @@ async function wooFetch<T>(path: string, params?: QueryParams, init?: RequestIni
   } catch (error) {
     // Si c'est une erreur de parsing JSON et qu'on utilisait le proxy, essayer l'API directe
     if (error instanceof SyntaxError && isProxyRequest && !proxyFailed) {
-      console.warn("Erreur de parsing JSON depuis le proxy, basculement vers l'API directe");
+      console.warn("[WooCommerce] Erreur SyntaxError depuis le proxy, basculement vers l'API directe");
       proxyFailed = true;
       return wooFetch(path, params, init);
     }
+    
+    // Si l'erreur contient "Réponse non-JSON" et qu'on utilisait le proxy, essayer le fallback
+    if (error instanceof Error && error.message.includes("Réponse non-JSON") && isProxyRequest && !proxyFailed) {
+      console.warn("[WooCommerce] Erreur 'Réponse non-JSON' depuis le proxy, basculement vers l'API directe");
+      proxyFailed = true;
+      return wooFetch(path, params, init);
+    }
+    
     throw error;
   }
 }

@@ -120,7 +120,7 @@ export default async function handler(req, res) {
     res.status(wooResponse.status);
     
     // Copie des headers pertinents
-    const responseHeaders = ['content-type', 'cache-control', 'x-total', 'x-total-pages'];
+    const responseHeaders = ['cache-control', 'x-total', 'x-total-pages'];
     responseHeaders.forEach(header => {
       const value = wooResponse.headers.get(header);
       if (value) {
@@ -132,8 +132,21 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-
-    return res.json(data);
+    
+    // Toujours retourner du JSON (même si la réponse WooCommerce n'était pas du JSON)
+    res.setHeader('Content-Type', 'application/json');
+    
+    if (isJson) {
+      return res.json(data);
+    } else {
+      // Si ce n'est pas du JSON, retourner une erreur JSON
+      console.error('WooCommerce a retourné du non-JSON:', data?.substring?.(0, 200) || data);
+      return res.status(wooResponse.status >= 400 ? wooResponse.status : 500).json({
+        error: 'Réponse non-JSON reçue de WooCommerce',
+        message: typeof data === 'string' ? data.substring(0, 200) : 'Réponse inattendue',
+        data: [] // Retourner un tableau vide pour éviter les erreurs côté frontend
+      });
+    }
 
   } catch (error) {
     console.error('Erreur proxy WooCommerce:', error);
