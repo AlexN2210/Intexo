@@ -43,6 +43,8 @@ export default function Product() {
     const raw = varsQ.data ?? [];
     if (!product?.id || !Array.isArray(raw)) return [];
     
+    console.log(`[Product ${product.id}] 🔍 Analyse de ${raw.length} variations reçues pour "${product.name}"`);
+    
     // Si le produit a une liste d'IDs de variations, utiliser seulement celles-là
     // C'est la méthode la plus fiable pour s'assurer que les variations appartiennent au bon produit
     if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
@@ -50,15 +52,24 @@ export default function Product() {
       const filtered = raw.filter((v) => {
         const isValid = validVariationIds.has(v.id);
         if (!isValid) {
-          console.warn(`[Product ${product.id}] Variation ${v.id} filtrée (n'est pas dans la liste des variations du produit)`);
+          const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+          const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
+          const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
+          console.warn(`[Product ${product.id}] ❌ Variation ${v.id} FILTRÉE (n'est pas dans la liste des variations du produit)`);
+          console.warn(`  → Variation: ${m || '?'} + ${c || '?'} (Réf: ${ref || 'N/A'})`);
+          console.warn(`  → IDs attendus: ${product.variations.join(', ')}`);
         }
         return isValid;
       });
       
       // Log pour debug si des variations sont filtrées
       if (filtered.length !== raw.length) {
-        console.warn(`[Product ${product.id}] Filtré ${raw.length - filtered.length} variations sur ${raw.length} (IDs attendus: ${product.variations.join(', ')})`);
-        console.warn(`[Product ${product.id}] Variations reçues:`, raw.map(v => v.id));
+        console.warn(`[Product ${product.id}] ⚠️  ${raw.length - filtered.length} variations filtrées sur ${raw.length}`);
+        console.warn(`  → Variations conservées: ${filtered.length}`);
+        console.warn(`  → IDs attendus: ${product.variations.join(', ')}`);
+        console.warn(`  → IDs reçus: ${raw.map(v => v.id).join(', ')}`);
+      } else {
+        console.log(`[Product ${product.id}] ✅ Toutes les variations sont valides (${filtered.length} variations)`);
       }
       
       return filtered;
@@ -66,8 +77,10 @@ export default function Product() {
     
     // Sinon, vérifier que les variations ont bien des attributs cohérents avec le produit
     const productAttrNames = new Set((product.attributes ?? []).map(a => norm(a.name)));
+    console.log(`[Product ${product.id}] ⚠️  Pas de liste d'IDs de variations, filtrage par attributs`);
+    console.log(`  → Attributs du produit: ${Array.from(productAttrNames).join(', ')}`);
     
-    return raw.filter((v) => {
+    const filtered = raw.filter((v) => {
       // S'assurer que la variation a des attributs
       if (!v.attributes || v.attributes.length === 0) return false;
       
@@ -88,7 +101,11 @@ export default function Product() {
         });
       });
     });
-  }, [varsQ.data, product?.id, product?.variations, product?.attributes]);
+    
+    console.log(`[Product ${product.id}] → ${filtered.length} variations conservées après filtrage par attributs`);
+    
+    return filtered;
+  }, [varsQ.data, product?.id, product?.variations, product?.attributes, product?.name, norm]);
 
   const models = useMemo(() => (product ? getAttributeOptions(product, "model") : []), [product]);
   const colors = useMemo(() => (product ? getAttributeOptions(product, "color") : []), [product]);
@@ -97,21 +114,41 @@ export default function Product() {
   const availableColorsByModel = useMemo(() => {
     const map = new Map<string, string[]>();
     if (!hasVariations) return map;
+    
+    // Logger pour debug
+    console.log(`[Product ${product?.id}] 📊 Construction de la carte Modèle → Couleurs depuis ${variations.length} variations`);
+    
     variations.forEach((v) => {
       const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
       const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
-      if (!m || !c) return;
+      const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+      
+      if (!m || !c) {
+        console.warn(`[Product ${product?.id}] ⚠️  Variation ${v.id} ignorée (modèle ou couleur manquant)`);
+        return;
+      }
+      
       const k = norm(m);
       const list = map.get(k) ?? [];
-      if (!list.some((x) => norm(x) === norm(c))) list.push(c);
+      if (!list.some((x) => norm(x) === norm(c))) {
+        list.push(c);
+        console.log(`[Product ${product?.id}]   → ${m} + ${c} (Réf: ${ref || 'N/A'})`);
+      } else {
+        // Doublon détecté
+        console.warn(`[Product ${product?.id}] ⚠️  DOUBLON détecté: ${m} + ${c} (Réf: ${ref || 'N/A'})`);
+      }
       map.set(k, list);
     });
+    
     // tri pour un affichage stable
     Array.from(map.entries()).forEach(([k, list]) => {
       map.set(k, [...list].sort((a, b) => a.localeCompare(b)));
     });
+    
+    console.log(`[Product ${product?.id}] ✅ Carte construite: ${map.size} modèles avec couleurs`);
+    
     return map;
-  }, [hasVariations, variations]);
+  }, [hasVariations, variations, product?.id]);
 
   const allowedColorsForSelectedModel = useMemo(() => {
     if (!hasVariations) return colors;
@@ -161,20 +198,37 @@ export default function Product() {
     if (!hasVariations) return undefined;
     if (!selected.model || !selected.color) return undefined;
     
-    // Trouver toutes les variations correspondantes
+    // Trouver toutes les variations correspondantes avec vérification stricte
     const matching = variations.filter((v) => {
       const attrs = v.attributes ?? [];
       const m = attrs.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
       const c = attrs.find((a) => /couleur|color/i.test(a.name))?.option;
-      return norm(m) === norm(selected.model) && norm(c) === norm(selected.color);
+      
+      // Vérification stricte : correspondance exacte après normalisation
+      const modelMatch = m && norm(m) === norm(selected.model);
+      const colorMatch = c && norm(c) === norm(selected.color);
+      
+      return modelMatch && colorMatch;
     });
     
-    // Si plusieurs variations correspondent, prendre la première (ou celle avec la référence la plus récente)
-    // TODO: Ajouter un sélecteur de référence si nécessaire
+    // Si plusieurs variations correspondent, logger les détails pour debug
     if (matching.length > 1) {
-      console.warn(`[Product ${product?.id}] Plusieurs variations trouvées pour ${selected.model} + ${selected.color}:`, matching.map(v => {
+      console.warn(`[Product ${product?.id}] ⚠️ PLUSIEURS VARIATIONS trouvées pour ${selected.model} + ${selected.color}:`);
+      matching.forEach((v, idx) => {
         const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-        return `Variation ${v.id} (Réf: ${ref})`;
+        const img = v.image?.src || 'Pas d\'image';
+        console.warn(`  ${idx + 1}. Variation ID ${v.id} (Réf: ${ref || 'N/A'}) - Image: ${img}`);
+      });
+      console.warn(`  → Sélection de la première variation (ID: ${matching[0].id})`);
+    }
+    
+    // Si aucune variation ne correspond, logger pour debug
+    if (matching.length === 0) {
+      console.warn(`[Product ${product?.id}] ⚠️ AUCUNE variation trouvée pour ${selected.model} + ${selected.color}`);
+      console.warn(`  Variations disponibles:`, variations.map(v => {
+        const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
+        const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
+        return `${m || '?'} + ${c || '?'}`;
       }));
     }
     
@@ -191,7 +245,19 @@ export default function Product() {
     );
   }, [hasVariations, variations, selected.model]);
 
-  const heroImage = matchedVariation?.image?.src ?? fallbackVariationForModel?.image?.src ?? product?.images?.[0]?.src;
+  // Image principale : utiliser l'image de la variation correspondante, sinon fallback
+  const heroImage = useMemo(() => {
+    if (matchedVariation?.image?.src) {
+      // Vérifier que l'image correspond bien à la variation sélectionnée
+      const ref = matchedVariation.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+      console.log(`[Product ${product?.id}] Image sélectionnée pour ${selected.model} + ${selected.color}: ${matchedVariation.image.src} (Réf: ${ref || 'N/A'})`);
+      return matchedVariation.image.src;
+    }
+    if (fallbackVariationForModel?.image?.src) {
+      return fallbackVariationForModel.image.src;
+    }
+    return product?.images?.[0]?.src;
+  }, [matchedVariation, fallbackVariationForModel, product?.images, product?.id, selected.model, selected.color]);
   const price = parsePrice(
     matchedVariation?.price ??
       fallbackVariationForModel?.price ??
@@ -213,16 +279,38 @@ export default function Product() {
     if (!product) return [];
     if (hasVariations) {
       const uniq = new Map<string, { src: string; alt: string; model?: string; color?: string; isActive: boolean }>();
+      
+      // Filtrer les variations pour ne garder que celles qui appartiennent vraiment à ce produit
+      // Vérifier que les attributs correspondent aux attributs du produit parent
+      const productAttrNames = new Set((product.attributes ?? []).map(a => norm(a.name)));
+      
       variations.forEach((v) => {
+        // Vérification supplémentaire : s'assurer que la variation a des attributs cohérents
+        const variationAttrNames = (v.attributes ?? []).map(a => norm(a.name));
+        const hasMatchingAttrs = variationAttrNames.some(vName => 
+          Array.from(productAttrNames).some(pName => 
+            vName === pName || 
+            vName.includes(pName) || 
+            pName.includes(vName) ||
+            ['model', 'modèle', 'color', 'couleur'].some(pattern => vName.includes(pattern) && pName.includes(pattern))
+          )
+        );
+        
+        if (!hasMatchingAttrs) {
+          console.warn(`[Product ${product.id}] Variation ${v.id} ignorée dans la galerie (attributs non cohérents)`);
+          return;
+        }
+        
         const src = v.image?.src;
         if (!src) return;
         const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
         const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
-        const key = `${src}|${m ?? ""}|${c ?? ""}`;
+        const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+        const key = `${src}|${m ?? ""}|${c ?? ""}|${ref ?? ""}`;
         if (!uniq.has(key)) {
           uniq.set(key, {
             src,
-            alt: `${product.name}${m ? ` — ${m}` : ""}${c ? ` — ${c}` : ""}`,
+            alt: `${product.name}${m ? ` — ${m}` : ""}${c ? ` — ${c}` : ""}${ref ? ` — ${ref}` : ""}`,
             model: m,
             color: c,
             isActive: Boolean(matchedVariation && v.id === matchedVariation.id),
@@ -237,7 +325,7 @@ export default function Product() {
       alt: im.alt || `${product.name} — ${idx + 1}`,
       isActive: idx === 0,
     }));
-  }, [product, hasVariations, variations, matchedVariation]);
+  }, [product, hasVariations, variations, matchedVariation, norm]);
 
   const canAdd = Boolean(product) && qty > 0 && (!hasVariations || Boolean(matchedVariation));
 

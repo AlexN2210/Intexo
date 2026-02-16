@@ -8,8 +8,17 @@
  */
 
 export default async function handler(req, res) {
+  // Log pour debug
+  console.log('[Proxy WooCommerce] Requête reçue:', {
+    method: req.method,
+    url: req.url,
+    query: req.query,
+    path: req.query.path,
+  });
+
   // Méthodes HTTP autorisées
   if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'DELETE') {
+    console.log('[Proxy WooCommerce] Méthode non autorisée:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -40,9 +49,17 @@ export default async function handler(req, res) {
     
     const wooPath = `/wp-json/wc/v3/${path}`;
     
+    console.log('[Proxy WooCommerce] Chemin construit:', {
+      pathFromQuery: req.query.path,
+      pathJoined: path,
+      wooPath,
+    });
+    
     // Construction de l'URL complète
     const baseUrl = wpBaseUrl.replace(/\/+$/, ''); // Retire les slashes finaux
     const url = new URL(wooPath, baseUrl);
+    
+    console.log('[Proxy WooCommerce] URL WooCommerce:', url.toString());
     
     // Ajout des paramètres de requête (sauf 'path' qui est pour le routing)
     Object.entries(req.query).forEach(([key, value]) => {
@@ -90,7 +107,15 @@ export default async function handler(req, res) {
     }
 
     // Exécution de la requête vers WooCommerce
+    console.log('[Proxy WooCommerce] Envoi de la requête vers:', url.toString());
     const wooResponse = await fetch(url.toString(), fetchOptions);
+    
+    console.log('[Proxy WooCommerce] Réponse reçue:', {
+      status: wooResponse.status,
+      statusText: wooResponse.statusText,
+      contentType: wooResponse.headers.get('content-type'),
+      headers: Object.fromEntries(wooResponse.headers.entries()),
+    });
 
     // Récupération du contenu de la réponse
     const contentType = wooResponse.headers.get('content-type') || '';
@@ -99,6 +124,7 @@ export default async function handler(req, res) {
     let data;
     if (isJson) {
       data = await wooResponse.json();
+      console.log('[Proxy WooCommerce] Données JSON reçues:', Array.isArray(data) ? `Array(${data.length})` : typeof data);
       
       // Vérification : si on attend un tableau mais qu'on reçoit un objet d'erreur
       if (!Array.isArray(data) && data && typeof data === 'object') {
@@ -140,10 +166,18 @@ export default async function handler(req, res) {
       return res.json(data);
     } else {
       // Si ce n'est pas du JSON, retourner une erreur JSON
-      console.error('WooCommerce a retourné du non-JSON:', data?.substring?.(0, 200) || data);
+      const preview = typeof data === 'string' ? data.substring(0, 500) : String(data).substring(0, 500);
+      console.error('[Proxy WooCommerce] ERREUR: WooCommerce a retourné du non-JSON:', {
+        status: wooResponse.status,
+        contentType,
+        preview,
+        isHtml: typeof data === 'string' && (data.includes('<!doctype') || data.includes('<html')),
+      });
+      
       return res.status(wooResponse.status >= 400 ? wooResponse.status : 500).json({
         error: 'Réponse non-JSON reçue de WooCommerce',
         message: typeof data === 'string' ? data.substring(0, 200) : 'Réponse inattendue',
+        contentType,
         data: [] // Retourner un tableau vide pour éviter les erreurs côté frontend
       });
     }
