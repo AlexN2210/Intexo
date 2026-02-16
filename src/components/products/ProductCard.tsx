@@ -27,7 +27,7 @@ export function ProductCard({ product }: { product: WooProduct }) {
             alt={img.alt || product.name}
             loading="lazy"
             decoding="async"
-            className="impexo-product-shadow impexo-image-fade h-full w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.02] sm:p-7"
+            className="impexo-product-shadow impexo-image-fade impexo-cutout h-full w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.02] sm:p-7"
           />
         ) : (
           <div className="h-full w-full bg-muted" />

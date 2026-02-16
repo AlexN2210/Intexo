@@ -10,7 +10,7 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
   const active = useMemo(() => (products ?? []).filter(Boolean)[0] ?? null, [products]);
   if (!active) return null;
 
-  const imgDesktop = "/background1.png";
+  const imgDesktop = "/backgroundv2.webp";
   const imgMobile = "/mobilebg.jpg";
   const subtitle =
     "Couleurs signature. Technologie magnétique compatible MagSafe. Une finition premium pensée pour l’iPhone 17 Series.";

@@ -12,7 +12,8 @@ export function ProductImageFrame({
     <div
       className={cn(
         // Pas de "bloc dans bloc": pas de bordure interne, juste une ambiance studio.
-        "relative overflow-hidden rounded-3xl",
+        // `isolate` limite les effets de blend-mode aux visuels à l'intérieur.
+        "relative isolate overflow-hidden rounded-3xl",
         "impexo-studio ring-1 ring-black/5",
         className,
       )}

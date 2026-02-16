@@ -16,6 +16,17 @@ function toSearchParams(params: QueryParams) {
 }
 
 function buildWooUrl(path: string, params: QueryParams = {}) {
+  // Si le proxy est activé, utiliser le proxy backend au lieu de l'API directe
+  if (env.useProxy && !env.useMocks) {
+    // Le proxy gère l'authentification côté serveur
+    const proxyBase = env.proxyUrl;
+    const url = new URL(`${proxyBase}/${path.replace(/^\/wp-json\/wc\/v3\//, "")}`, window.location.origin);
+    const sp = toSearchParams(params);
+    url.search = sp.toString();
+    return url.toString();
+  }
+
+  // Mode direct (développement uniquement)
   assertWpBaseUrl();
   const base = env.wpBaseUrl;
   const url = new URL(`${base}${path.startsWith("/") ? "" : "/"}${path}`);
@@ -31,6 +42,26 @@ function buildWooUrl(path: string, params: QueryParams = {}) {
   url.search = sp.toString();
   return url.toString();
 }
+
+function normalizeForSearch(input: string) {
+  return (input ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // retire les accents
+    .replace(/[’'"]/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const tokenSynonyms: Record<string, string[]> = {
+  magsafe: ["magnetique", "magnetisme", "magnet"],
+  magnetic: ["magnetique", "magnetisme", "magnet"],
+  crystal: ["transparent", "transparente", "transparence", "acrylique"],
+  transparent: ["transparente", "transparence", "crystal", "acrylique"],
+  camera: ["optique", "objectif", "lentille"],
+  matte: ["mat", "mate", "antiderapante", "texture"],
+};
 
 async function wooFetch<T>(path: string, params?: QueryParams, init?: RequestInit): Promise<T> {
   const url = buildWooUrl(path, params);
@@ -58,10 +89,12 @@ export async function getProducts(params?: {
 }): Promise<WooProduct[]> {
   if (env.useMocks || !env.wpBaseUrl) {
     const list = [...mockProducts];
-    const search = params?.search?.trim().toLowerCase();
+    const raw = params?.search?.trim();
+    const search = raw ? normalizeForSearch(raw) : "";
     if (search)
       return list.filter((p) => {
-        const hay = [
+        const hay = normalizeForSearch(
+          [
           p.name,
           p.slug,
           p.short_description,
@@ -69,8 +102,14 @@ export async function getProducts(params?: {
           (p.categories ?? []).map((c) => c.name).join(" "),
         ]
           .join(" ")
-          .toLowerCase();
-        return hay.includes(search);
+        );
+
+        // matching par mots (plus tolérant que includes sur toute la chaîne)
+        const tokens = search.split(" ").filter(Boolean);
+        return tokens.every((t) => {
+          const alts = [t, ...(tokenSynonyms[t] ?? [])];
+          return alts.some((alt) => hay.includes(alt));
+        });
       });
     return list;
   }

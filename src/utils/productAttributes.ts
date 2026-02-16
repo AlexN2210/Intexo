@@ -8,6 +8,14 @@ const kindMatchers: Record<AttrKind, RegExp> = {
   material: /(mat[ée]riau|material)/i,
 };
 
+function normalizeValue(input?: string) {
+  return (input ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // retire les accents
+}
+
 export function findAttribute(product: WooProduct, kind: AttrKind): WooAttribute | undefined {
   const rx = kindMatchers[kind];
   return product.attributes?.find((a) => rx.test(a.name) && a.options?.length);
@@ -31,15 +39,15 @@ export function findMatchingVariation(
   selected: { model?: string; color?: string },
 ): WooVariation | undefined {
   if (!variations?.length) return undefined;
-  const selModel = selected.model?.toLowerCase();
-  const selColor = selected.color?.toLowerCase();
+  const selModel = normalizeValue(selected.model);
+  const selColor = normalizeValue(selected.color);
   return variations.find((v) => {
     const attrs = v.attributes ?? [];
     const modelOk = selModel
-      ? attrs.some((a) => kindMatchers.model.test(a.name) && a.option?.toLowerCase() === selModel)
+      ? attrs.some((a) => kindMatchers.model.test(a.name) && normalizeValue(a.option) === selModel)
       : true;
     const colorOk = selColor
-      ? attrs.some((a) => kindMatchers.color.test(a.name) && a.option?.toLowerCase() === selColor)
+      ? attrs.some((a) => kindMatchers.color.test(a.name) && normalizeValue(a.option) === selColor)
       : true;
     return modelOk && colorOk;
   });

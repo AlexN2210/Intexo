@@ -69,7 +69,7 @@ export default function Cart() {
                           alt={it.name}
                           loading="lazy"
                           decoding="async"
-                          className="h-full w-full object-contain p-2"
+                          className="impexo-cutout h-full w-full object-contain p-2"
                         />
                       ) : null}
                     </div>

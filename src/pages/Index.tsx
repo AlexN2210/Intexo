@@ -108,7 +108,7 @@ const Index = () => {
                       alt={`Collection ${c.title}`}
                       loading="lazy"
                       decoding="async"
-                      className="impexo-product-shadow impexo-image-fade h-full w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.02]"
+                      className="impexo-product-shadow impexo-image-fade impexo-cutout h-full w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.02]"
                     />
                   </ProductImageFrame>
                   <div className="relative p-6">

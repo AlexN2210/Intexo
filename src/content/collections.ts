@@ -12,14 +12,14 @@ export const impexoCollections: ImpexoCollection[] = [
     title: "Crystal",
     description: "Transparence premium. Détails nets. Look épuré.",
     imageSrc: "/IMPEXO-IPHONE 17 SERIES12-31/JOJO1015-4P.JPG",
-    query: "crystal",
+    query: "transparente",
   },
   {
     id: "magsafe",
     title: "Compatible MagSafe",
     description: "Technologie magnétique compatible MagSafe. Expérience fluide. Style signature.",
     imageSrc: "/IMPEXO-IPHONE 17 SERIES12-31/JOJO1015-11P.JPG",
-    query: "magsafe",
+    query: "magnetique",
   },
   {
     id: "camera-shield",
@@ -40,7 +40,7 @@ export const impexoCollections: ImpexoCollection[] = [
     title: "Matte Studio",
     description: "Finition mate. Sobriété absolue. Toucher velours.",
     imageSrc: "/IMPEXO-IPHONE 17 SERIES12-31/JOJO1015-12P.JPG",
-    query: "matte",
+    query: "antiderapante",
   },
   {
     id: "grip",

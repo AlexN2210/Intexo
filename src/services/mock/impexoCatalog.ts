@@ -62,179 +62,214 @@ type Marketing = {
 
 const marketingByCode: Record<string, Marketing> = {
   "JOJO1015-1": {
-    name: "Impexo — Camera Shield",
-    tagline: "Protection caméra intégrée. Silhouette fine.",
+    name: "Coque Protection Caméra Renforcée – Série iPhone 17",
+    tagline: "Rebord caméra surélevé. Chocs maîtrisés.",
     story:
-      "Protection caméra intégrée et lignes nettes, pour une présence premium sans épaisseur inutile. Une prise en main sûre, un rendu propre, au quotidien.",
-    highlights: ["Protection caméra intégrée", "Profil fin", "Toucher premium"],
+      "Conçue pour protéger efficacement l’appareil au quotidien, cette coque intègre un rebord surélevé autour du module caméra afin de limiter les rayures et les impacts directs. Sa structure absorbe les chocs tout en conservant une finesse élégante et une prise en main confortable.",
+    highlights: [
+      "iPhone 17 : protection précise du module caméra",
+      "iPhone 17 Air : coque légère adaptée au format affiné",
+      "iPhone 17 Pro : protection renforcée pour module avancé",
+      "iPhone 17 Pro Max : maintien optimal sur grand format",
+    ],
   },
   "JOJO1015-2": {
-    name: "Impexo — Crystal Clear",
-    tagline: "Transparence pure. Finition nette.",
+    name: "Coque Transparente Premium – Série iPhone 17",
+    tagline: "Discrète. Élégante. Protectrice.",
     story:
-      "Une transparence qui respecte le design, sans effet “plastique”. La finition reste nette, la coque se fait oublier — l’allure, elle, reste.",
-    highlights: ["Transparence premium", "Rendu net", "Protection quotidienne"],
+      "Idéale pour conserver le design d’origine, cette coque transparente protège contre les rayures et les chocs du quotidien tout en restant discrète et élégante.",
+    highlights: ["Transparence claire", "Protection du quotidien", "Design préservé"],
   },
   "JOJO1015-3": {
-    name: "Impexo — Camera Shield Plus",
-    tagline: "Caméra protégée. Détail signature.",
+    name: "Coque Protection Caméra Renforcée – Série iPhone 17",
+    tagline: "Rebord caméra surélevé. Chocs maîtrisés.",
     story:
-      "La protection caméra devient un détail de design. Toucher souple, lignes maîtrisées : un style affirmé, toujours minimaliste.",
-    highlights: ["Protection caméra", "Toucher souple", "Détails maîtrisés"],
+      "Conçue pour protéger efficacement l’appareil au quotidien, cette coque intègre un rebord surélevé autour du module caméra afin de limiter les rayures et les impacts directs. Sa structure absorbe les chocs tout en conservant une finesse élégante et une prise en main confortable.",
+    highlights: [
+      "iPhone 17 : protection précise du module caméra",
+      "iPhone 17 Air : coque légère adaptée au format affiné",
+      "iPhone 17 Pro : protection renforcée pour module avancé",
+      "iPhone 17 Pro Max : maintien optimal sur grand format",
+    ],
   },
   "JOJO1015-4": {
-    name: "Impexo — Crystal Acrylic",
-    tagline: "Acrylique premium. Transparence maîtrisée.",
+    name: "Coque Transparente Premium – Série iPhone 17",
+    tagline: "Design préservé. Protection discrète.",
     story:
-      "Acrylique premium et contours confort, pour une transparence plus “studio”. L’allure reste propre, la prise en main reste sûre.",
-    highlights: ["Acrylique + TPU", "Transparence premium", "Tenue impeccable"],
+      "Idéale pour conserver le design d’origine, cette coque transparente protège contre les rayures et les chocs du quotidien tout en restant discrète et élégante.",
+    highlights: ["Transparence premium", "Protection du quotidien", "Finition discrète"],
   },
   "JOJO1015-5": {
-    name: "Impexo — LensGuard Signature",
-    tagline: "Protection des optiques. Finition signature.",
+    name: "Coque Protection Caméra Renforcée – Série iPhone 17",
+    tagline: "Rebord caméra surélevé. Chocs maîtrisés.",
     story:
-      "Une protection pensée pour la zone caméra, avec un rendu net et une finition soignée. Le luxe ici, c’est la précision.",
-    highlights: ["Protection des optiques", "Finition soignée", "Rendu premium"],
+      "Conçue pour protéger efficacement l’appareil au quotidien, cette coque intègre un rebord surélevé autour du module caméra afin de limiter les rayures et les impacts directs. Sa structure absorbe les chocs tout en conservant une finesse élégante et une prise en main confortable.",
+    highlights: [
+      "iPhone 17 : protection précise du module caméra",
+      "iPhone 17 Air : coque légère adaptée au format affiné",
+      "iPhone 17 Pro : protection renforcée pour module avancé",
+      "iPhone 17 Pro Max : maintien optimal sur grand format",
+    ],
   },
   "JOJO1015-6": {
-    name: "Impexo — Magnétique (compatible MagSafe)",
-    tagline: "Technologie magnétique compatible MagSafe. Maintien net.",
+    name: "Coque Magnétique – Série iPhone 17",
+    tagline: "Maintien stable. Fixation fluide.",
     story:
-      "Pensée pour un usage fluide : maintien magnétique et silhouette épurée. Un geste simple, une sensation précise.",
-    highlights: ["Compatible MagSafe", "Maintien magnétique", "Silhouette épurée"],
+      "Équipée d’un système magnétique intégré, cette coque assure un maintien stable avec les accessoires compatibles tout en protégeant efficacement l’appareil.",
+    highlights: ["Système magnétique intégré", "Maintien stable", "Protection fiable"],
   },
   "JOJO1015-7": {
-    name: "Impexo — Armour Hybrid",
-    tagline: "Hybride structurée. Protection maîtrisée.",
+    name: "Coque Renforcée PC + TPU – Série iPhone 17",
+    tagline: "Double matériau. Protection renforcée.",
     story:
-      "Structure et confort réunis : une protection plus présente, mais toujours propre au regard. L’équilibre entre robustesse et finesse.",
-    highlights: ["PC+TPU", "Protection structurée", "Finition mate"],
+      "Association de matériaux résistants pour une protection renforcée contre les chocs et l’usure quotidienne.",
+    highlights: ["PC + TPU", "Chocs & rayures", "Durabilité"],
   },
   "JOJO1015-8": {
-    name: "Impexo — Soft TPU",
-    tagline: "Toucher velours. Minimalisme quotidien.",
+    name: "Coque Renforcée PC + TPU – Série iPhone 17",
+    tagline: "Protection renforcée. Usage quotidien.",
     story:
-      "Une sensation douce en main et une finition propre. La coque du quotidien, pensée comme un objet premium.",
-    highlights: ["TPU soft-touch", "Confort en main", "Finition premium"],
+      "Association de matériaux résistants pour une protection renforcée contre les chocs et l’usure quotidienne.",
+    highlights: ["Protection renforcée", "Résistance", "Tenue en main"],
   },
   "JOJO1015-9": {
-    name: "Impexo — Camera Shield Essential",
-    tagline: "Protection caméra. Essentiel premium.",
+    name: "Coque Protection Caméra Renforcée – Série iPhone 17",
+    tagline: "Rebord caméra surélevé. Chocs maîtrisés.",
     story:
-      "Une protection caméra propre, un profil fin, un style sobre. Tout ce qu’il faut — rien de trop.",
-    highlights: ["Protection caméra", "Profil fin", "Style sobre"],
+      "Conçue pour protéger efficacement l’appareil au quotidien, cette coque intègre un rebord surélevé autour du module caméra afin de limiter les rayures et les impacts directs. Sa structure absorbe les chocs tout en conservant une finesse élégante et une prise en main confortable.",
+    highlights: [
+      "iPhone 17 : protection précise du module caméra",
+      "iPhone 17 Air : coque légère adaptée au format affiné",
+      "iPhone 17 Pro : protection renforcée pour module avancé",
+      "iPhone 17 Pro Max : maintien optimal sur grand format",
+    ],
   },
   "JOJO1015-10": {
-    name: "Impexo — Camera Shield Air",
-    tagline: "Lignes nettes. Caméra protégée.",
+    name: "Coque Protection Caméra Renforcée – Série iPhone 17",
+    tagline: "Rebord caméra surélevé. Chocs maîtrisés.",
     story:
-      "Une esthétique précise, une protection caméra intégrée et un rendu premium. Simple, mais parfaitement exécuté.",
-    highlights: ["Protection caméra", "Finition nette", "Toucher premium"],
+      "Conçue pour protéger efficacement l’appareil au quotidien, cette coque intègre un rebord surélevé autour du module caméra afin de limiter les rayures et les impacts directs. Sa structure absorbe les chocs tout en conservant une finesse élégante et une prise en main confortable.",
+    highlights: [
+      "iPhone 17 : protection précise du module caméra",
+      "iPhone 17 Air : coque légère adaptée au format affiné",
+      "iPhone 17 Pro : protection renforcée pour module avancé",
+      "iPhone 17 Pro Max : maintien optimal sur grand format",
+    ],
   },
   "JOJO1015-11": {
-    name: "Impexo — Magnétique Signature (compatible MagSafe)",
-    tagline: "Technologie magnétique compatible MagSafe. Style signature.",
+    name: "Coque Magnétique – Série iPhone 17",
+    tagline: "Maintien stable. Fixation fluide.",
     story:
-      "Fixation magnétique fluide, silhouette épurée, détails premium. Une signature sobre, pensée pour durer.",
-    highlights: ["Compatible MagSafe", "Silhouette épurée", "Détails premium"],
+      "Équipée d’un système magnétique intégré, cette coque assure un maintien stable avec les accessoires compatibles tout en protégeant efficacement l’appareil.",
+    highlights: ["Système magnétique intégré", "Maintien stable", "Protection fiable"],
   },
   "JOJO1015-12": {
-    name: "Impexo — Matte Studio",
-    tagline: "Finition mate. Sobriété absolue.",
+    name: "Coque Texture Antidérapante – Série iPhone 17",
+    tagline: "Mate. Sûre. Confortable.",
     story:
-      "Une finition mate élégante, sans reflets superflus. Toucher velours, lignes propres, allure premium.",
-    highlights: ["Finition mate", "Toucher velours", "Style minimaliste"],
+      "Surface mate et texture antidérapante pour une prise en main sûre et confortable au quotidien.",
+    highlights: ["Surface mate", "Texture antidérapante", "Confort"],
   },
   "JOJO1015-13": {
-    name: "Impexo — Camera Shield PC",
-    tagline: "Rigide et nette. Caméra protégée.",
+    name: "Coque Protection Caméra Renforcée – Série iPhone 17",
+    tagline: "Rebord caméra surélevé. Chocs maîtrisés.",
     story:
-      "Une coque rigide au rendu net, avec protection caméra intégrée. Un style précis, sans compromis.",
-    highlights: ["PC rigide", "Protection caméra", "Rendu net"],
+      "Conçue pour protéger efficacement l’appareil au quotidien, cette coque intègre un rebord surélevé autour du module caméra afin de limiter les rayures et les impacts directs. Sa structure absorbe les chocs tout en conservant une finesse élégante et une prise en main confortable.",
+    highlights: [
+      "iPhone 17 : protection précise du module caméra",
+      "iPhone 17 Air : coque légère adaptée au format affiné",
+      "iPhone 17 Pro : protection renforcée pour module avancé",
+      "iPhone 17 Pro Max : maintien optimal sur grand format",
+    ],
   },
   "JOJO1015-14": {
-    name: "Impexo — Hybrid Studio",
-    tagline: "Hybride TPU + PC. Équilibre parfait.",
+    name: "Coque Renforcée PC + TPU – Série iPhone 17",
+    tagline: "Double matériau. Protection renforcée.",
     story:
-      "Structure et confort : une hybridation TPU/PC pour un rendu net et une tenue fiable. Finitions soignées.",
-    highlights: ["Hybride TPU+PC", "Confort", "Protection structurée"],
+      "Association de matériaux résistants pour une protection renforcée contre les chocs et l’usure quotidienne.",
+    highlights: ["PC + TPU", "Protection renforcée", "Résistance"],
   },
   "JOJO1015-15": {
-    name: "Impexo — Grip Texture",
-    tagline: "Texture grip subtile. Contrôle premium.",
+    name: "Coque Texture Antidérapante – Série iPhone 17",
+    tagline: "Mate. Sûre. Confortable.",
     story:
-      "Une texture discrète, pensée pour sécuriser la prise en main. Contrôle, confort et élégance — sans effet “tech”.",
-    highlights: ["Texture grip", "PC+TPU", "Confort en main"],
+      "Surface mate et texture antidérapante pour une prise en main sûre et confortable au quotidien.",
+    highlights: ["Surface mate", "Texture antidérapante", "Confort"],
   },
   "JOJO1015-16": {
-    name: "Impexo — Denim Leather",
-    tagline: "Texture denim. Luxe tactile.",
+    name: "Coque Effet Cuir / Jean – Série iPhone 17",
+    tagline: "Texture premium. Style distinctif.",
     story:
-      "Une finition textile premium au toucher unique. Pour celles et ceux qui veulent une élégance différente, plus tactile.",
-    highlights: ["TPU + denim", "Toucher unique", "Style premium"],
+      "Finition texturée effet cuir / jean, alliant style distinctif et protection fiable.",
+    highlights: ["Effet cuir / jean", "Toucher texturé", "Protection fiable"],
   },
   "JOJO1015-17": {
-    name: "Impexo — Rigide Classique",
-    tagline: "Classique premium. Lignes propres.",
+    name: "Coque Renforcée PC + TPU – Série iPhone 17",
+    tagline: "Protection renforcée. Usage quotidien.",
     story:
-      "Une coque rigide au style intemporel. Rendu propre, protection quotidienne, sensation premium.",
-    highlights: ["Protection quotidienne", "Look sobre", "Finition premium"],
+      "Association de matériaux résistants pour une protection renforcée contre les chocs et l’usure quotidienne.",
+    highlights: ["Protection renforcée", "Résistance", "Durabilité"],
   },
   "JOJO1015-18": {
-    name: "Impexo — Metal Edge Ring",
-    tagline: "Contour métal. Anneau intégré.",
+    name: "Coque Luxury Metal Frame – Série iPhone 17",
+    tagline: "Cadre métal. Rendu haut de gamme.",
     story:
-      "Détails métalliques précis et anneau intégré. Fonctionnel, mais toujours élégant.",
-    highlights: ["PC+Metal", "Anneau intégré", "Détails métal"],
+      "Dotée d’un cadre à finition métallique, cette coque offre une protection structurelle renforcée et un rendu haut de gamme.",
+    highlights: ["Cadre à finition métallique", "Protection structurelle", "Rendu premium"],
   },
   "JOJO1015-19": {
-    name: "Impexo — LensGuard Pro",
-    tagline: "Protection des optiques. Présence luxe.",
+    name: "Coque Protection Caméra Renforcée – Série iPhone 17",
+    tagline: "Rebord caméra surélevé. Chocs maîtrisés.",
     story:
-      "Une protection des optiques plus marquée, avec une finition premium. Présence affirmée, lignes maîtrisées.",
-    highlights: ["Protection caméra", "Finition premium", "Style affirmé"],
+      "Conçue pour protéger efficacement l’appareil au quotidien, cette coque intègre un rebord surélevé autour du module caméra afin de limiter les rayures et les impacts directs. Sa structure absorbe les chocs tout en conservant une finesse élégante et une prise en main confortable.",
+    highlights: [
+      "iPhone 17 : protection précise du module caméra",
+      "iPhone 17 Air : coque légère adaptée au format affiné",
+      "iPhone 17 Pro : protection renforcée pour module avancé",
+      "iPhone 17 Pro Max : maintien optimal sur grand format",
+    ],
   },
   "JOJO1015-20": {
-    name: "Impexo — TPU Studio",
-    tagline: "Simple. Premium. Précise.",
+    name: "Coque Renforcée PC + TPU – Série iPhone 17",
+    tagline: "Double matériau. Protection renforcée.",
     story:
-      "Une coque TPU épurée, confortable et nette. Le minimalisme, exécuté avec précision.",
-    highlights: ["TPU", "Confort", "Minimalisme"],
+      "Association de matériaux résistants pour une protection renforcée contre les chocs et l’usure quotidienne.",
+    highlights: ["Matériaux résistants", "Protection renforcée", "Usure quotidienne"],
   },
   "JOJO1015-21": {
-    name: "Impexo — Magnétique Luxe (compatible MagSafe)",
-    tagline: "Compatible MagSafe. Détails luxe.",
+    name: "Coque Magnétique – Série iPhone 17",
+    tagline: "Maintien stable. Fixation fluide.",
     story:
-      "Compatible MagSafe, pensée pour une expérience sans friction. Maintien précis, silhouette premium.",
-    highlights: ["Compatible MagSafe", "Maintien précis", "Style épuré"],
+      "Équipée d’un système magnétique intégré, cette coque assure un maintien stable avec les accessoires compatibles tout en protégeant efficacement l’appareil.",
+    highlights: ["Système magnétique intégré", "Maintien stable", "Protection fiable"],
   },
   "JOJO1015-22": {
-    name: "Impexo — Metal Frame Ring",
-    tagline: "Cadre métal. Anneau intégré.",
+    name: "Coque Luxury Metal Frame – Série iPhone 17",
+    tagline: "Cadre métal. Rendu haut de gamme.",
     story:
-      "Cadre métal et anneau intégré, pour une finition plus luxueuse. Détails précis, rendu premium.",
-    highlights: ["Cadre métal", "Anneau intégré", "Finitions luxe"],
+      "Dotée d’un cadre à finition métallique, cette coque offre une protection structurelle renforcée et un rendu haut de gamme.",
+    highlights: ["Cadre à finition métallique", "Protection structurelle", "Rendu premium"],
   },
   "JOJO1015-23": {
-    name: "Impexo — Metal Frame",
-    tagline: "Cadre luxe. Silhouette nette.",
+    name: "Coque Luxury Metal Frame – Série iPhone 17",
+    tagline: "Cadre métal. Rendu haut de gamme.",
     story:
-      "Un cadre plus luxueux, une silhouette plus nette. Protection pensée pour rester élégante, partout.",
-    highlights: ["Finition luxe", "Silhouette nette", "Protection premium"],
+      "Dotée d’un cadre à finition métallique, cette coque offre une protection structurelle renforcée et un rendu haut de gamme.",
+    highlights: ["Cadre à finition métallique", "Protection structurelle", "Rendu premium"],
   },
   "JOJO1015-24": {
-    name: "Impexo — Crystal Luxe",
-    tagline: "Transparence luxe. Détails lumineux.",
+    name: "Coque Luxury Transparente – Série iPhone 17",
+    tagline: "Finition premium. Détails raffinés.",
     story:
-      "Transparence premium et détails lumineux, dosés avec justesse. Chic, sans excès.",
-    highlights: ["Détails lumineux", "TPU premium", "Look luxe"],
+      "Version transparente à finition premium avec détails décoratifs raffinés, alliant esthétique et protection fiable.",
+    highlights: ["Détails décoratifs raffinés", "Transparence premium", "Protection fiable"],
   },
   "JOJO1015-25": {
-    name: "Impexo — Crystal Luxe+",
-    tagline: "Transparence luxe. Finition premium.",
+    name: "Coque Luxury Transparente – Série iPhone 17",
+    tagline: "Finition premium. Détails raffinés.",
     story:
-      "Transparence haut de gamme, finitions premium. Une coque élégante, partout.",
-    highlights: ["Transparence premium", "Finition luxe", "Protection quotidienne"],
+      "Version transparente à finition premium avec détails décoratifs raffinés, alliant esthétique et protection fiable.",
+    highlights: ["Détails décoratifs raffinés", "Transparence premium", "Protection fiable"],
   },
 };
 
@@ -529,6 +564,26 @@ function imgPath(file?: string) {
   return `${IMG_BASE}/${file}`;
 }
 
+function modelSuffix(model: Variant["model"]) {
+  switch (model) {
+    case "iPhone 17 Air":
+      return "AIR";
+    case "iPhone 17 Pro":
+      return "P";
+    case "iPhone 17 Pro Max":
+      return "PM";
+    case "iPhone 17":
+    default:
+      return "";
+  }
+}
+
+function expectedImageFile(code: string, model: Variant["model"]) {
+  // Convention du dossier public: JOJO1015-4AIR.JPG, JOJO1015-4P.JPG, JOJO1015-4PM.JPG, et base JOJO1015-4.JPG
+  const suffix = modelSuffix(model);
+  return `${code}${suffix ? suffix : ""}.JPG`;
+}
+
 export const impexoMockVariationsByProductId: Record<number, WooVariation[]> = {};
 export const impexoMockSlugByCode: Record<string, string> = {};
 
@@ -547,13 +602,24 @@ export const impexoMockProducts: WooProduct[] = defs.map((d, idx) => {
   const variationList: WooVariation[] = d.variants.map((v, i) => {
     const vid = id * 100 + (i + 1);
     const c = frColor(v.color);
+    const expected = expectedImageFile(d.code, v.model);
+    const chosenFile = v.imageFile ?? d.fallbackImageFile ?? expected;
+    if (import.meta.env.DEV && chosenFile) {
+      const fileUpper = chosenFile.toUpperCase();
+      const expUpper = expected.toUpperCase();
+      // Vérifie la cohérence suffixe/modèle pour éviter les confusions visuelles (module caméra).
+      if (!fileUpper.includes(expUpper.replace(".JPG", ""))) {
+        // eslint-disable-next-line no-console
+        console.warn(`[Impexo] Visuel potentiellement incohérent pour ${d.code} (${v.model}): ${chosenFile} (attendu ~ ${expected})`);
+      }
+    }
     return {
       id: vid,
       price: eur(v.priceEUR),
       regular_price: eur(v.priceEUR),
       sale_price: "",
       on_sale: false,
-      image: { id: vid, src: imgPath(v.imageFile ?? d.fallbackImageFile), alt: `${name} — ${v.model} — ${c}` },
+      image: { id: vid, src: imgPath(chosenFile), alt: `${name} — ${v.model} — ${c}` },
       attributes: [
         { id: 1, name: "Modèle", option: v.model },
         { id: 2, name: "Couleur", option: c },

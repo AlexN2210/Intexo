@@ -1,0 +1,129 @@
+/**
+ * Proxy API Route Vercel pour WooCommerce (version JavaScript)
+ * 
+ * Cette route proxy toutes les requêtes vers l'API WooCommerce
+ * en ajoutant les clés d'authentification côté serveur.
+ * 
+ * Usage: /api/woocommerce/products, /api/woocommerce/products/123, etc.
+ */
+
+export default async function handler(req, res) {
+  // Méthodes HTTP autorisées
+  if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'DELETE') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Récupération des variables d'environnement
+  const wpBaseUrl = process.env.VITE_WP_BASE_URL || process.env.WP_BASE_URL;
+  const consumerKey = process.env.VITE_WC_CONSUMER_KEY || process.env.WC_CONSUMER_KEY;
+  const consumerSecret = process.env.VITE_WC_CONSUMER_SECRET || process.env.WC_CONSUMER_SECRET;
+
+  // Vérification de la configuration
+  if (!wpBaseUrl || !consumerKey || !consumerSecret) {
+    console.error('Configuration WooCommerce manquante:', {
+      wpBaseUrl: !!wpBaseUrl,
+      consumerKey: !!consumerKey,
+      consumerSecret: !!consumerSecret,
+    });
+    return res.status(500).json({ 
+      error: 'Configuration WooCommerce manquante',
+      message: 'Les variables d\'environnement WooCommerce ne sont pas configurées'
+    });
+  }
+
+  try {
+    // Construction du chemin WooCommerce
+    // req.query.path est un tableau pour les routes catch-all [...path]
+    const path = Array.isArray(req.query.path) 
+      ? req.query.path.join('/') 
+      : req.query.path || '';
+    
+    const wooPath = `/wp-json/wc/v3/${path}`;
+    
+    // Construction de l'URL complète
+    const baseUrl = wpBaseUrl.replace(/\/+$/, ''); // Retire les slashes finaux
+    const url = new URL(wooPath, baseUrl);
+    
+    // Ajout des paramètres de requête (sauf 'path' qui est pour le routing)
+    Object.entries(req.query).forEach(([key, value]) => {
+      if (key !== 'path' && value !== undefined) {
+        if (Array.isArray(value)) {
+          value.forEach(v => url.searchParams.append(key, String(v)));
+        } else {
+          url.searchParams.set(key, String(value));
+        }
+      }
+    });
+    
+    // Ajout des clés d'authentification WooCommerce
+    url.searchParams.set('consumer_key', consumerKey);
+    url.searchParams.set('consumer_secret', consumerSecret);
+
+    // Préparation des headers pour la requête vers WooCommerce
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    };
+
+    // Copie des headers pertinents de la requête client (optionnel)
+    const forwardedHeaders = ['user-agent', 'accept-language'];
+    forwardedHeaders.forEach(header => {
+      const value = req.headers[header];
+      if (value && typeof value === 'string') {
+        headers[header] = value;
+      }
+    });
+
+    // Options de la requête fetch
+    const fetchOptions = {
+      method: req.method,
+      headers,
+    };
+
+    // Ajout du body pour les requêtes POST/PUT
+    if (req.method === 'POST' || req.method === 'PUT') {
+      if (req.body) {
+        fetchOptions.body = typeof req.body === 'string' 
+          ? req.body 
+          : JSON.stringify(req.body);
+      }
+    }
+
+    // Exécution de la requête vers WooCommerce
+    const wooResponse = await fetch(url.toString(), fetchOptions);
+
+    // Récupération du contenu de la réponse
+    const contentType = wooResponse.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    
+    const data = isJson 
+      ? await wooResponse.json()
+      : await wooResponse.text();
+
+    // Retour de la réponse avec les mêmes headers et status
+    res.status(wooResponse.status);
+    
+    // Copie des headers pertinents
+    const responseHeaders = ['content-type', 'cache-control', 'x-total', 'x-total-pages'];
+    responseHeaders.forEach(header => {
+      const value = wooResponse.headers.get(header);
+      if (value) {
+        res.setHeader(header, value);
+      }
+    });
+
+    // Ajout de headers CORS pour permettre les requêtes depuis le frontend
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+
+    return res.json(data);
+
+  } catch (error) {
+    console.error('Erreur proxy WooCommerce:', error);
+    return res.status(500).json({ 
+      error: 'Erreur lors de la requête WooCommerce',
+      message: error instanceof Error ? error.message : 'Erreur inconnue'
+    });
+  }
+}

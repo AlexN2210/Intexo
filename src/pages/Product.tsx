@@ -35,6 +35,13 @@ export default function Product() {
   const colors = useMemo(() => (product ? getAttributeOptions(product, "color") : []), [product]);
   const materials = useMemo(() => (product ? getAttributeOptions(product, "material") : []), [product]);
 
+  const norm = (s?: string) =>
+    (s ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
   const availableColorsByModel = useMemo(() => {
     const map = new Map<string, string[]>();
     if (!hasVariations) return map;
@@ -42,9 +49,10 @@ export default function Product() {
       const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
       const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
       if (!m || !c) return;
-      const list = map.get(m) ?? [];
-      if (!list.includes(c)) list.push(c);
-      map.set(m, list);
+      const k = norm(m);
+      const list = map.get(k) ?? [];
+      if (!list.some((x) => norm(x) === norm(c))) list.push(c);
+      map.set(k, list);
     });
     // tri pour un affichage stable
     Array.from(map.entries()).forEach(([k, list]) => {
@@ -56,15 +64,12 @@ export default function Product() {
   const allowedColorsForSelectedModel = useMemo(() => {
     if (!hasVariations) return colors;
     const m = model || models[0];
-    return (m ? availableColorsByModel.get(m) : undefined) ?? [];
+    return (m ? availableColorsByModel.get(norm(m)) : undefined) ?? [];
   }, [hasVariations, colors, availableColorsByModel, model, models]);
-
-  const findModelForColor = (wantedColor: string): string | undefined => {
-    for (const [m, list] of availableColorsByModel.entries()) {
-      if (list.includes(wantedColor)) return m;
-    }
-    return undefined;
-  };
+  const displayedColors = useMemo(() => {
+    // UX demandé: quand un modèle est sélectionné, on n’affiche que ses couleurs disponibles.
+    return hasVariations ? allowedColorsForSelectedModel : colors;
+  }, [hasVariations, allowedColorsForSelectedModel, colors]);
 
   const preferredModel = searchParams.get("model") ?? "";
   const preferredColor = searchParams.get("color") ?? "";
@@ -76,41 +81,58 @@ export default function Product() {
       (preferredModel && models.includes(preferredModel) ? preferredModel : "") || model || models[0] || "";
     if (initialModel && initialModel !== model) setModel(initialModel);
 
-    const allowedForModel = hasVariations ? availableColorsByModel.get(initialModel) ?? [] : colors;
+    const allowedForModel = hasVariations ? availableColorsByModel.get(norm(initialModel)) ?? [] : colors;
+    const preferred = preferredColor ? allowedForModel.find((c) => norm(c) === norm(preferredColor)) : "";
     const initialColor =
-      (preferredColor && allowedForModel.includes(preferredColor) ? preferredColor : "") || color || allowedForModel[0] || colors[0] || "";
+      preferred || color || allowedForModel[0] || colors[0] || "";
     if (initialColor && initialColor !== color) setColor(initialColor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor]);
 
-  // Si l’utilisateur change de modèle, on force une couleur valide pour ce modèle.
+  // Si la couleur courante n’est pas disponible pour le modèle courant, on prend la première couleur disponible.
   useEffect(() => {
     if (!hasVariations) return;
     const m = model || models[0];
     if (!m) return;
-    const allowed = availableColorsByModel.get(m) ?? [];
+    const allowed = availableColorsByModel.get(norm(m)) ?? [];
     if (!allowed.length) return;
-    if (!color || !allowed.includes(color)) {
+    if (!color || !allowed.some((c) => norm(c) === norm(color))) {
       setColor(allowed[0]);
     }
   }, [hasVariations, model, models, availableColorsByModel, color]);
 
   const selected = useMemo(() => {
-    return { model: model || models[0], color: color || colors[0] };
-  }, [model, color, models, colors]);
+    return { model: model || models[0], color: color || undefined };
+  }, [model, color, models]);
 
   const matchedVariation = useMemo(() => {
     if (!hasVariations) return undefined;
+    if (!selected.model || !selected.color) return undefined;
     return findMatchingVariation(variations, selected);
   }, [hasVariations, variations, selected]);
 
-  const heroImage = matchedVariation?.image?.src ?? product?.images?.[0]?.src;
-  const price = parsePrice(matchedVariation?.price ?? product?.price ?? product?.regular_price);
+  const fallbackVariationForModel = useMemo(() => {
+    if (!hasVariations) return undefined;
+    const m = selected.model;
+    if (!m) return undefined;
+    const mk = norm(m);
+    return variations.find((v) =>
+      v.attributes?.some((a) => /mod|mod[eè]le|iphone/i.test(a.name) && norm(a.option) === mk),
+    );
+  }, [hasVariations, variations, selected.model]);
+
+  const heroImage = matchedVariation?.image?.src ?? fallbackVariationForModel?.image?.src ?? product?.images?.[0]?.src;
+  const price = parsePrice(
+    matchedVariation?.price ??
+      fallbackVariationForModel?.price ??
+      product?.price ??
+      product?.regular_price,
+  );
 
   const selectedMaterial = useMemo(() => {
-    const fromVariation = matchedVariation?.attributes?.find((a) => /mat[ée]riau|material/i.test(a.name))?.option;
+    const fromVariation = (matchedVariation ?? fallbackVariationForModel)?.attributes?.find((a) => /mat[ée]riau|material/i.test(a.name))?.option;
     return fromVariation ?? materials[0];
-  }, [matchedVariation, materials]);
+  }, [matchedVariation, fallbackVariationForModel, materials]);
 
   const mentionsMagSafe = useMemo(() => {
     const blob = `${product?.name ?? ""} ${product?.short_description ?? ""} ${product?.description ?? ""}`;
@@ -147,10 +169,17 @@ export default function Product() {
     }));
   }, [product, hasVariations, variations, matchedVariation]);
 
-  const canAdd = Boolean(product) && qty > 0;
+  const canAdd = Boolean(product) && qty > 0 && (!hasVariations || Boolean(matchedVariation));
 
   const onAdd = () => {
     if (!product) return;
+    if (hasVariations && !matchedVariation) {
+      toast({
+        title: "Sélection incomplète",
+        description: "Choisis un modèle et une couleur disponibles.",
+      });
+      return;
+    }
     addItem({
       productId: product.id,
       variationId: matchedVariation?.id,
@@ -203,7 +232,7 @@ export default function Product() {
                           alt={product.images?.[0]?.alt || product.name}
                           loading="eager"
                           decoding="async"
-                          className="aspect-square w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.01] sm:p-8"
+                          className="impexo-product-shadow impexo-image-fade impexo-cutout aspect-square w-full object-contain p-6 transition duration-700 ease-out group-hover:scale-[1.01] sm:p-8"
                         />
                       ) : (
                         <div className="aspect-square w-full bg-muted" />
@@ -241,7 +270,7 @@ export default function Product() {
                         alt={g.alt}
                         loading="lazy"
                         decoding="async"
-                        className="aspect-square w-full object-contain p-2 transition duration-300 ease-out group-hover:scale-[1.02]"
+                        className="impexo-cutout aspect-square w-full object-contain p-2 transition duration-300 ease-out group-hover:scale-[1.02]"
                       />
                     </button>
                   ))}
@@ -267,7 +296,23 @@ export default function Product() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <div className="text-xs font-medium text-muted-foreground">Modèle d’iPhone</div>
-                    <Select value={model} onValueChange={setModel}>
+                    <Select
+                      value={model}
+                      onValueChange={(next) => {
+                        setModel(next);
+                        if (!hasVariations) return;
+                        const allowed = availableColorsByModel.get(norm(next)) ?? [];
+                        // On garde la couleur si elle existe pour ce modèle; sinon on choisit la première disponible.
+                        if (color) {
+                          const kept = allowed.find((c) => norm(c) === norm(color));
+                          if (kept) {
+                            if (kept !== color) setColor(kept);
+                            return;
+                          }
+                        }
+                        if (allowed.length) setColor(allowed[0]);
+                      }}
+                    >
                       <SelectTrigger className="h-11 rounded-full">
                         <SelectValue placeholder="Choisir un modèle" />
                       </SelectTrigger>
@@ -284,37 +329,31 @@ export default function Product() {
                   <div className="space-y-2">
                     <div className="text-xs font-medium text-muted-foreground">Couleur</div>
                     <div className="flex flex-wrap gap-2">
-                      {colors.map((c) => {
+                      {displayedColors.map((c) => {
                         const active = color === c;
-                        const isAvailable = !hasVariations || allowedColorsForSelectedModel.includes(c);
                         return (
                           <button
                             key={c}
                             type="button"
                             onClick={() => {
-                              if (isAvailable) {
-                                setColor(c);
-                                return;
-                              }
-                              // UX: si la couleur n’existe pas pour ce modèle, on bascule vers un modèle qui l’a.
-                              const nextModel = findModelForColor(c);
-                              if (nextModel) {
-                                setModel(nextModel);
-                                setColor(c);
-                              }
+                              // Comme on n'affiche que les couleurs disponibles, on peut sélectionner directement.
+                              const inAllowed = allowedColorsForSelectedModel.find((x) => norm(x) === norm(c));
+                              setColor(inAllowed ?? c);
                             }}
                             className={[
                               "rounded-full border px-3 py-2 text-xs transition",
                               active ? "bg-foreground text-background" : "bg-background hover:bg-muted/60",
-                              isAvailable ? "" : "opacity-40",
                             ].join(" ")}
-                            aria-disabled={!isAvailable}
+                            disabled={displayedColors.length <= 1}
                           >
                             {c}
                           </button>
                         );
                       })}
-                      {colors.length === 0 ? (
+                      {displayedColors.length === 1 ? (
+                        <span className="text-xs text-muted-foreground">1 couleur disponible pour ce modèle</span>
+                      ) : null}
+                      {displayedColors.length === 0 ? (
                         <span className="text-xs text-muted-foreground">Couleurs non renseignées</span>
                       ) : null}
                     </div>
@@ -446,7 +485,8 @@ export default function Product() {
                   ) : null}
 
                   <div className="mt-4 space-y-1 text-xs text-muted-foreground">
-                    <div>iPhone est une marque d’Apple Inc. Impexo n’est pas affiliée à Apple.</div>
+                    <div>Produit compatible avec les modèles iPhone 17, 17 Air, 17 Pro et 17 Pro Max.</div>
+                    <div>La marque Apple® est mentionnée uniquement à titre de compatibilité. IMPEXO est une marque indépendante.</div>
                     {mentionsMagSafe ? (
                       <div>
                         MagSafe est une marque d’Apple Inc. La mention « compatible MagSafe » décrit une compatibilité avec des accessoires MagSafe, sans affiliation ni

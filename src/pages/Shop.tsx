@@ -29,6 +29,10 @@ export default function Shop() {
     // Si on arrive depuis une section (Collections) qui change le query param,
     // on synchronise le champ de recherche.
     setSearch(initialQ);
+    // Et on évite de garder d'anciens filtres qui pourraient vider la liste.
+    setModel("all");
+    setColor("all");
+    setMaterial("all");
   }, [initialQ]);
 
   const q = useProductsQuery({ search: search || undefined, per_page: 48, orderby: "date" });

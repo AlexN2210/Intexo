@@ -159,11 +159,12 @@ All colors MUST be HSL.
   }
 
   .impexo-studio {
-    /* Fond blanc pur pour fusionner avec les visuels (évite l'effet "carré blanc") */
+    /* Fond "studio" mais uniforme: laisse le fond du site transparaître
+       (évite l'effet "bloc blanc" visible sur les fonds gris). */
     background:
-      linear-gradient(#ffffff, #ffffff),
-      radial-gradient(90% 70% at 18% 10%, rgba(0, 0, 0, 0.025), transparent 60%),
-      radial-gradient(80% 65% at 85% 18%, rgba(0, 0, 0, 0.02), transparent 62%);
+      radial-gradient(90% 70% at 18% 10%, rgba(0, 0, 0, 0.03), transparent 62%),
+      radial-gradient(80% 65% at 85% 18%, rgba(0, 0, 0, 0.02), transparent 64%),
+      radial-gradient(70% 55% at 35% 85%, rgba(255, 255, 255, 0.35), transparent 58%);
   }
 
   .impexo-product-shadow {
@@ -177,6 +178,13 @@ All colors MUST be HSL.
     /* Fond blanc interne -> bords plus doux (compat webkit + standard) */
     -webkit-mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%);
     mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%);
+  }
+
+  .impexo-cutout {
+    /* Atténue les fonds blancs des JPG en les mélangeant au fond.
+       Très efficace pour supprimer l'effet "carré blanc" sans détourage. */
+    mix-blend-mode: multiply;
+    filter: saturate(1.02) contrast(1.02);
   }
 
   .impexo-sheen {
