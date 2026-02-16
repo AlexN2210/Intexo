@@ -160,8 +160,26 @@ export default function Product() {
   const matchedVariation = useMemo(() => {
     if (!hasVariations) return undefined;
     if (!selected.model || !selected.color) return undefined;
-    return findMatchingVariation(variations, selected);
-  }, [hasVariations, variations, selected]);
+    
+    // Trouver toutes les variations correspondantes
+    const matching = variations.filter((v) => {
+      const attrs = v.attributes ?? [];
+      const m = attrs.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
+      const c = attrs.find((a) => /couleur|color/i.test(a.name))?.option;
+      return norm(m) === norm(selected.model) && norm(c) === norm(selected.color);
+    });
+    
+    // Si plusieurs variations correspondent, prendre la première (ou celle avec la référence la plus récente)
+    // TODO: Ajouter un sélecteur de référence si nécessaire
+    if (matching.length > 1) {
+      console.warn(`[Product ${product?.id}] Plusieurs variations trouvées pour ${selected.model} + ${selected.color}:`, matching.map(v => {
+        const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+        return `Variation ${v.id} (Réf: ${ref})`;
+      }));
+    }
+    
+    return matching[0];
+  }, [hasVariations, variations, selected, product?.id]);
 
   const fallbackVariationForModel = useMemo(() => {
     if (!hasVariations) return undefined;

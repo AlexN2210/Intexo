@@ -36,12 +36,15 @@ export function collectOptions(products: WooProduct[], kind: AttrKind): string[]
 
 export function findMatchingVariation(
   variations: WooVariation[],
-  selected: { model?: string; color?: string },
+  selected: { model?: string; color?: string; reference?: string },
 ): WooVariation | undefined {
   if (!variations?.length) return undefined;
   const selModel = normalizeValue(selected.model);
   const selColor = normalizeValue(selected.color);
-  return variations.find((v) => {
+  const selReference = normalizeValue(selected.reference);
+  
+  // Filtrer les variations qui correspondent aux critères
+  const matching = variations.filter((v) => {
     const attrs = v.attributes ?? [];
     const modelOk = selModel
       ? attrs.some((a) => kindMatchers.model.test(a.name) && normalizeValue(a.option) === selModel)
@@ -49,7 +52,19 @@ export function findMatchingVariation(
     const colorOk = selColor
       ? attrs.some((a) => kindMatchers.color.test(a.name) && normalizeValue(a.option) === selColor)
       : true;
-    return modelOk && colorOk;
+    const referenceOk = selReference
+      ? attrs.some((a) => /r[eé]f[eé]rence|reference/i.test(a.name) && normalizeValue(a.option) === selReference)
+      : true;
+    return modelOk && colorOk && referenceOk;
   });
+  
+  // Si une référence est spécifiée, retourner la première correspondance
+  if (selReference && matching.length > 0) {
+    return matching[0];
+  }
+  
+  // Sinon, retourner la première variation qui correspond au modèle et à la couleur
+  // (même si plusieurs références existent pour cette combinaison)
+  return matching[0];
 }
 
