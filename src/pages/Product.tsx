@@ -27,20 +27,72 @@ export default function Product() {
   const q = useProductBySlugQuery(slug);
   const product = q.data ?? null;
 
-  const hasVariations = Boolean(product && product.type === "variable" && product.variations?.length);
-  const varsQ = useProductVariationsQuery(product?.id, hasVariations);
-  const variations = varsQ.data ?? [];
-
-  const models = useMemo(() => (product ? getAttributeOptions(product, "model") : []), [product]);
-  const colors = useMemo(() => (product ? getAttributeOptions(product, "color") : []), [product]);
-  const materials = useMemo(() => (product ? getAttributeOptions(product, "material") : []), [product]);
-
+  // Fonction de normalisation pour comparer les chaînes (définie avant son utilisation)
   const norm = (s?: string) =>
     (s ?? "")
       .trim()
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
+
+  const hasVariations = Boolean(product && product.type === "variable" && product.variations?.length);
+  const varsQ = useProductVariationsQuery(product?.id, hasVariations);
+  
+  // Filtrer les variations pour s'assurer qu'elles appartiennent bien à ce produit
+  const variations = useMemo(() => {
+    const raw = varsQ.data ?? [];
+    if (!product?.id || !Array.isArray(raw)) return [];
+    
+    // Si le produit a une liste d'IDs de variations, utiliser seulement celles-là
+    // C'est la méthode la plus fiable pour s'assurer que les variations appartiennent au bon produit
+    if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
+      const validVariationIds = new Set(product.variations);
+      const filtered = raw.filter((v) => {
+        const isValid = validVariationIds.has(v.id);
+        if (!isValid) {
+          console.warn(`[Product ${product.id}] Variation ${v.id} filtrée (n'est pas dans la liste des variations du produit)`);
+        }
+        return isValid;
+      });
+      
+      // Log pour debug si des variations sont filtrées
+      if (filtered.length !== raw.length) {
+        console.warn(`[Product ${product.id}] Filtré ${raw.length - filtered.length} variations sur ${raw.length} (IDs attendus: ${product.variations.join(', ')})`);
+        console.warn(`[Product ${product.id}] Variations reçues:`, raw.map(v => v.id));
+      }
+      
+      return filtered;
+    }
+    
+    // Sinon, vérifier que les variations ont bien des attributs cohérents avec le produit
+    const productAttrNames = new Set((product.attributes ?? []).map(a => norm(a.name)));
+    
+    return raw.filter((v) => {
+      // S'assurer que la variation a des attributs
+      if (!v.attributes || v.attributes.length === 0) return false;
+      
+      // Vérifier que les noms d'attributs de la variation correspondent aux attributs du produit
+      const variationAttrNames = (v.attributes ?? []).map(a => norm(a.name));
+      
+      // Au moins un attribut de la variation doit correspondre à un attribut du produit
+      return variationAttrNames.some(vName => {
+        // Vérifier correspondance exacte ou partielle
+        return Array.from(productAttrNames).some(pName => {
+          // Correspondance exacte
+          if (vName === pName) return true;
+          // Correspondance partielle (pour gérer les variations de nom)
+          if (vName.includes(pName) || pName.includes(vName)) return true;
+          // Vérifier les patterns communs (modèle, couleur, matériau)
+          const commonPatterns = ['model', 'modèle', 'color', 'couleur', 'material', 'matériau'];
+          return commonPatterns.some(pattern => vName.includes(pattern) && pName.includes(pattern));
+        });
+      });
+    });
+  }, [varsQ.data, product?.id, product?.variations, product?.attributes]);
+
+  const models = useMemo(() => (product ? getAttributeOptions(product, "model") : []), [product]);
+  const colors = useMemo(() => (product ? getAttributeOptions(product, "color") : []), [product]);
+  const materials = useMemo(() => (product ? getAttributeOptions(product, "material") : []), [product]);
 
   const availableColorsByModel = useMemo(() => {
     const map = new Map<string, string[]>();

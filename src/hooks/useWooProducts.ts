@@ -25,7 +25,12 @@ export function useProductVariationsQuery(productId: number | undefined, enabled
   return useQuery({
     queryKey: ["woo", "product", productId, "variations"],
     enabled: Boolean(productId) && (enabled ?? true),
-    queryFn: () => getProductVariations(productId!),
+    queryFn: async () => {
+      const result = await getProductVariations(productId!);
+      // Garantir qu'on retourne toujours un tableau
+      return Array.isArray(result) ? result : [];
+    },
+    retry: 1,
   });
 }
 

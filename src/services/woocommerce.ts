@@ -102,6 +102,21 @@ async function wooFetch<T>(path: string, params?: QueryParams, init?: RequestIni
         proxyFailed = true;
         return wooFetch(path, params, init);
       }
+      
+      // Si c'est une erreur 401 et qu'on utilisait le proxy, essayer l'API directe
+      // (peut-être que les variables d'environnement ne sont pas configurées dans le proxy)
+      if (res.status === 401 && isProxyRequest && !proxyFailed) {
+        console.warn("Proxy retourne 401, basculement vers l'API directe");
+        proxyFailed = true;
+        return wooFetch(path, params, init);
+      }
+      
+      // Si c'est une erreur 401 en mode direct, donner un message plus clair
+      if (res.status === 401 && !isProxyRequest) {
+        const errorMsg = text ? JSON.parse(text).message || text : res.statusText;
+        throw new Error(`Erreur 401 - Permissions insuffisantes: ${errorMsg}. Vérifiez que VITE_WC_CONSUMER_KEY et VITE_WC_CONSUMER_SECRET sont configurées dans Vercel.`);
+      }
+      
       throw new Error(`WooCommerce API error ${res.status} — ${text.substring(0, 200) || res.statusText}`);
     }
     
@@ -223,9 +238,21 @@ export async function getProductById(id: number): Promise<WooProduct> {
 
 export async function getProductVariations(productId: number): Promise<WooVariation[]> {
   if (env.useMocks || !env.wpBaseUrl) return mockProductVariationsByProductId[productId] ?? [];
-  return await wooFetch<WooVariation[]>(`/wp-json/wc/v3/products/${productId}/variations`, {
-    per_page: 100,
-    status: "publish",
-  });
+  
+  try {
+    const result = await wooFetch<WooVariation[]>(`/wp-json/wc/v3/products/${productId}/variations`, {
+      per_page: 100,
+      status: "publish",
+    });
+    
+    // Garantir qu'on retourne toujours un tableau
+    const variations = Array.isArray(result) ? result : [];
+    
+    // Vérification supplémentaire : s'assurer que les variations ont bien un ID
+    return variations.filter(v => v && v.id);
+  } catch (error) {
+    console.error(`Erreur lors de la récupération des variations pour le produit ${productId}:`, error);
+    return [];
+  }
 }
 
