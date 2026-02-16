@@ -11,7 +11,12 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
     const safeProducts = Array.isArray(products) ? products : [];
     return safeProducts.filter(Boolean)[0] ?? null;
   }, [products]);
-  if (!active) return null;
+  
+  // Afficher le hero même sans produit (avec des valeurs par défaut)
+  const displayName = active?.name || "Coques premium iPhone";
+  const displayAlt = active?.images?.[0]?.alt || displayName;
+  
+  // Ne plus retourner null - toujours afficher le hero
 
   const imgDesktop = "/backgroundv2.webp";
   const imgMobile = "/mobilebg.jpg";
@@ -33,7 +38,7 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
             {/* Mobile uniquement */}
             <img
               src={imgMobile}
-              alt={active.images?.[0]?.alt || active.name}
+              alt={displayAlt}
               loading="eager"
               decoding="async"
               fetchPriority="high"
@@ -43,7 +48,7 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
             {/* Tablette / desktop */}
             <img
               src={imgDesktop}
-              alt={active.images?.[0]?.alt || active.name}
+              alt={displayAlt}
               loading="eager"
               decoding="async"
               fetchPriority="high"
