@@ -16,26 +16,35 @@ function toSearchParams(params: QueryParams) {
 }
 
 function buildWooUrl(path: string, params: QueryParams = {}) {
-  // Toujours utiliser le proxy backend (plus de mode direct)
+  // TOUJOURS utiliser le proxy backend (plus de mode direct)
   // Le proxy gère l'authentification côté serveur
-  const proxyBase = env.proxyUrl || '/api/woocommerce';
   
   // Extraire le chemin WooCommerce (ex: /wp-json/wc/v3/products -> products)
   const wooPath = path.replace(/^\/wp-json\/wc\/v3\//, "").replace(/\/$/, "");
   
-  // Construire l'URL du proxy
-  let proxyUrl: string;
-  if (proxyBase.startsWith('http://') || proxyBase.startsWith('https://')) {
-    proxyUrl = `${proxyBase}/${wooPath}`;
-  } else {
-    // Chemin relatif : utiliser window.location.origin
-    proxyUrl = `${proxyBase}/${wooPath}`;
-  }
+  // Construire l'URL du proxy (chemin relatif)
+  const proxyBase = env.proxyUrl || '/api/woocommerce';
+  const proxyPath = `${proxyBase}/${wooPath}`.replace(/\/+/g, '/'); // Nettoyer les doubles slashes
   
-  const url = new URL(proxyUrl, proxyBase.startsWith('http') ? undefined : window.location.origin);
+  // Construire l'URL complète avec les paramètres
+  const url = new URL(proxyPath, window.location.origin);
   const sp = toSearchParams(params);
   url.search = sp.toString();
-  return url.toString();
+  
+  const finalUrl = url.toString();
+  
+  // Vérification critique : l'URL doit contenir /api/woocommerce
+  if (!finalUrl.includes('/api/woocommerce')) {
+    console.error('[WooCommerce] ❌ ERREUR CRITIQUE: URL ne pointe pas vers le proxy!', {
+      finalUrl,
+      proxyBase,
+      wooPath,
+      proxyPath,
+      windowOrigin: window.location.origin,
+    });
+  }
+  
+  return finalUrl;
 }
 
 function normalizeForSearch(input: string) {
@@ -60,6 +69,14 @@ const tokenSynonyms: Record<string, string[]> = {
 
 async function wooFetch<T>(path: string, params?: QueryParams, init?: RequestInit): Promise<T> {
   const url = buildWooUrl(path, params);
+  
+  // Vérification que l'URL utilise bien le proxy
+  if (!url.includes('/api/woocommerce')) {
+    console.error('[WooCommerce] ❌ ERREUR: L\'URL ne pointe pas vers le proxy!', url);
+    throw new Error(`L'URL ne pointe pas vers le proxy: ${url}. Vérifiez la configuration.`);
+  }
+  
+  console.log('[WooCommerce] Requête vers le proxy:', url);
   
   // Le proxy gère l'authentification, pas besoin de Basic Auth côté frontend
   const headers: HeadersInit = {
@@ -152,6 +169,7 @@ export async function getProducts(params?: {
   featured?: boolean;
   search?: string;
 }): Promise<WooProduct[]> {
+  // Toujours utiliser le proxy, sauf si les mocks sont activés
   if (env.useMocks) {
     const list = [...mockProducts];
     const raw = params?.search?.trim();
