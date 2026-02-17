@@ -80,13 +80,24 @@ async function wooFetch<T>(path: string, params?: QueryParams, init?: RequestIni
   const url = buildWooUrl(path, params);
   const isProxyRequest = url.includes('/api/woocommerce');
   
+  // Préparation des headers avec Basic Auth pour l'API directe
+  const headers: HeadersInit = {
+    Accept: "application/json",
+    ...(init?.headers ?? {}),
+  };
+
+  // Si on utilise l'API directe (pas le proxy), ajouter Basic Auth
+  if (!isProxyRequest && env.wcConsumerKey && env.wcConsumerSecret) {
+    // Basic Auth: base64(consumer_key:consumer_secret)
+    const credentials = btoa(`${env.wcConsumerKey}:${env.wcConsumerSecret}`);
+    headers['Authorization'] = `Basic ${credentials}`;
+    console.log('[WooCommerce] Utilisation de Basic Auth pour l\'API directe');
+  }
+  
   try {
     const res = await fetch(url, {
       ...init,
-      headers: {
-        Accept: "application/json",
-        ...(init?.headers ?? {}),
-      },
+      headers,
     });
     
     // Vérifier le content-type avant de parser
@@ -123,10 +134,22 @@ async function wooFetch<T>(path: string, params?: QueryParams, init?: RequestIni
     }
     
     if (!res.ok) {
-      // Si c'est une erreur 401 et qu'on utilisait le proxy, essayer l'API directe
-      // (peut-être que les variables d'environnement ne sont pas configurées dans le proxy)
-      if (res.status === 401 && isProxyRequest && !proxyFailed) {
-        console.warn("[WooCommerce] Proxy retourne 401, basculement vers l'API directe");
+      // Si la réponse JSON contient un tableau "data" (ex: erreur proxy avec data: []), le retourner pour éviter de planter l'UI
+      if (isJson) {
+        try {
+          const errData = JSON.parse(text);
+          if (errData && typeof errData === "object" && Array.isArray(errData.data)) {
+            console.warn(`[WooCommerce] Réponse d'erreur ${res.status} avec data: [], retour de la liste vide`);
+            return errData.data as T;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // Si erreur 401 ou 500 depuis le proxy, essayer l'API directe (nécessite VITE_WP_BASE_URL, VITE_WC_CONSUMER_KEY, VITE_WC_CONSUMER_SECRET)
+      if ((res.status === 401 || res.status === 500) && isProxyRequest && !proxyFailed) {
+        console.warn(`[WooCommerce] Proxy retourne ${res.status}, basculement vers l'API directe`);
         proxyFailed = true;
         return wooFetch(path, params, init);
       }

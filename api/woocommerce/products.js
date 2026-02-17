@@ -94,14 +94,9 @@ export default async function handler(req, res) {
       }
     });
     
-    // Ajout des clés d'authentification WooCommerce
-    url.searchParams.set('consumer_key', consumerKey);
-    url.searchParams.set('consumer_secret', consumerSecret);
-
-    const safeUrl = url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***');
+    const safeUrl = url.toString();
     console.log('[Proxy WooCommerce Products] URL WooCommerce construite:', safeUrl);
     console.log('[Proxy WooCommerce Products] Base URL:', wpBaseUrl);
-    console.log('[Proxy WooCommerce Products] URL complète (sans secret):', url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***').replace(/consumer_key=[^&]+/, 'consumer_key=***'));
     
     // Vérification que l'URL est valide
     if (!url.hostname || !url.protocol.startsWith('http')) {
@@ -127,15 +122,21 @@ export default async function handler(req, res) {
       });
     }
 
-    // Exécution de la requête vers WooCommerce
+    // Préparation de l'authentification Basic Auth
+    // Basic Auth: base64(consumer_key:consumer_secret)
+    const credentials = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
+    const authHeader = `Basic ${credentials}`;
+
+    // Exécution de la requête vers WooCommerce avec Basic Auth
     let wooResponse;
     try {
-      console.log('[Proxy WooCommerce Products] Envoi de la requête vers WooCommerce...');
+      console.log('[Proxy WooCommerce Products] Envoi de la requête vers WooCommerce avec Basic Auth...');
       wooResponse = await fetch(url.toString(), {
         method: req.method,
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
+          'Authorization': authHeader,
         },
       });
       console.log('[Proxy WooCommerce Products] Réponse reçue:', {
