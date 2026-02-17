@@ -4,10 +4,12 @@
  */
 
 export default async function handler(req, res) {
-  console.log('[Proxy WooCommerce Products] Requête reçue:', {
+  // Log immédiat pour confirmer que le handler est appelé
+  console.log('[Proxy WooCommerce Products] ✅ Handler appelé - Requête reçue:', {
     method: req.method,
     url: req.url,
     query: req.query,
+    timestamp: new Date().toISOString(),
   });
 
   if (req.method !== 'GET') {
@@ -51,7 +53,8 @@ export default async function handler(req, res) {
     url.searchParams.set('consumer_key', consumerKey);
     url.searchParams.set('consumer_secret', consumerSecret);
 
-    console.log('[Proxy WooCommerce Products] URL WooCommerce:', url.toString());
+    console.log('[Proxy WooCommerce Products] URL WooCommerce:', url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
+    console.log('[Proxy WooCommerce Products] Base URL:', wpBaseUrl);
 
     // Exécution de la requête vers WooCommerce
     const wooResponse = await fetch(url.toString(), {
@@ -66,16 +69,38 @@ export default async function handler(req, res) {
     const isJson = contentType.includes('application/json');
     
     let data;
+    let rawText = '';
+    
     if (isJson) {
       data = await wooResponse.json();
     } else {
-      data = await wooResponse.text();
+      rawText = await wooResponse.text();
+      data = rawText;
+      
+      // Logger pour diagnostic
+      const preview = rawText.substring(0, 500);
+      const isHtml = rawText.includes('<!doctype') || rawText.includes('<html');
+      console.error('[Proxy WooCommerce Products] ⚠️ Réponse HTML reçue:', {
+        status: wooResponse.status,
+        contentType,
+        isHtml,
+        preview,
+      });
+      
+      if (wooResponse.status === 404) {
+        console.error('[Proxy WooCommerce Products] ❌ 404 - URL probablement incorrecte');
+        console.error('[Proxy WooCommerce Products] URL testée:', url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
+      }
+      if (wooResponse.status === 401) {
+        console.error('[Proxy WooCommerce Products] ❌ 401 - Clés API probablement invalides');
+      }
     }
 
     console.log('[Proxy WooCommerce Products] Réponse reçue:', {
       status: wooResponse.status,
       contentType,
       isJson,
+      dataType: Array.isArray(data) ? `Array(${data.length})` : typeof data,
     });
 
     // Retour de la réponse
@@ -88,9 +113,27 @@ export default async function handler(req, res) {
     if (isJson) {
       return res.json(data);
     } else {
-      return res.json({
-        error: 'Réponse non-JSON reçue de WooCommerce',
-        message: typeof data === 'string' ? data.substring(0, 200) : 'Réponse inattendue',
+      const isHtml = typeof data === 'string' && (data.includes('<!doctype') || data.includes('<html'));
+      let errorMessage = 'Réponse non-JSON reçue de WooCommerce';
+      
+      if (wooResponse.status === 404) {
+        errorMessage = 'Endpoint WooCommerce introuvable (404). Vérifiez que l\'URL est correcte et que WooCommerce REST API est activée.';
+      } else if (wooResponse.status === 401) {
+        errorMessage = 'Authentification échouée (401). Vérifiez que les clés API WooCommerce sont correctes.';
+      } else if (isHtml) {
+        errorMessage = 'WordPress a retourné une page HTML au lieu de JSON. Vérifiez que l\'URL de l\'API est correcte.';
+      }
+      
+      return res.status(wooResponse.status >= 400 ? wooResponse.status : 500).json({
+        error: errorMessage,
+        status: wooResponse.status,
+        contentType,
+        preview: typeof data === 'string' ? data.substring(0, 200) : 'Réponse inattendue',
+        diagnostic: {
+          url: url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
+          baseUrl: wpBaseUrl,
+          isHtml,
+        },
         data: []
       });
     }
