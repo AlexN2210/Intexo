@@ -8,19 +8,31 @@
  */
 
 export default async function handler(req, res) {
-  // Log pour debug
-  console.log('[Proxy WooCommerce] Requête reçue:', {
-    method: req.method,
-    url: req.url,
-    query: req.query,
-    path: req.query.path,
-  });
+  // Wrapper try-catch global pour capturer toutes les erreurs
+  try {
+    // Log pour debug
+    console.log('[Proxy WooCommerce] ✅ Handler appelé - Requête reçue:', {
+      method: req.method,
+      url: req.url,
+      query: req.query,
+      path: req.query.path,
+      timestamp: new Date().toISOString(),
+    });
 
-  // Méthodes HTTP autorisées
-  if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'DELETE') {
-    console.log('[Proxy WooCommerce] Méthode non autorisée:', req.method);
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+    // Gestion OPTIONS pour CORS
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+      return res.status(200).end();
+    }
+
+    // Méthodes HTTP autorisées
+    if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'DELETE') {
+      console.log('[Proxy WooCommerce] Méthode non autorisée:', req.method);
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
 
   // Récupération des variables d'environnement
   const wpBaseUrl = process.env.VITE_WP_BASE_URL || process.env.WP_BASE_URL;
@@ -233,10 +245,23 @@ export default async function handler(req, res) {
     }
 
   } catch (error) {
-    console.error('Erreur proxy WooCommerce:', error);
+    console.error('[Proxy WooCommerce] ❌ Erreur capturée:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : 'Unknown',
+    });
+    
+    // Toujours retourner du JSON, même en cas d'erreur
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    
     return res.status(500).json({ 
       error: 'Erreur lors de la requête WooCommerce',
-      message: error instanceof Error ? error.message : 'Erreur inconnue'
+      message: error instanceof Error ? error.message : 'Erreur inconnue',
+      type: error instanceof Error ? error.name : 'Unknown',
+      data: []
     });
   }
 }

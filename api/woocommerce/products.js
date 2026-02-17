@@ -4,39 +4,84 @@
  */
 
 export default async function handler(req, res) {
-  // Log immédiat pour confirmer que le handler est appelé
-  console.log('[Proxy WooCommerce Products] ✅ Handler appelé - Requête reçue:', {
-    method: req.method,
-    url: req.url,
-    query: req.query,
-    timestamp: new Date().toISOString(),
-  });
+  // Wrapper try-catch global pour capturer toutes les erreurs
+  try {
+    // Log immédiat pour confirmer que le handler est appelé
+    console.log('[Proxy WooCommerce Products] ✅ Handler appelé - Requête reçue:', {
+      method: req.method,
+      url: req.url,
+      query: req.query,
+      timestamp: new Date().toISOString(),
+    });
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+    // Gestion OPTIONS pour CORS
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+      return res.status(200).end();
+    }
+
+    if (req.method !== 'GET') {
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
 
   // Récupération des variables d'environnement
   const wpBaseUrl = process.env.VITE_WP_BASE_URL || process.env.WP_BASE_URL;
   const consumerKey = process.env.VITE_WC_CONSUMER_KEY || process.env.WC_CONSUMER_KEY;
   const consumerSecret = process.env.VITE_WC_CONSUMER_SECRET || process.env.WC_CONSUMER_SECRET;
 
+  console.log('[Proxy WooCommerce Products] Variables d\'environnement:', {
+    wpBaseUrl: wpBaseUrl ? `${wpBaseUrl.substring(0, 20)}...` : 'MANQUANTE',
+    consumerKey: consumerKey ? `${consumerKey.substring(0, 10)}...` : 'MANQUANTE',
+    consumerSecret: consumerSecret ? 'PRÉSENTE' : 'MANQUANTE',
+    allEnvKeys: Object.keys(process.env).filter(k => k.includes('WP') || k.includes('WC')).join(', '),
+  });
+
   // Vérification de la configuration
   if (!wpBaseUrl || !consumerKey || !consumerSecret) {
-    console.error('[Proxy WooCommerce Products] Configuration manquante:', {
+    console.error('[Proxy WooCommerce Products] ❌ Configuration manquante:', {
       wpBaseUrl: !!wpBaseUrl,
       consumerKey: !!consumerKey,
       consumerSecret: !!consumerSecret,
+      availableEnvKeys: Object.keys(process.env).filter(k => k.includes('WP') || k.includes('WC')),
     });
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(500).json({ 
       error: 'Configuration WooCommerce manquante',
-      message: 'Les variables d\'environnement WooCommerce ne sont pas configurées'
+      message: 'Les variables d\'environnement WooCommerce ne sont pas configurées',
+      diagnostic: {
+        wpBaseUrl: !!wpBaseUrl,
+        consumerKey: !!consumerKey,
+        consumerSecret: !!consumerSecret,
+        hint: 'Vérifiez que WP_BASE_URL, WC_CONSUMER_KEY et WC_CONSUMER_SECRET sont définies dans Vercel'
+      },
+      data: []
     });
   }
 
   try {
     // Construction de l'URL WooCommerce
-    const url = new URL('/wp-json/wc/v3/products', wpBaseUrl);
+    let url;
+    try {
+      url = new URL('/wp-json/wc/v3/products', wpBaseUrl);
+    } catch (urlError) {
+      console.error('[Proxy WooCommerce Products] ❌ Erreur lors de la construction de l\'URL:', {
+        error: urlError instanceof Error ? urlError.message : String(urlError),
+        wpBaseUrl,
+      });
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(500).json({
+        error: 'Erreur lors de la construction de l\'URL WooCommerce',
+        message: urlError instanceof Error ? urlError.message : 'Erreur inconnue',
+        diagnostic: { wpBaseUrl },
+        data: []
+      });
+    }
     
     // Ajout des paramètres de requête
     Object.entries(req.query).forEach(([key, value]) => {
@@ -53,17 +98,41 @@ export default async function handler(req, res) {
     url.searchParams.set('consumer_key', consumerKey);
     url.searchParams.set('consumer_secret', consumerSecret);
 
-    console.log('[Proxy WooCommerce Products] URL WooCommerce:', url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
+    const safeUrl = url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***');
+    console.log('[Proxy WooCommerce Products] URL WooCommerce construite:', safeUrl);
     console.log('[Proxy WooCommerce Products] Base URL:', wpBaseUrl);
 
     // Exécution de la requête vers WooCommerce
-    const wooResponse = await fetch(url.toString(), {
-      method: req.method,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    });
+    let wooResponse;
+    try {
+      console.log('[Proxy WooCommerce Products] Envoi de la requête vers WooCommerce...');
+      wooResponse = await fetch(url.toString(), {
+        method: req.method,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      console.log('[Proxy WooCommerce Products] Réponse reçue:', {
+        status: wooResponse.status,
+        statusText: wooResponse.statusText,
+        contentType: wooResponse.headers.get('content-type'),
+      });
+    } catch (fetchError) {
+      console.error('[Proxy WooCommerce Products] ❌ Erreur lors de la requête fetch:', {
+        error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+        stack: fetchError instanceof Error ? fetchError.stack : undefined,
+        url: safeUrl,
+      });
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(500).json({
+        error: 'Erreur lors de la requête vers WooCommerce',
+        message: fetchError instanceof Error ? fetchError.message : 'Erreur inconnue',
+        diagnostic: { url: safeUrl },
+        data: []
+      });
+    }
 
     const contentType = wooResponse.headers.get('content-type') || '';
     const isJson = contentType.includes('application/json');
@@ -71,29 +140,48 @@ export default async function handler(req, res) {
     let data;
     let rawText = '';
     
-    if (isJson) {
-      data = await wooResponse.json();
-    } else {
-      rawText = await wooResponse.text();
-      data = rawText;
-      
-      // Logger pour diagnostic
-      const preview = rawText.substring(0, 500);
-      const isHtml = rawText.includes('<!doctype') || rawText.includes('<html');
-      console.error('[Proxy WooCommerce Products] ⚠️ Réponse HTML reçue:', {
-        status: wooResponse.status,
+    try {
+      if (isJson) {
+        data = await wooResponse.json();
+      } else {
+        rawText = await wooResponse.text();
+        data = rawText;
+        
+        // Logger pour diagnostic
+        const preview = rawText.substring(0, 500);
+        const isHtml = rawText.includes('<!doctype') || rawText.includes('<html');
+        console.error('[Proxy WooCommerce Products] ⚠️ Réponse HTML reçue:', {
+          status: wooResponse.status,
+          contentType,
+          isHtml,
+          preview,
+        });
+        
+        if (wooResponse.status === 404) {
+          console.error('[Proxy WooCommerce Products] ❌ 404 - URL probablement incorrecte');
+          console.error('[Proxy WooCommerce Products] URL testée:', url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
+        }
+        if (wooResponse.status === 401) {
+          console.error('[Proxy WooCommerce Products] ❌ 401 - Clés API probablement invalides');
+        }
+      }
+    } catch (parseError) {
+      console.error('[Proxy WooCommerce Products] ❌ Erreur lors du parsing de la réponse:', {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
         contentType,
-        isHtml,
-        preview,
+        status: wooResponse.status,
       });
-      
-      if (wooResponse.status === 404) {
-        console.error('[Proxy WooCommerce Products] ❌ 404 - URL probablement incorrecte');
-        console.error('[Proxy WooCommerce Products] URL testée:', url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
-      }
-      if (wooResponse.status === 401) {
-        console.error('[Proxy WooCommerce Products] ❌ 401 - Clés API probablement invalides');
-      }
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(500).json({
+        error: 'Erreur lors du parsing de la réponse WooCommerce',
+        message: parseError instanceof Error ? parseError.message : 'Erreur inconnue',
+        diagnostic: {
+          status: wooResponse.status,
+          contentType,
+        },
+        data: []
+      });
     }
 
     console.log('[Proxy WooCommerce Products] Réponse reçue:', {
@@ -139,10 +227,23 @@ export default async function handler(req, res) {
     }
 
   } catch (error) {
-    console.error('[Proxy WooCommerce Products] Erreur:', error);
+    console.error('[Proxy WooCommerce Products] ❌ Erreur capturée:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : 'Unknown',
+    });
+    
+    // Toujours retourner du JSON, même en cas d'erreur
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    
     return res.status(500).json({ 
       error: 'Erreur lors de la requête WooCommerce',
-      message: error instanceof Error ? error.message : 'Erreur inconnue'
+      message: error instanceof Error ? error.message : 'Erreur inconnue',
+      type: error instanceof Error ? error.name : 'Unknown',
+      data: []
     });
   }
 }
