@@ -16,34 +16,46 @@ function toSearchParams(params: QueryParams) {
 }
 
 function buildWooUrl(path: string, params: QueryParams = {}) {
-  // TOUJOURS utiliser le proxy backend (plus de mode direct)
+  // TOUJOURS utiliser le proxy backend - FORCER /api/woocommerce
   // Le proxy gère l'authentification côté serveur
   
   // Extraire le chemin WooCommerce (ex: /wp-json/wc/v3/products -> products)
   const wooPath = path.replace(/^\/wp-json\/wc\/v3\//, "").replace(/\/$/, "");
   
-  // Construire l'URL du proxy (chemin relatif)
-  const proxyBase = env.proxyUrl || '/api/woocommerce';
-  const proxyPath = `${proxyBase}/${wooPath}`.replace(/\/+/g, '/'); // Nettoyer les doubles slashes
+  // FORCER l'utilisation de /api/woocommerce (ignorer env.proxyUrl qui peut être incorrect)
+  // Ne JAMAIS utiliser env.proxyUrl qui peut contenir une URL WordPress
+  const proxyPath = `/api/woocommerce/${wooPath}`.replace(/\/+/g, '/'); // Nettoyer les doubles slashes
   
-  // Construire l'URL complète avec les paramètres
+  // Construire l'URL complète avec les paramètres (chemin relatif)
   const url = new URL(proxyPath, window.location.origin);
   const sp = toSearchParams(params);
   url.search = sp.toString();
   
   const finalUrl = url.toString();
   
-  // Vérification critique : l'URL doit contenir /api/woocommerce
+  // Vérification critique : l'URL doit contenir /api/woocommerce et PAS wp.impexo.fr
   if (!finalUrl.includes('/api/woocommerce')) {
     console.error('[WooCommerce] ❌ ERREUR CRITIQUE: URL ne pointe pas vers le proxy!', {
       finalUrl,
-      proxyBase,
       wooPath,
       proxyPath,
       windowOrigin: window.location.origin,
+      envProxyUrl: env.proxyUrl, // Pour debug
     });
+    throw new Error(`URL ne pointe pas vers le proxy: ${finalUrl}`);
   }
   
+  // Vérification supplémentaire : l'URL ne doit PAS contenir wp.impexo.fr
+  if (finalUrl.includes('wp.impexo.fr')) {
+    console.error('[WooCommerce] ❌ ERREUR: URL contient wp.impexo.fr au lieu du proxy!', {
+      finalUrl,
+      wooPath,
+      proxyPath,
+    });
+    throw new Error(`URL contient wp.impexo.fr au lieu du proxy: ${finalUrl}`);
+  }
+  
+  console.log('[WooCommerce] ✅ URL proxy construite:', finalUrl);
   return finalUrl;
 }
 
