@@ -35,6 +35,9 @@ export default async function handler(req, res) {
       pathFromUrl,
       timestamp: new Date().toISOString(),
     });
+    
+    // Log détaillé de req.query pour diagnostiquer le bug Vercel
+    console.log('[Proxy WooCommerce] 🔍 REQ QUERY (détaillé):', JSON.stringify(req.query, null, 2));
 
     // Gestion OPTIONS pour CORS
     if (req.method === 'OPTIONS') {
@@ -117,10 +120,14 @@ export default async function handler(req, res) {
       url: req.url,
     });
     
-    // Construction de la query string (sauf 'path' qui est pour le routing)
+    // Construction de la query string (sauf 'path' et 'products' qui sont pour le routing)
+    // Note: Vercel ajoute parfois 'products' comme clé fantôme dans req.query avec les routes dynamiques
     const queryParams = new URLSearchParams();
+    const reservedKeys = ['path', 'products']; // Clés réservées pour le routing Vercel
+    
     Object.entries(req.query).forEach(([key, value]) => {
-      if (key !== 'path' && value !== undefined) {
+      // Exclure les clés réservées ET les valeurs vides/undefined
+      if (!reservedKeys.includes(key) && value !== undefined && value !== '') {
         if (Array.isArray(value)) {
           value.forEach(v => queryParams.append(key, String(v)));
         } else {
