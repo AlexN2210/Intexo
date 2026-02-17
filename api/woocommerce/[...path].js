@@ -133,7 +133,7 @@ export default async function handler(req, res) {
       statusText: wooResponse.statusText,
       contentType,
       isJson,
-      url: url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
+      url: url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
     });
 
     // Récupération du contenu de la réponse
@@ -168,7 +168,7 @@ export default async function handler(req, res) {
         contentType,
         preview,
         isHtml: rawText.includes('<!doctype') || rawText.includes('<html'),
-        url: url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
+        url: url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
       });
       
       // Si c'est une erreur 404, c'est probablement que l'URL est incorrecte
@@ -247,6 +247,26 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('[Proxy WooCommerce] ❌ Erreur capturée:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : 'Unknown',
+    });
+    
+    // Toujours retourner du JSON, même en cas d'erreur
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    
+    return res.status(500).json({ 
+      error: 'Erreur lors de la requête WooCommerce',
+      message: error instanceof Error ? error.message : 'Erreur inconnue',
+      type: error instanceof Error ? error.name : 'Unknown',
+      data: []
+    });
+  }
+  } catch (error) {
+    console.error('[Proxy WooCommerce] ❌ Erreur globale capturée:', {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : 'Unknown',
