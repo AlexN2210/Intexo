@@ -55,9 +55,31 @@ export default async function handler(req, res) {
   try {
     // Construction du chemin WooCommerce
     // req.query.path est un tableau pour les routes catch-all [...path]
+    // Exemple: /api/woocommerce/products -> req.query.path = ['products']
+    // Exemple: /api/woocommerce/products/123 -> req.query.path = ['products', '123']
     const path = Array.isArray(req.query.path) 
       ? req.query.path.join('/') 
       : req.query.path || '';
+    
+    // Si path est vide, c'est une erreur (on devrait avoir au moins 'products')
+    if (!path) {
+      console.error('[Proxy WooCommerce] ❌ ERREUR: req.query.path est vide!', {
+        query: req.query,
+        url: req.url,
+      });
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(400).json({
+        error: 'Chemin WooCommerce manquant',
+        message: 'Le chemin de l\'API WooCommerce est manquant dans la requête',
+        diagnostic: {
+          query: req.query,
+          url: req.url,
+          hint: 'Vérifiez que vous appelez /api/woocommerce/products et non /api/woocommerce/'
+        },
+        data: []
+      });
+    }
     
     const wooPath = `/wp-json/wc/v3/${path}`;
     
@@ -65,6 +87,7 @@ export default async function handler(req, res) {
       pathFromQuery: req.query.path,
       pathJoined: path,
       wooPath,
+      url: req.url,
     });
     
     // Construction de la query string (sauf 'path' qui est pour le routing)
