@@ -101,6 +101,31 @@ export default async function handler(req, res) {
     const safeUrl = url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***');
     console.log('[Proxy WooCommerce Products] URL WooCommerce construite:', safeUrl);
     console.log('[Proxy WooCommerce Products] Base URL:', wpBaseUrl);
+    console.log('[Proxy WooCommerce Products] URL complète (sans secret):', url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***').replace(/consumer_key=[^&]+/, 'consumer_key=***'));
+    
+    // Vérification que l'URL est valide
+    if (!url.hostname || !url.protocol.startsWith('http')) {
+      console.error('[Proxy WooCommerce Products] ❌ URL invalide:', {
+        hostname: url.hostname,
+        protocol: url.protocol,
+        href: url.href,
+      });
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(500).json({
+        error: {
+          code: 'INVALID_URL',
+          message: 'URL WooCommerce invalide',
+        },
+        diagnostic: {
+          wpBaseUrl,
+          constructedUrl: url.toString(),
+          hostname: url.hostname,
+          protocol: url.protocol,
+        },
+        data: []
+      });
+    }
 
     // Exécution de la requête vers WooCommerce
     let wooResponse;
@@ -192,14 +217,59 @@ export default async function handler(req, res) {
     });
 
     // Retour de la réponse
-    res.status(wooResponse.status);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
     res.setHeader('Content-Type', 'application/json');
 
+    // Gestion des erreurs WooCommerce
+    if (wooResponse.status >= 400) {
+      console.error('[Proxy WooCommerce Products] ❌ Erreur WooCommerce:', {
+        status: wooResponse.status,
+        statusText: wooResponse.statusText,
+        data,
+      });
+      
+      // Si c'est une erreur et qu'on a du JSON, formater la réponse d'erreur
+      if (isJson && data) {
+        const errorMessage = data.message || data.error || data.code || `Erreur ${wooResponse.status}`;
+        const errorCode = data.code || `HTTP_${wooResponse.status}`;
+        
+        return res.status(wooResponse.status).json({
+          error: {
+            code: errorCode,
+            message: errorMessage,
+          },
+          status: wooResponse.status,
+          diagnostic: {
+            url: safeUrl,
+            baseUrl: wpBaseUrl,
+            wooCommerceError: data,
+          },
+          data: []
+        });
+      }
+      
+      // Si c'est une erreur mais pas de JSON, retourner une erreur formatée
+      return res.status(wooResponse.status).json({
+        error: {
+          code: `HTTP_${wooResponse.status}`,
+          message: wooResponse.statusText || 'Erreur inconnue',
+        },
+        status: wooResponse.status,
+        diagnostic: {
+          url: safeUrl,
+          baseUrl: wpBaseUrl,
+          contentType,
+          rawResponse: typeof data === 'string' ? data.substring(0, 500) : String(data),
+        },
+        data: []
+      });
+    }
+
+    // Si tout va bien, retourner les données
     if (isJson) {
-      return res.json(data);
+      return res.status(wooResponse.status).json(data);
     } else {
       const isHtml = typeof data === 'string' && (data.includes('<!doctype') || data.includes('<html'));
       let errorMessage = 'Réponse non-JSON reçue de WooCommerce';
