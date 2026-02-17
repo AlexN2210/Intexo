@@ -10,12 +10,29 @@
 export default async function handler(req, res) {
   // Wrapper try-catch global pour capturer toutes les erreurs
   try {
+    // Extraction du chemin depuis l'URL si req.query.path n'est pas disponible
+    // Pour Vercel, req.query.path devrait contenir le chemin pour [...path].js
+    // Mais si ce n'est pas le cas, on l'extrait depuis req.url
+    let pathFromQuery = req.query.path;
+    let pathFromUrl = '';
+    
+    // Si req.query.path n'est pas disponible, extraire depuis l'URL
+    if (!pathFromQuery || (Array.isArray(pathFromQuery) && pathFromQuery.length === 0)) {
+      // Extraire le chemin depuis /api/woocommerce/...
+      const urlMatch = req.url.match(/\/api\/woocommerce\/(.+?)(?:\?|$)/);
+      if (urlMatch) {
+        pathFromUrl = urlMatch[1];
+        console.log('[Proxy WooCommerce] ⚠️ req.query.path non disponible, extraction depuis URL:', pathFromUrl);
+      }
+    }
+    
     // Log pour debug
     console.log('[Proxy WooCommerce] ✅ Handler appelé - Requête reçue:', {
       method: req.method,
       url: req.url,
       query: req.query,
-      path: req.query.path,
+      pathFromQuery: req.query.path,
+      pathFromUrl,
       timestamp: new Date().toISOString(),
     });
 
@@ -54,18 +71,27 @@ export default async function handler(req, res) {
 
   try {
     // Construction du chemin WooCommerce
-    // req.query.path est un tableau pour les routes catch-all [...path]
+    // Pour Vercel [...path].js, req.query.path devrait être un tableau
     // Exemple: /api/woocommerce/products -> req.query.path = ['products']
     // Exemple: /api/woocommerce/products/123 -> req.query.path = ['products', '123']
-    const path = Array.isArray(req.query.path) 
-      ? req.query.path.join('/') 
-      : req.query.path || '';
     
-    // Si path est vide, c'est une erreur (on devrait avoir au moins 'products')
+    // Utiliser pathFromQuery si disponible, sinon pathFromUrl extrait au début
+    let path = '';
+    if (pathFromQuery) {
+      path = Array.isArray(pathFromQuery) 
+        ? pathFromQuery.join('/') 
+        : pathFromQuery;
+    } else if (pathFromUrl) {
+      path = pathFromUrl;
+    }
+    
+    // Si path est toujours vide, c'est une erreur
     if (!path) {
-      console.error('[Proxy WooCommerce] ❌ ERREUR: req.query.path est vide!', {
+      console.error('[Proxy WooCommerce] ❌ ERREUR: Impossible d\'extraire le chemin!', {
         query: req.query,
         url: req.url,
+        pathFromQuery: req.query.path,
+        pathFromUrl,
       });
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Access-Control-Allow-Origin', '*');
@@ -75,7 +101,7 @@ export default async function handler(req, res) {
         diagnostic: {
           query: req.query,
           url: req.url,
-          hint: 'Vérifiez que vous appelez /api/woocommerce/products et non /api/woocommerce/'
+          hint: 'Vérifiez que vous appelez /api/woocommerce/products et que le fichier est bien nommé [...path].js'
         },
         data: []
       });
@@ -85,7 +111,8 @@ export default async function handler(req, res) {
     
     console.log('[Proxy WooCommerce] Chemin construit:', {
       pathFromQuery: req.query.path,
-      pathJoined: path,
+      pathFromUrl,
+      pathFinal: path,
       wooPath,
       url: req.url,
     });
