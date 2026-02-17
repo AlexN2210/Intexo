@@ -34,17 +34,17 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-  // Récupération des variables d'environnement
-  const wpBaseUrl = process.env.VITE_WP_BASE_URL || process.env.WP_BASE_URL;
-  const consumerKey = process.env.VITE_WC_CONSUMER_KEY || process.env.WC_CONSUMER_KEY;
-  const consumerSecret = process.env.VITE_WC_CONSUMER_SECRET || process.env.WC_CONSUMER_SECRET;
+  // Récupération des variables d'environnement (sans préfixe VITE_ pour le serveur)
+  const wp = process.env.WP_BASE_URL;
+  const ck = process.env.WC_CONSUMER_KEY;
+  const cs = process.env.WC_CONSUMER_SECRET;
 
   // Vérification de la configuration
-  if (!wpBaseUrl || !consumerKey || !consumerSecret) {
+  if (!wp || !ck || !cs) {
     console.error('Configuration WooCommerce manquante:', {
-      wpBaseUrl: !!wpBaseUrl,
-      consumerKey: !!consumerKey,
-      consumerSecret: !!consumerSecret,
+      wp: !!wp,
+      ck: !!ck,
+      cs: !!cs,
     });
     return res.status(500).json({ 
       error: 'Configuration WooCommerce manquante',
@@ -67,33 +67,32 @@ export default async function handler(req, res) {
       wooPath,
     });
     
-    // Construction de l'URL complète
-    const baseUrl = wpBaseUrl.replace(/\/+$/, ''); // Retire les slashes finaux
-    const url = new URL(wooPath, baseUrl);
-    
-    console.log('[Proxy WooCommerce] URL WooCommerce:', url.toString());
-    
-    // Ajout des paramètres de requête (sauf 'path' qui est pour le routing)
+    // Construction de la query string (sauf 'path' qui est pour le routing)
+    const queryParams = new URLSearchParams();
     Object.entries(req.query).forEach(([key, value]) => {
       if (key !== 'path' && value !== undefined) {
         if (Array.isArray(value)) {
-          value.forEach(v => url.searchParams.append(key, String(v)));
+          value.forEach(v => queryParams.append(key, String(v)));
         } else {
-          url.searchParams.set(key, String(value));
+          queryParams.set(key, String(value));
         }
       }
     });
+    const queryString = queryParams.toString();
+    
+    // Construction de l'URL WooCommerce
+    const url = `${wp}${wooPath}${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('[Proxy WooCommerce] URL WooCommerce:', url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
     
     // Préparation de l'authentification Basic Auth
-    // Basic Auth: base64(consumer_key:consumer_secret)
-    const credentials = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
-    const authHeader = `Basic ${credentials}`;
+    const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64');
 
     // Préparation des headers pour la requête vers WooCommerce avec Basic Auth
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'Authorization': authHeader,
+      'Authorization': auth,
     };
 
     // Copie des headers pertinents de la requête client (optionnel)
@@ -121,10 +120,10 @@ export default async function handler(req, res) {
     }
 
     // Exécution de la requête vers WooCommerce avec Basic Auth
-    console.log('[Proxy WooCommerce] Envoi de la requête vers:', url.toString());
+    console.log('[Proxy WooCommerce] Envoi de la requête vers:', url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
     console.log('[Proxy WooCommerce] Authentification: Basic Auth (credentials masquées)');
     
-    const wooResponse = await fetch(url.toString(), fetchOptions);
+    const wooResponse = await fetch(url, fetchOptions);
     
     const contentType = wooResponse.headers.get('content-type') || '';
     const isJson = contentType.includes('application/json');
@@ -175,8 +174,8 @@ export default async function handler(req, res) {
       // Si c'est une erreur 404, c'est probablement que l'URL est incorrecte
       if (wooResponse.status === 404) {
         console.error('[Proxy WooCommerce] ❌ Erreur 404 - URL probablement incorrecte');
-        console.error('[Proxy WooCommerce] URL testée:', url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
-        console.error('[Proxy WooCommerce] Base URL:', wpBaseUrl);
+        console.error('[Proxy WooCommerce] URL testée:', url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
+        console.error('[Proxy WooCommerce] Base URL:', wp);
         console.error('[Proxy WooCommerce] Chemin WooCommerce:', wooPath);
       }
       
@@ -218,7 +217,7 @@ export default async function handler(req, res) {
         contentType,
         isHtml,
         preview,
-        url: url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
+        url: url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
       });
       
       // Messages d'erreur plus spécifiques selon le status
@@ -237,8 +236,8 @@ export default async function handler(req, res) {
         contentType,
         preview: typeof data === 'string' ? data.substring(0, 200) : 'Réponse inattendue',
         diagnostic: {
-          url: url.toString().replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
-          baseUrl: wpBaseUrl,
+          url: url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
+          baseUrl: wp,
           wooPath,
           isHtml,
         },
