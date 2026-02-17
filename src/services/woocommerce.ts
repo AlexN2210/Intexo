@@ -20,7 +20,17 @@ function buildWooUrl(path: string, params: QueryParams = {}) {
   if (env.useProxy && !env.useMocks && !proxyFailed) {
     // Le proxy gère l'authentification côté serveur
     const proxyBase = env.proxyUrl;
-    const url = new URL(`${proxyBase}/${path.replace(/^\/wp-json\/wc\/v3\//, "")}`, window.location.origin);
+    
+    // Si l'URL du proxy est complète (commence par http:// ou https://), l'utiliser directement
+    // Sinon, utiliser window.location.origin pour un chemin relatif
+    let proxyUrl: string;
+    if (proxyBase.startsWith('http://') || proxyBase.startsWith('https://')) {
+      proxyUrl = `${proxyBase}/${path.replace(/^\/wp-json\/wc\/v3\//, "")}`;
+    } else {
+      proxyUrl = new URL(`${proxyBase}/${path.replace(/^\/wp-json\/wc\/v3\//, "")}`, window.location.origin).toString();
+    }
+    
+    const url = new URL(proxyUrl);
     const sp = toSearchParams(params);
     url.search = sp.toString();
     return url.toString();
