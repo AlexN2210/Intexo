@@ -446,9 +446,61 @@ export default function Product() {
   );
 
   const selectedMaterial = useMemo(() => {
-    const fromVariation = (matchedVariation ?? fallbackVariationForModel)?.attributes?.find((a) => /mat[ée]riau|material/i.test(a.name))?.option;
-    return fromVariation ?? materials[0];
-  }, [matchedVariation, fallbackVariationForModel, materials]);
+    // Fonction helper pour trouver le matériau dans les attributs (avec plusieurs patterns possibles)
+    const findMaterialInAttributes = (attrs: typeof variations[0]['attributes']) => {
+      if (!attrs) return null;
+      
+      // Essayer plusieurs noms possibles pour l'attribut matériau
+      const materialPatterns = ["Matériau", "Material", "matériau", "material", "Matériaux", "Materials"];
+      
+      for (const pattern of materialPatterns) {
+        const attr = attrs.find((a) => norm(a.name) === norm(pattern));
+        if (attr?.option) return attr.option;
+      }
+      
+      // Fallback : chercher avec regex
+      const attr = attrs.find((a) => /mat[ée]riau|material/i.test(a.name));
+      return attr?.option || null;
+    };
+    
+    // 1. Essayer de récupérer depuis la variation correspondante
+    if (matchedVariation) {
+      const materialFromVariation = findMaterialInAttributes(matchedVariation.attributes);
+      if (materialFromVariation) {
+        console.log(`[Product ${product?.id}] Matériau trouvé dans matchedVariation: ${materialFromVariation}`);
+        return materialFromVariation;
+      }
+    }
+    
+    // 2. Essayer depuis la variation fallback
+    if (fallbackVariationForModel) {
+      const materialFromFallback = findMaterialInAttributes(fallbackVariationForModel.attributes);
+      if (materialFromFallback) {
+        console.log(`[Product ${product?.id}] Matériau trouvé dans fallbackVariation: ${materialFromFallback}`);
+        return materialFromFallback;
+      }
+    }
+    
+    // 3. Essayer depuis les attributs du produit parent
+    if (materials.length > 0) {
+      console.log(`[Product ${product?.id}] Matériau depuis produit parent: ${materials[0]}`);
+      return materials[0];
+    }
+    
+    // 4. Essayer de récupérer depuis toutes les variations disponibles
+    if (variations.length > 0) {
+      for (const v of variations) {
+        const material = findMaterialInAttributes(v.attributes);
+        if (material) {
+          console.log(`[Product ${product?.id}] Matériau trouvé dans variations: ${material}`);
+          return material;
+        }
+      }
+    }
+    
+    console.warn(`[Product ${product?.id}] ⚠️ Aucun matériau trouvé`);
+    return undefined;
+  }, [matchedVariation, fallbackVariationForModel, materials, variations, product?.id]);
 
   const mentionsMagSafe = useMemo(() => {
     const blob = `${product?.name ?? ""} ${product?.short_description ?? ""} ${product?.description ?? ""}`;
