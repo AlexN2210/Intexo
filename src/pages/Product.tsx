@@ -245,6 +245,33 @@ export default function Product() {
     return hasVariations ? allowedColorsForSelectedModel : colors;
   }, [hasVariations, allowedColorsForSelectedModel, colors]);
 
+  const selected = useMemo(() => {
+    return { 
+      model: model || models[0], 
+      color: color || undefined,
+      series: series || undefined
+    };
+  }, [model, color, series, models]);
+
+  // Filtrer les variations selon le modèle et la couleur sélectionnés
+  const filteredVariationsByModelAndColor = useMemo(() => {
+    if (!hasVariations || !selected.model || !selected.color) return [];
+    
+    // 1. Filtrer selon le modèle choisi
+    const filteredByModel = variations.filter((v) => {
+      const modele = getAttr(v, "Modèle");
+      return modele === selected.model;
+    });
+    
+    // 2. Filtrer selon la couleur choisie
+    const filteredByColor = filteredByModel.filter((v) => {
+      const couleur = getAttr(v, "Couleur");
+      return couleur === selected.color;
+    });
+    
+    return filteredByColor;
+  }, [hasVariations, variations, selected.model, selected.color]);
+
   const preferredModel = searchParams.get("model") ?? "";
   const preferredColor = searchParams.get("color") ?? "";
   const preferredSeries = searchParams.get("series") ?? "";
@@ -253,11 +280,32 @@ export default function Product() {
   useEffect(() => {
     if (!product) return;
     
-    // Initialiser la série si plusieurs séries sont disponibles
-    if (hasVariations && availableSeries.length > 0 && !series) {
-      const preferredSeriesValue = preferredSeries && availableSeries.find(s => s.value === preferredSeries)?.value;
-      const initialSeriesValue = preferredSeriesValue || availableSeries[0]?.value || "";
-      if (initialSeriesValue && initialSeriesValue !== series) setSeries(initialSeriesValue);
+    // Initialiser la série si plusieurs variations sont disponibles pour le modèle et couleur sélectionnés
+    // On attend que le modèle et la couleur soient définis avant d'initialiser la série
+    if (hasVariations && filteredVariationsByModelAndColor.length > 1 && !series) {
+      const firstVariation = filteredVariationsByModelAndColor[0];
+      if (firstVariation) {
+        const sku = firstVariation.sku;
+        const seriesValue = sku ? extractSeriesFromSku(sku) : getAttr(firstVariation, "Référence");
+        if (seriesValue) {
+          // Vérifier si la série préférée existe dans les variations filtrées
+          const preferredVariation = preferredSeries 
+            ? filteredVariationsByModelAndColor.find((v) => {
+                const vSku = v.sku;
+                const vSeries = vSku ? extractSeriesFromSku(vSku) : getAttr(v, "Référence");
+                return vSeries === preferredSeries;
+              })
+            : null;
+          
+          const initialSeriesValue = preferredVariation 
+            ? (preferredVariation.sku ? extractSeriesFromSku(preferredVariation.sku) : getAttr(preferredVariation, "Référence"))
+            : seriesValue;
+          
+          if (initialSeriesValue && initialSeriesValue !== series) {
+            setSeries(initialSeriesValue);
+          }
+        }
+      }
     }
     
     const initialModel =
@@ -270,7 +318,7 @@ export default function Product() {
       preferred || color || allowedForModel[0] || colors[0] || "";
     if (initialColor && initialColor !== color) setColor(initialColor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor, preferredSeries, availableSeries]);
+  }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor, preferredSeries, filteredVariationsByModelAndColor]);
 
   // Si la couleur courante n’est pas disponible pour le modèle courant, on prend la première couleur disponible.
   useEffect(() => {
@@ -283,14 +331,6 @@ export default function Product() {
       setColor(allowed[0]);
     }
   }, [hasVariations, model, models, availableColorsByModel, color]);
-
-  const selected = useMemo(() => {
-    return { 
-      model: model || models[0], 
-      color: color || undefined,
-      series: series || undefined
-    };
-  }, [model, color, series, models]);
 
   const matchedVariation = useMemo(() => {
     if (!hasVariations) return undefined;
@@ -661,40 +701,32 @@ export default function Product() {
                   </div>
                 </div>
 
-                {/* Sélecteur de série (si plusieurs séries disponibles) */}
-                {hasVariations && availableSeries.length > 1 && (
+                {/* Sélecteur de série/design (affiche uniquement les variations correspondant au modèle et couleur sélectionnés) */}
+                {hasVariations && filteredVariationsByModelAndColor.length > 1 && (
                   <div className="space-y-2">
                     <div className="text-xs font-medium text-muted-foreground">Série / Design</div>
                     <Select
                       value={series}
                       onValueChange={(next) => {
-                        setSeries(next);
+                        // next est maintenant l'ID de la variation ou la série extraite
+                        // Extraire la série depuis la variation sélectionnée
+                        const selectedVariation = filteredVariationsByModelAndColor.find(
+                          (v) => {
+                            const sku = v.sku;
+                            if (sku) return extractSeriesFromSku(sku) === next;
+                            const ref = getAttr(v, "Référence");
+                            return ref && extractSeriesFromSku(ref) === next;
+                          }
+                        );
                         
-                        // Calculer les couleurs disponibles pour la nouvelle série immédiatement
-                        // (availableColorsByModel n'est pas encore recalculé à ce moment)
-                        const varsForNewSeries = variations.filter((v) => {
-                          const sku = v.sku;
-                          if (sku) return extractSeriesFromSku(sku) === next;
-                          const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-                          return ref && extractSeriesFromSku(ref) === next;
-                        });
-                        
-                        const currentModel = model || models[0] || "";
-                        const colorsForModel = varsForNewSeries
-                          .filter((v) => {
-                            const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
-                            return m && norm(m) === norm(currentModel);
-                          })
-                          .map((v) => v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option)
-                          .filter(Boolean) as string[];
-                        
-                        // Dédupliquer les couleurs
-                        const uniqueColors = Array.from(new Set(colorsForModel));
-                        
-                        // Garder la couleur si disponible dans la nouvelle série, sinon prendre la première
-                        const kept = uniqueColors.find((c) => norm(c) === norm(color));
-                        if (!kept && uniqueColors.length > 0) {
-                          setColor(uniqueColors[0]);
+                        if (selectedVariation) {
+                          const sku = selectedVariation.sku;
+                          const seriesValue = sku ? extractSeriesFromSku(sku) : getAttr(selectedVariation, "Référence");
+                          if (seriesValue) {
+                            setSeries(seriesValue);
+                          }
+                        } else {
+                          setSeries(next);
                         }
                       }}
                     >
@@ -702,11 +734,26 @@ export default function Product() {
                         <SelectValue placeholder="Choisir une série" />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableSeries.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>
-                            {s.label}
-                          </SelectItem>
-                        ))}
+                        {filteredVariationsByModelAndColor.map((v) => {
+                          const modele = getAttr(v, "Modèle");
+                          const couleur = getAttr(v, "Couleur");
+                          const reference = getAttr(v, "Référence");
+                          const sku = v.sku;
+                          const seriesValue = sku ? extractSeriesFromSku(sku) : reference || "";
+                          
+                          // Construire le label : "iPhone 17 — Argent (JOJO1015-24)"
+                          const labelParts = [];
+                          if (modele) labelParts.push(modele);
+                          if (couleur) labelParts.push(couleur);
+                          if (reference) labelParts.push(`(${reference})`);
+                          const label = labelParts.length > 0 ? labelParts.join(" — ") : seriesValue;
+                          
+                          return (
+                            <SelectItem key={v.id} value={seriesValue}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
