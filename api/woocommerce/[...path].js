@@ -79,8 +79,14 @@ export default async function handler(req, res) {
     // Exemple: /api/woocommerce/products -> req.query["...path"] = ['products'] ou "products"
     // Exemple: /api/woocommerce/products/123 -> req.query["...path"] = ['products', '123']
     
-    // Utiliser pathFromQuery si disponible (déjà traité au début), sinon pathFromUrl extrait au début
-    const path = pathFromQuery || pathFromUrl;
+    // Extraire directement depuis req.query["...path"]
+    const rawPath = req.query["...path"];
+    let path = Array.isArray(rawPath) ? rawPath.join('/') : rawPath || '';
+    
+    // Si path est vide, utiliser pathFromUrl extrait au début (fallback)
+    if (!path && pathFromUrl) {
+      path = pathFromUrl;
+    }
     
     // Si path est toujours vide, c'est une erreur
     if (!path) {
