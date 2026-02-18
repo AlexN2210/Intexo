@@ -120,30 +120,63 @@ export default function Product() {
   const colors = useMemo(() => (product ? getAttributeOptions(product, "color") : []), [product]);
   const materials = useMemo(() => (product ? getAttributeOptions(product, "material") : []), [product]);
 
-  // Extraire toutes les séries disponibles depuis les SKU des variations
+  // Fonction helper pour récupérer un attribut depuis une variation
+  const getAttr = (variation: typeof variations[0], name: string): string | null => {
+    const attr = variation.attributes?.find((a) => norm(a.name) === norm(name));
+    return attr ? attr.option : null;
+  };
+
+  // Extraire toutes les séries disponibles avec leurs labels lisibles
   const availableSeries = useMemo(() => {
     if (!hasVariations) return [];
-    const seriesSet = new Set<string>();
+    const seriesMap = new Map<string, { value: string; label: string; firstVariation: typeof variations[0] | null }>();
+    
     variations.forEach((v) => {
       const sku = v.sku;
+      let seriesValue = "";
+      
       if (sku) {
-        const seriesValue = extractSeriesFromSku(sku);
-        if (seriesValue) {
-          seriesSet.add(seriesValue);
-        }
-      }
-      // Fallback : essayer d'extraire depuis la référence dans les attributs
-      if (!sku) {
+        seriesValue = extractSeriesFromSku(sku);
+      } else {
+        // Fallback : essayer d'extraire depuis la référence dans les attributs
         const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
         if (ref) {
-          const seriesValue = extractSeriesFromSku(ref);
-          if (seriesValue) {
-            seriesSet.add(seriesValue);
-          }
+          seriesValue = extractSeriesFromSku(ref);
         }
       }
+      
+      if (seriesValue && !seriesMap.has(seriesValue)) {
+        // Stocker la première variation de cette série pour construire le label
+        seriesMap.set(seriesValue, { value: seriesValue, label: "", firstVariation: v });
+      }
     });
-    return Array.from(seriesSet).sort();
+    
+    // Construire les labels pour chaque série
+    const seriesArray = Array.from(seriesMap.entries()).map(([value, data]) => {
+      const v = data.firstVariation;
+      if (!v) {
+        return { value, label: value };
+      }
+      
+      // Récupérer les attributs humains
+      const modele = getAttr(v, "Modèle");
+      const couleur = getAttr(v, "Couleur");
+      const reference = getAttr(v, "Référence") || value;
+      
+      // Construire le label : "iPhone 17 Pro Max — Violet (JOJO1015-24)"
+      const labelParts = [];
+      if (modele) labelParts.push(modele);
+      if (couleur) labelParts.push(couleur);
+      if (reference) labelParts.push(`(${reference})`);
+      
+      const label = labelParts.length > 0 
+        ? labelParts.join(" — ") 
+        : value; // Fallback sur la valeur brute si pas d'attributs
+      
+      return { value, label };
+    });
+    
+    return seriesArray.sort((a, b) => a.value.localeCompare(b.value));
   }, [hasVariations, variations]);
 
   // Filtrer les variations par série si une série est sélectionnée
@@ -222,8 +255,9 @@ export default function Product() {
     
     // Initialiser la série si plusieurs séries sont disponibles
     if (hasVariations && availableSeries.length > 0 && !series) {
-      const initialSeries = (preferredSeries && availableSeries.includes(preferredSeries) ? preferredSeries : "") || availableSeries[0] || "";
-      if (initialSeries && initialSeries !== series) setSeries(initialSeries);
+      const preferredSeriesValue = preferredSeries && availableSeries.find(s => s.value === preferredSeries)?.value;
+      const initialSeriesValue = preferredSeriesValue || availableSeries[0]?.value || "";
+      if (initialSeriesValue && initialSeriesValue !== series) setSeries(initialSeriesValue);
     }
     
     const initialModel =
@@ -669,8 +703,8 @@ export default function Product() {
                       </SelectTrigger>
                       <SelectContent>
                         {availableSeries.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
+                          <SelectItem key={s.value} value={s.value}>
+                            {s.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
