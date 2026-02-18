@@ -10,19 +10,19 @@
 export default async function handler(req, res) {
   // Wrapper try-catch global pour capturer toutes les erreurs
   try {
-    // Extraction du chemin depuis l'URL si req.query.path n'est pas disponible
-    // Pour Vercel, req.query.path devrait contenir le chemin pour [...path].js
-    // Mais si ce n'est pas le cas, on l'extrait depuis req.url
-    let pathFromQuery = req.query.path;
+    // Extraction du chemin depuis req.query["...path"] (format Vercel pour [...path].js)
+    // Vercel met les segments dynamiques dans req.query["...path"] et PAS req.query.path
+    const rawPath = req.query["...path"];
+    let pathFromQuery = Array.isArray(rawPath) ? rawPath.join('/') : rawPath || '';
     let pathFromUrl = '';
     
-    // Si req.query.path n'est pas disponible, extraire depuis l'URL
-    if (!pathFromQuery || (Array.isArray(pathFromQuery) && pathFromQuery.length === 0)) {
+    // Si req.query["...path"] n'est pas disponible, extraire depuis l'URL (fallback)
+    if (!pathFromQuery) {
       // Extraire le chemin depuis /api/woocommerce/...
       const urlMatch = req.url.match(/\/api\/woocommerce\/(.+?)(?:\?|$)/);
       if (urlMatch) {
         pathFromUrl = urlMatch[1];
-        console.log('[Proxy WooCommerce] ⚠️ req.query.path non disponible, extraction depuis URL:', pathFromUrl);
+        console.log('[Proxy WooCommerce] ⚠️ req.query["...path"] non disponible, extraction depuis URL:', pathFromUrl);
       }
     }
     
@@ -31,7 +31,8 @@ export default async function handler(req, res) {
       method: req.method,
       url: req.url,
       query: req.query,
-      pathFromQuery: req.query.path,
+      rawPath: req.query["...path"],
+      pathFromQuery,
       pathFromUrl,
       timestamp: new Date().toISOString(),
     });
@@ -74,26 +75,20 @@ export default async function handler(req, res) {
 
   try {
     // Construction du chemin WooCommerce
-    // Pour Vercel [...path].js, req.query.path devrait être un tableau
-    // Exemple: /api/woocommerce/products -> req.query.path = ['products']
-    // Exemple: /api/woocommerce/products/123 -> req.query.path = ['products', '123']
+    // Pour Vercel [...path].js, req.query["...path"] contient le chemin
+    // Exemple: /api/woocommerce/products -> req.query["...path"] = ['products'] ou "products"
+    // Exemple: /api/woocommerce/products/123 -> req.query["...path"] = ['products', '123']
     
-    // Utiliser pathFromQuery si disponible, sinon pathFromUrl extrait au début
-    let path = '';
-    if (pathFromQuery) {
-      path = Array.isArray(pathFromQuery) 
-        ? pathFromQuery.join('/') 
-        : pathFromQuery;
-    } else if (pathFromUrl) {
-      path = pathFromUrl;
-    }
+    // Utiliser pathFromQuery si disponible (déjà traité au début), sinon pathFromUrl extrait au début
+    const path = pathFromQuery || pathFromUrl;
     
     // Si path est toujours vide, c'est une erreur
     if (!path) {
       console.error('[Proxy WooCommerce] ❌ ERREUR: Impossible d\'extraire le chemin!', {
         query: req.query,
         url: req.url,
-        pathFromQuery: req.query.path,
+        rawPath: req.query["...path"],
+        pathFromQuery,
         pathFromUrl,
       });
       res.setHeader('Content-Type', 'application/json');
@@ -104,6 +99,7 @@ export default async function handler(req, res) {
         diagnostic: {
           query: req.query,
           url: req.url,
+          rawPath: req.query["...path"],
           hint: 'Vérifiez que vous appelez /api/woocommerce/products et que le fichier est bien nommé [...path].js'
         },
         data: []
@@ -113,17 +109,19 @@ export default async function handler(req, res) {
     const wooPath = `/wp-json/wc/v3/${path}`;
     
     console.log('[Proxy WooCommerce] Chemin construit:', {
-      pathFromQuery: req.query.path,
+      rawPath: req.query["...path"],
+      pathFromQuery,
       pathFromUrl,
       pathFinal: path,
       wooPath,
       url: req.url,
     });
     
-    // Construction de la query string (sauf 'path' et 'products' qui sont pour le routing)
+    // Construction de la query string (sauf '...path' et 'products' qui sont pour le routing)
     // Note: Vercel ajoute parfois 'products' comme clé fantôme dans req.query avec les routes dynamiques
+    // Note: Vercel utilise req.query["...path"] pour les routes catch-all [...path].js
     const queryParams = new URLSearchParams();
-    const reservedKeys = ['path', 'products']; // Clés réservées pour le routing Vercel
+    const reservedKeys = ['...path', 'path', 'products']; // Clés réservées pour le routing Vercel
     
     Object.entries(req.query).forEach(([key, value]) => {
       // Exclure les clés réservées ET les valeurs vides/undefined
