@@ -253,6 +253,44 @@ export async function getProductVariations(productId: number): Promise<WooVariat
   }
   
   try {
+    // Solution pour le bug WooCommerce : récupérer les IDs depuis le produit parent
+    // Le champ "variations" du produit contient toujours les IDs, même si /variations renvoie 404
+    console.log(`[WooCommerce] Récupération des variations pour le produit ${productId}`);
+    
+    // 1. Récupérer le produit parent pour obtenir les IDs des variations
+    const product = await wooFetch<WooProduct>(
+      `/wp-json/wc/v3/products/${productId}`,
+      {}
+    );
+    
+    // 2. Si le produit a des IDs de variations, les utiliser pour récupérer chaque variation individuellement
+    if (product?.variations && Array.isArray(product.variations) && product.variations.length > 0) {
+      console.log(`[WooCommerce] Produit ${productId} a ${product.variations.length} variations (IDs: ${product.variations.join(', ')})`);
+      
+      // Récupérer chaque variation individuellement (cet endpoint fonctionne toujours, même si /variations renvoie 404)
+      const variationPromises = product.variations.map(async (variationId) => {
+        try {
+          const variation = await wooFetch<WooVariation>(
+            `/wp-json/wc/v3/products/${productId}/variations/${variationId}`,
+            {}
+          );
+          return variation;
+        } catch (error) {
+          console.warn(`[WooCommerce] Impossible de récupérer la variation ${variationId} du produit ${productId}:`, error);
+          return null;
+        }
+      });
+      
+      const variations = await Promise.all(variationPromises);
+      const validVariations = variations.filter((v): v is WooVariation => v !== null);
+      
+      console.log(`[WooCommerce] ${validVariations.length}/${product.variations.length} variations récupérées avec succès`);
+      
+      return validVariations;
+    }
+    
+    // 3. Fallback : essayer l'endpoint /variations classique (peut renvoyer 404 ou vide)
+    console.log(`[WooCommerce] Aucun ID de variation trouvé dans le produit ${productId}, tentative avec /variations`);
     const variations = await wooFetch<WooVariation[]>(
       `/wp-json/wc/v3/products/${productId}/variations`,
       { status: "publish" }
