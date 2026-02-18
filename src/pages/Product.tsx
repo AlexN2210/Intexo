@@ -737,15 +737,13 @@ export default function Product() {
                         {filteredVariationsByModelAndColor.map((v) => {
                           const modele = getAttr(v, "Modèle");
                           const couleur = getAttr(v, "Couleur");
-                          const reference = getAttr(v, "Référence");
                           const sku = v.sku;
-                          const seriesValue = sku ? extractSeriesFromSku(sku) : reference || "";
+                          const seriesValue = sku ? extractSeriesFromSku(sku) : getAttr(v, "Référence") || "";
                           
-                          // Construire le label : "iPhone 17 — Argent (JOJO1015-24)"
+                          // Construire le label sans référence interne : "iPhone 17 — Argent"
                           const labelParts = [];
                           if (modele) labelParts.push(modele);
                           if (couleur) labelParts.push(couleur);
-                          if (reference) labelParts.push(`(${reference})`);
                           const label = labelParts.length > 0 ? labelParts.join(" — ") : seriesValue;
                           
                           return (
