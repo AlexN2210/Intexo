@@ -759,19 +759,6 @@ export default function Product() {
                   </div>
                 )}
 
-                {hasVariations ? (
-                  <div className="rounded-3xl border bg-card p-4 text-sm">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-muted-foreground">Variation</div>
-                      <div className="font-medium">
-                        {matchedVariation
-                          ? [selected.series, selected.model, selected.color, selectedMaterial].filter(Boolean).join(" • ")
-                          : "Sélectionner modèle/couleur"}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
                 <div className="rounded-3xl border bg-card p-5">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-medium text-muted-foreground">Quantité</div>
