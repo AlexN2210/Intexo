@@ -459,6 +459,19 @@ export default function Product() {
       "impexo-pc-tpu": "PC + TPU", // Renforcée PC + TPU
     };
     
+    // Mapping basé sur le nom du produit (pour fallback si le slug ne correspond pas)
+    const materialMappingByName: Record<string, string> = {
+      "protection caméra": "TPU",
+      "transparente premium": "TPU",
+      "luxury transparente": "TPU",
+      "magnétique": "PC",
+      "luxury metal": "PC",
+      "texture antidérapante": "TPU",
+      "effet cuir": "TPU",
+      "renforcée pc": "PC + TPU",
+      "pc + tpu": "PC + TPU",
+    };
+    
     // Mapping spécifique par référence (pour les cas particuliers)
     const materialByReference: Record<string, string> = {
       "JOJO1015-13": "PC", // impexo-camera-protection avec PC
@@ -496,6 +509,9 @@ export default function Product() {
     
     // Fonction helper pour obtenir le matériau depuis le mapping basé sur le SKU/référence
     const getMaterialFromMapping = (variation: typeof variations[0]): string | null => {
+      // Log pour debug
+      console.log(`[Product ${product?.id}] 🔍 Recherche matériau - Référence: "${getAttr(variation, "Référence")}", Slug produit: "${product?.slug}", Nom: "${product?.name}"`);
+      
       // 1. Essayer avec la référence de la variation
       const ref = getAttr(variation, "Référence");
       if (ref && materialByReference[ref]) {
@@ -505,10 +521,40 @@ export default function Product() {
       
       // 2. Essayer avec le SKU du produit parent (slug)
       if (product?.slug) {
-        const materialFromSlug = materialMapping[product.slug];
-        if (materialFromSlug) {
+        // Essayer avec le slug exact
+        let materialFromSlug = materialMapping[product.slug];
+        
+        // Si pas trouvé, essayer avec des variations du slug
+        if (!materialFromSlug) {
+          // Essayer avec le slug sans préfixe "coque-" ou autres variations
+          const slugVariations = [
+            product.slug,
+            product.slug.replace(/^coque-/, ''),
+            product.slug.replace(/^-/, ''),
+            product.slug.replace(/^impexo-/, ''), // Enlever préfixe impexo-
+          ];
+          
+          for (const slugVar of slugVariations) {
+            materialFromSlug = materialMapping[slugVar];
+            if (materialFromSlug) {
+              console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping slug variation "${slugVar}": ${materialFromSlug}`);
+              return materialFromSlug;
+            }
+          }
+        } else {
           console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping slug "${product.slug}": ${materialFromSlug}`);
           return materialFromSlug;
+        }
+      }
+      
+      // 3. Essayer avec le nom du produit (fallback)
+      if (product?.name) {
+        const productNameLower = product.name.toLowerCase();
+        for (const [key, material] of Object.entries(materialMappingByName)) {
+          if (productNameLower.includes(key)) {
+            console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping nom "${key}": ${material}`);
+            return material;
+          }
         }
       }
       
@@ -591,12 +637,46 @@ export default function Product() {
     }
     
     // 5. Fallback : utiliser le mapping basé sur le slug du produit parent
-    if (product?.slug && materialMapping[product.slug]) {
-      console.log(`[Product ${product?.id}] ✅ Matériau depuis mapping slug (fallback): ${materialMapping[product.slug]}`);
-      return materialMapping[product.slug];
+    if (product?.slug) {
+      // Essayer avec le slug exact
+      let materialFromSlug = materialMapping[product.slug];
+      
+      // Si pas trouvé, essayer avec des variations du slug
+      if (!materialFromSlug) {
+        const slugVariations = [
+          product.slug,
+          product.slug.replace(/^coque-/, ''),
+          product.slug.replace(/^-/, ''),
+        ];
+        
+        for (const slugVar of slugVariations) {
+          materialFromSlug = materialMapping[slugVar];
+          if (materialFromSlug) {
+            console.log(`[Product ${product?.id}] ✅ Matériau depuis mapping slug (fallback) "${slugVar}": ${materialFromSlug}`);
+            return materialFromSlug;
+          }
+        }
+      } else {
+        console.log(`[Product ${product?.id}] ✅ Matériau depuis mapping slug (fallback): ${materialFromSlug}`);
+        return materialFromSlug;
+      }
+    }
+    
+    // 6. Fallback final : utiliser le mapping basé sur le nom du produit
+    if (product?.name) {
+      const productNameLower = product.name.toLowerCase();
+      for (const [key, material] of Object.entries(materialMappingByName)) {
+        if (productNameLower.includes(key)) {
+          console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping nom (fallback final) "${key}": ${material}`);
+          return material;
+        }
+      }
     }
     
     console.warn(`[Product ${product?.id}] ⚠️ Aucun matériau trouvé après toutes les tentatives`);
+    console.warn(`[Product ${product?.id}] ⚠️ Slug du produit: "${product?.slug}"`);
+    console.warn(`[Product ${product?.id}] ⚠️ Nom du produit: "${product?.name}"`);
+    console.warn(`[Product ${product?.id}] ⚠️ Clés disponibles dans mapping slug:`, Object.keys(materialMapping));
     return undefined;
   }, [matchedVariation, fallbackVariationForModel, materials, variations, product?.id, product?.slug]);
 
