@@ -447,60 +447,85 @@ export default function Product() {
 
   const selectedMaterial = useMemo(() => {
     // Fonction helper pour trouver le matériau dans les attributs (avec plusieurs patterns possibles)
-    const findMaterialInAttributes = (attrs: typeof variations[0]['attributes']) => {
-      if (!attrs) return null;
+    const findMaterialInAttributes = (attrs: typeof variations[0]['attributes'], source: string) => {
+      if (!attrs) {
+        console.log(`[Product ${product?.id}] 🔍 ${source}: Pas d'attributs disponibles`);
+        return null;
+      }
+      
+      // Log tous les attributs disponibles pour debug
+      console.log(`[Product ${product?.id}] 🔍 ${source} - Attributs disponibles:`, attrs.map(a => `${a.name}: ${a.option}`));
       
       // Essayer plusieurs noms possibles pour l'attribut matériau
-      const materialPatterns = ["Matériau", "Material", "matériau", "material", "Matériaux", "Materials"];
+      const materialPatterns = ["Matériau", "Material", "matériau", "material", "Matériaux", "Materials", "pa_material", "pa_matériau"];
       
       for (const pattern of materialPatterns) {
         const attr = attrs.find((a) => norm(a.name) === norm(pattern));
-        if (attr?.option) return attr.option;
+        if (attr?.option) {
+          console.log(`[Product ${product?.id}] ✅ Matériau trouvé avec pattern "${pattern}": ${attr.option}`);
+          return attr.option;
+        }
       }
       
-      // Fallback : chercher avec regex
+      // Fallback : chercher avec regex (plus permissif)
       const attr = attrs.find((a) => /mat[ée]riau|material/i.test(a.name));
-      return attr?.option || null;
+      if (attr?.option) {
+        console.log(`[Product ${product?.id}] ✅ Matériau trouvé avec regex: ${attr.option}`);
+        return attr.option;
+      }
+      
+      console.log(`[Product ${product?.id}] ❌ ${source}: Aucun matériau trouvé dans les attributs`);
+      return null;
     };
+    
+    // Log les matériaux du produit parent
+    console.log(`[Product ${product?.id}] 🔍 Matériaux du produit parent (getAttributeOptions):`, materials);
+    console.log(`[Product ${product?.id}] 🔍 Attributs du produit parent (raw):`, product?.attributes);
+    console.log(`[Product ${product?.id}] 🔍 Attributs du produit parent (formatted):`, product?.attributes?.map(a => `${a.name} (slug: ${a.slug}): [${a.options?.join(', ')}]`));
+    
+    // Vérifier aussi dans la description/short_description au cas où
+    const descriptionText = `${product?.description || ''} ${product?.short_description || ''}`;
+    const materialInDescription = descriptionText.match(/(TPU|PC\s*\+\s*TPU|silicone|Silicone|PC)/i);
+    if (materialInDescription) {
+      console.log(`[Product ${product?.id}] 🔍 Matériau trouvé dans la description: ${materialInDescription[0]}`);
+    }
     
     // 1. Essayer de récupérer depuis la variation correspondante
     if (matchedVariation) {
-      const materialFromVariation = findMaterialInAttributes(matchedVariation.attributes);
+      const materialFromVariation = findMaterialInAttributes(matchedVariation.attributes, "matchedVariation");
       if (materialFromVariation) {
-        console.log(`[Product ${product?.id}] Matériau trouvé dans matchedVariation: ${materialFromVariation}`);
         return materialFromVariation;
       }
     }
     
     // 2. Essayer depuis la variation fallback
     if (fallbackVariationForModel) {
-      const materialFromFallback = findMaterialInAttributes(fallbackVariationForModel.attributes);
+      const materialFromFallback = findMaterialInAttributes(fallbackVariationForModel.attributes, "fallbackVariation");
       if (materialFromFallback) {
-        console.log(`[Product ${product?.id}] Matériau trouvé dans fallbackVariation: ${materialFromFallback}`);
         return materialFromFallback;
       }
     }
     
     // 3. Essayer depuis les attributs du produit parent
     if (materials.length > 0) {
-      console.log(`[Product ${product?.id}] Matériau depuis produit parent: ${materials[0]}`);
+      console.log(`[Product ${product?.id}] ✅ Matériau depuis produit parent: ${materials[0]}`);
       return materials[0];
     }
     
     // 4. Essayer de récupérer depuis toutes les variations disponibles
     if (variations.length > 0) {
+      console.log(`[Product ${product?.id}] 🔍 Recherche dans ${variations.length} variations...`);
       for (const v of variations) {
-        const material = findMaterialInAttributes(v.attributes);
+        const material = findMaterialInAttributes(v.attributes, `variation ${v.id}`);
         if (material) {
-          console.log(`[Product ${product?.id}] Matériau trouvé dans variations: ${material}`);
           return material;
         }
       }
     }
     
-    console.warn(`[Product ${product?.id}] ⚠️ Aucun matériau trouvé`);
+    console.warn(`[Product ${product?.id}] ⚠️ Aucun matériau trouvé après toutes les tentatives`);
     return undefined;
-  }, [matchedVariation, fallbackVariationForModel, materials, variations, product?.id]);
+  }, [matchedVariation, fallbackVariationForModel, materials, variations, product?.id, product?.attributes]);
 
   const mentionsMagSafe = useMemo(() => {
     const blob = `${product?.name ?? ""} ${product?.short_description ?? ""} ${product?.description ?? ""}`;
