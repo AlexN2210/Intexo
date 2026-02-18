@@ -19,6 +19,7 @@ export default function Product() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const addItem = useCartStore((s) => s.addItem);
+  const isLoading = useCartStore((s) => s.isLoading);
 
   const [qty, setQty] = useState(1);
   const [model, setModel] = useState<string>("");
@@ -748,24 +749,32 @@ export default function Product() {
       });
       return;
     }
-    addItem({
-      productId: product.id,
-      variationId: matchedVariation?.id,
-      name: product.name,
-      slug: product.slug,
-      imageSrc: matchedVariation?.image?.src ?? heroImage,
-      price: matchedVariation?.price ?? product.price ?? product.regular_price,
-      options: {
-        model: selected.model,
-        color: selected.color,
-        material: selectedMaterial,
-      },
-      quantity: qty,
-    });
-    toast({
-      title: "Ajouté au panier",
-      description: `${product.name}${selected.model ? ` — ${selected.model}` : ""}${selected.color ? ` — ${selected.color}` : ""}`,
-    });
+    try {
+      await addItem({
+        productId: product.id,
+        variationId: matchedVariation?.id,
+        name: product.name,
+        slug: product.slug,
+        imageSrc: matchedVariation?.image?.src ?? heroImage,
+        price: matchedVariation?.price ?? product.price ?? product.regular_price,
+        options: {
+          model: selected.model,
+          color: selected.color,
+          material: selectedMaterial,
+        },
+        quantity: qty,
+      });
+      toast({
+        title: "Ajouté au panier",
+        description: `${product.name}${selected.model ? ` — ${selected.model}` : ""}${selected.color ? ` — ${selected.color}` : ""}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible d'ajouter au panier",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

@@ -60,13 +60,13 @@ export default async function handler(req, res) {
           hint: 'Vérifiez que vous appelez /api/woocommerce/products et que le fichier est bien nommé [...path].js',
         },
         data: [],
-      });
+      }, req);
     }
 
     // ==========================================
     // 3. GESTION CORS ET MÉTHODES HTTP
     // ==========================================
-    setCorsHeaders(res);
+    setCorsHeaders(res, req);
 
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     const allowedMethods = ['GET', 'POST', 'PUT', 'DELETE'];
     if (!allowedMethods.includes(req.method)) {
       log('Méthode non autorisée:', req.method);
-      return sendJson(res, 405, { error: 'Method not allowed' });
+      return sendJson(res, 405, { error: 'Method not allowed' }, req);
     }
 
     // ==========================================
@@ -96,7 +96,19 @@ export default async function handler(req, res) {
     // ==========================================
     // 5. CONSTRUCTION DE L'URL WOOCOMMERCE
     // ==========================================
-    const wooPath = `/wp-json/wc/v3/${path}`;
+    // Déterminer le namespace WooCommerce selon le chemin
+    // wc/store/v1 pour l'API Store Cart, wc/v3 pour l'API REST classique
+    let wooPath = '';
+    if (path.startsWith('store/v1/')) {
+      // API Store Cart (wc/store/v1) - ne nécessite pas d'authentification
+      // CORRECTION : Ajouter le préfixe 'wc/' manquant
+      wooPath = `/wp-json/wc/${path}`;
+      log('Utilisation de l\'API Store Cart (wc/store/v1)');
+    } else {
+      // API REST classique (wc/v3) - nécessite l'authentification
+      wooPath = `/wp-json/wc/v3/${path}`;
+      log('Utilisation de l\'API REST classique (wc/v3)');
+    }
 
     // Construction de la query string
     // On exclut uniquement les clés de routing Vercel ("...path")
@@ -122,13 +134,45 @@ export default async function handler(req, res) {
     // ==========================================
     // 6. PRÉPARATION DE LA REQUÊTE
     // ==========================================
-    const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64');
-
+    // L'API Store Cart (wc/store/v1) ne nécessite pas d'authentification
+    // L'API REST classique (wc/v3) nécessite l'authentification
+    const isStoreCart = path.startsWith('store/v1/');
+    
     const headers = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      Authorization: auth,
     };
+    
+    // Ajouter l'authentification seulement pour l'API REST classique
+    if (!isStoreCart) {
+      const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64');
+      headers.Authorization = auth;
+      log('Authentification Basic Auth ajoutée pour l\'API REST classique');
+    } else {
+      log('Pas d\'authentification nécessaire pour l\'API Store Cart');
+    }
+
+    // CRITIQUE : Transmettre les cookies pour l'API Store Cart
+    // Le cookie woocommerce_session identifie le panier
+    // Vérifier les deux cas possibles (minuscule et majuscule)
+    const cookieHeader = req.headers.cookie || req.headers['Cookie'] || req.headers['cookie'];
+    if (isStoreCart && cookieHeader) {
+      headers.Cookie = cookieHeader;
+      log('Cookies transmis pour l\'API Store Cart:', cookieHeader.substring(0, 50) + '...');
+    } else if (isStoreCart) {
+      log('⚠️ Aucun cookie trouvé pour l\'API Store Cart - un nouveau panier sera créé');
+    }
+
+    // CRITIQUE : Transmettre le header Nonce pour les opérations d'écriture Store Cart
+    // Le nonce est requis pour POST/PUT/DELETE sur l'API Store Cart
+    // Vérifier les deux cas possibles (minuscule et majuscule)
+    const nonceHeader = req.headers.nonce || req.headers['Nonce'] || req.headers['nonce'];
+    if (isStoreCart && nonceHeader && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
+      headers.Nonce = nonceHeader;
+      log('Nonce transmis pour l\'API Store Cart:', nonceHeader.substring(0, 10) + '...');
+    } else if (isStoreCart && ['POST', 'PUT', 'DELETE'].includes(req.method) && !nonceHeader) {
+      log('⚠️ Aucun nonce fourni pour l\'opération d\'écriture Store Cart - risque de 403');
+    }
 
     // Forward de quelques headers clients non-sensibles
     ['user-agent', 'accept-language'].forEach(h => {
@@ -148,7 +192,8 @@ export default async function handler(req, res) {
       signal: controller.signal,
     };
 
-    if ((req.method === 'POST' || req.method === 'PUT') && req.body) {
+    // Ajouter le body pour POST, PUT et DELETE (DELETE peut avoir un body pour l'API Store Cart)
+    if ((req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') && req.body) {
       fetchOptions.body =
         typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     }
@@ -167,7 +212,7 @@ export default async function handler(req, res) {
           error: 'Timeout WooCommerce',
           message: 'WooCommerce n\'a pas répondu dans les 8 secondes',
           data: [],
-        });
+        }, req);
       }
       throw fetchError; // relancé vers le catch global
     } finally {
@@ -188,10 +233,31 @@ export default async function handler(req, res) {
     // ==========================================
 
     // Copie des headers utiles de WooCommerce
-    ['cache-control', 'x-total', 'x-total-pages'].forEach(h => {
+    // CORRECTION : Ajouter 'Nonce' à la liste des headers copiés
+    ['cache-control', 'x-total', 'x-total-pages', 'Nonce'].forEach(h => {
       const v = wooResponse.headers.get(h);
-      if (v) res.setHeader(h, v);
+      if (v) {
+        res.setHeader(h, v);
+        if (h === 'Nonce') {
+          log('Nonce retourné au client:', v.substring(0, 10) + '...');
+        }
+      }
     });
+
+    // CRITIQUE : Transmettre les cookies Set-Cookie de WooCommerce vers le client
+    // Le cookie woocommerce_session doit être transmis pour maintenir la session
+    // CORRECTION : Utiliser headers.forEach() pour compatibilité avec fetch natif Node.js 18+
+    // headers.raw() n'existe pas sur fetch natif, et get() concatène les cookies avec des virgules
+    const setCookies = [];
+    wooResponse.headers.forEach((value, key) => {
+      if (key.toLowerCase() === 'set-cookie') {
+        setCookies.push(value);
+      }
+    });
+    if (setCookies.length > 0) {
+      res.setHeader('Set-Cookie', setCookies);
+      log(`Set-Cookie transmis (${setCookies.length} cookie(s))`);
+    }
 
     if (isJson) {
       const data = await wooResponse.json();
@@ -208,7 +274,7 @@ export default async function handler(req, res) {
         });
       }
 
-      return sendJson(res, wooResponse.status, data);
+      return sendJson(res, wooResponse.status, data, req);
     }
 
     // Réponse non-JSON (HTML, texte, etc.)
@@ -263,7 +329,7 @@ export default async function handler(req, res) {
       message: error instanceof Error ? error.message : 'Erreur inconnue',
       type: error instanceof Error ? error.name : 'Unknown',
       data: [],
-    });
+    }, req);
   }
 }
 
@@ -272,17 +338,40 @@ export default async function handler(req, res) {
 // ==========================================
 
 /** Envoie une réponse JSON avec les bons headers */
-function sendJson(res, status, body) {
+function sendJson(res, status, body, req = null) {
   res.setHeader('Content-Type', 'application/json');
-  setCorsHeaders(res);
+  setCorsHeaders(res, req);
   return res.status(status).json(body);
 }
 
 /** Ajoute les headers CORS */
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function setCorsHeaders(res, req = null) {
+  // CORRECTION : Access-Control-Allow-Origin: * est incompatible avec credentials: true
+  // Il faut spécifier le domaine exact de la requête
+  const origin = req?.headers?.origin 
+    || (req?.headers?.referer ? req.headers.referer.match(/^(https?:\/\/[^\/]+)/)?.[1] : null)
+    || 'https://www.impexo.fr';
+  
+  // Liste des origines autorisées (sécurité)
+  const allowedOrigins = [
+    'https://www.impexo.fr',
+    'https://impexo.fr',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+  ];
+  
+  // Vérifier si l'origine est autorisée (ou utiliser l'origine de la requête en dev)
+  const finalOrigin = allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1')
+    ? origin
+    : 'https://www.impexo.fr'; // Fallback sécurisé
+  
+  res.setHeader('Access-Control-Allow-Origin', finalOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Nonce');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Expose-Headers', 'Nonce, Set-Cookie');
 }
 
 /** Masque le consumer_secret dans les logs */

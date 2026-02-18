@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { selectCartCount, selectCartDiscount, selectCartSubtotal, useCartStore } from "@/store/cartStore";
+import { createWooOrder } from "@/services/woocommerceCart";
 import { formatEUR } from "@/utils/money";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 export default function Cart() {
   const { toast } = useToast();
@@ -14,18 +16,125 @@ export default function Cart() {
   const setQuantity = useCartStore((s) => s.setQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clear = useCartStore((s) => s.clear);
+  const refresh = useCartStore((s) => s.refresh);
+  const isLoading = useCartStore((s) => s.isLoading);
   const packOfferId = useCartStore((s) => s.packOfferId);
   const setPackOfferId = useCartStore((s) => s.setPackOfferId);
   const subtotal = selectCartSubtotal(items);
   const count = selectCartCount(items);
   const discount = selectCartDiscount(subtotal, count, packOfferId);
   const total = Math.max(0, subtotal - discount);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
 
-  const checkout = () => {
-    toast({
-      title: "Checkout à connecter",
-      description: "Pour WooCommerce headless, on branche ensuite le parcours checkout (souvent via un backend proxy).",
+  // Rafraîchir le panier au chargement de la page
+  useEffect(() => {
+    refresh().catch((error) => {
+      console.error("[Cart] Erreur lors du rafraîchissement du panier:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger le panier",
+        variant: "destructive",
+      });
     });
+  }, [refresh, toast]);
+
+  const handleSetQuantity = async (key: string, quantity: number) => {
+    try {
+      await setQuantity(key, quantity);
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de modifier la quantité",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveItem = async (key: string) => {
+    try {
+      await removeItem(key);
+      toast({
+        title: "Article retiré",
+        description: "L'article a été retiré du panier",
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de retirer l'article",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleClear = async () => {
+    try {
+      await clear();
+      toast({
+        title: "Panier vidé",
+        description: "Tous les articles ont été retirés du panier",
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de vider le panier",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const checkout = async () => {
+    if (items.length === 0) {
+      toast({
+        title: "Panier vide",
+        description: "Votre panier est vide",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCheckoutLoading(true);
+    try {
+      // Pour l'instant, on redirige vers une page de checkout WooCommerce
+      // TODO: Implémenter un formulaire de checkout complet avec création de commande
+      toast({
+        title: "Redirection vers le checkout",
+        description: "Vous allez être redirigé vers le paiement sécurisé",
+      });
+
+      // Créer une commande WooCommerce (exemple avec données minimales)
+      // En production, vous devrez collecter les informations de livraison et de facturation
+      const order = await createWooOrder({
+        billing_address: {
+          first_name: "", // À remplir par le formulaire
+          last_name: "",
+          address_1: "",
+          city: "",
+          postcode: "",
+          country: "FR",
+          email: "",
+        },
+        payment_method: "stripe", // ou "bacs", "cheque", etc.
+      });
+
+      // Si WooCommerce retourne une URL de paiement (Stripe), rediriger
+      if (order.payment_url) {
+        window.location.href = order.payment_url;
+      } else {
+        toast({
+          title: "Commande créée",
+          description: `Commande #${order.id} créée avec succès`,
+        });
+      }
+    } catch (error) {
+      console.error("[Cart] Erreur lors du checkout:", error);
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de créer la commande",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckoutLoading(false);
+    }
   };
 
   return (
@@ -39,8 +148,13 @@ export default function Cart() {
               <p className="mt-2 text-sm text-muted-foreground">Simple. Clair. Premium.</p>
             </div>
             {items.length ? (
-              <Button variant="ghost" className="rounded-full" onClick={clear}>
-                Vider
+              <Button
+                variant="ghost"
+                className="rounded-full"
+                onClick={handleClear}
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Vider"}
               </Button>
             ) : null}
           </div>
@@ -91,8 +205,9 @@ export default function Cart() {
                             type="button"
                             variant="ghost"
                             className="h-10 w-10 rounded-full"
-                            onClick={() => setQuantity(it.key, it.quantity - 1)}
+                            onClick={() => handleSetQuantity(it.key, it.quantity - 1)}
                             aria-label="Diminuer la quantité"
+                            disabled={isLoading}
                           >
                             <Minus className="h-4 w-4" />
                           </Button>
@@ -101,8 +216,9 @@ export default function Cart() {
                             type="button"
                             variant="ghost"
                             className="h-10 w-10 rounded-full"
-                            onClick={() => setQuantity(it.key, it.quantity + 1)}
+                            onClick={() => handleSetQuantity(it.key, it.quantity + 1)}
                             aria-label="Augmenter la quantité"
+                            disabled={isLoading}
                           >
                             <Plus className="h-4 w-4" />
                           </Button>
@@ -112,7 +228,8 @@ export default function Cart() {
                           type="button"
                           variant="ghost"
                           className="rounded-full text-muted-foreground hover:text-foreground"
-                          onClick={() => removeItem(it.key)}
+                          onClick={() => handleRemoveItem(it.key)}
+                          disabled={isLoading}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Retirer
@@ -185,8 +302,19 @@ export default function Cart() {
               <div className="mt-2 text-xs text-muted-foreground">
                 Livraison & taxes calculées au checkout WooCommerce.
               </div>
-              <Button className="mt-6 h-12 w-full rounded-full" onClick={checkout}>
-                Passer au paiement
+              <Button
+                className="mt-6 h-12 w-full rounded-full"
+                onClick={checkout}
+                disabled={isLoading || isCheckoutLoading || items.length === 0}
+              >
+                {isCheckoutLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Création de la commande...
+                  </>
+                ) : (
+                  "Passer au paiement"
+                )}
               </Button>
               <div className="mt-3 text-center text-xs text-muted-foreground">
                 Paiement sécurisé (à connecter).
