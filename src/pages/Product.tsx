@@ -242,7 +242,7 @@ export default function Product() {
     return (m ? availableColorsByModel.get(norm(m)) : undefined) ?? [];
   }, [hasVariations, colors, availableColorsByModel, model, models]);
   const displayedColors = useMemo(() => {
-    // UX demandé: quand un modèle est sélectionné, on n’affiche que ses couleurs disponibles.
+    // UX demandé: quand un modèle est sélectionné, on n'affiche que ses couleurs disponibles.
     return hasVariations ? allowedColorsForSelectedModel : colors;
   }, [hasVariations, allowedColorsForSelectedModel, colors]);
 
@@ -321,7 +321,7 @@ export default function Product() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor, preferredSeries, filteredVariationsByModelAndColor]);
 
-  // Si la couleur courante n’est pas disponible pour le modèle courant, on prend la première couleur disponible.
+  // Si la couleur courante n'est pas disponible pour le modèle courant, on prend la première couleur disponible.
   useEffect(() => {
     if (!hasVariations) return;
     const m = model || models[0];
@@ -439,6 +439,7 @@ export default function Product() {
     }
     return undefined;
   }, [matchedVariation, fallbackVariationForModel, product?.images, product?.id, selected.model, selected.color]);
+
   const price = parsePrice(
     matchedVariation?.price ??
       fallbackVariationForModel?.price ??
@@ -740,7 +741,8 @@ export default function Product() {
 
   const canAdd = Boolean(product) && qty > 0 && (!hasVariations || Boolean(matchedVariation));
 
-  const onAdd = () => {
+  // FIX: ajout du mot-clé "async" manquant sur la fonction onAdd
+  const onAdd = async () => {
     if (!product) return;
     if (hasVariations && !matchedVariation) {
       toast({
@@ -875,7 +877,7 @@ export default function Product() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">Modèle d’iPhone</div>
+                    <div className="text-xs font-medium text-muted-foreground">Modèle d'iPhone</div>
                     <Select
                       value={model}
                       onValueChange={(next) => {
@@ -1112,7 +1114,7 @@ export default function Product() {
                     <div>La marque Apple® est mentionnée uniquement à titre de compatibilité. IMPEXO est une marque indépendante.</div>
                     {mentionsMagSafe ? (
                       <div>
-                        MagSafe est une marque d’Apple Inc. La mention « compatible MagSafe » décrit une compatibilité avec des accessoires MagSafe, sans affiliation ni
+                        MagSafe est une marque d'Apple Inc. La mention « compatible MagSafe » décrit une compatibilité avec des accessoires MagSafe, sans affiliation ni
                         approbation.
                       </div>
                     ) : null}
@@ -1126,4 +1128,3 @@ export default function Product() {
     </div>
   );
 }
-
