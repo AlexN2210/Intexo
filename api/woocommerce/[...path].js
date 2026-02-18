@@ -10,19 +10,21 @@
 export default async function handler(req, res) {
   // Wrapper try-catch global pour capturer toutes les erreurs
   try {
-    // Extraction du chemin depuis req.query["...path"] (format Vercel pour [...path].js)
-    // Vercel met les segments dynamiques dans req.query["...path"] et PAS req.query.path
+    // ==========================================
+    // 1. EXTRACTION DU CHEMIN (une seule fois)
+    // ==========================================
+    // Pour Vercel [...path].js, req.query["...path"] contient le chemin
+    // Exemple: /api/woocommerce/products -> req.query["...path"] = ['products'] ou "products"
+    // Exemple: /api/woocommerce/products/123 -> req.query["...path"] = ['products', '123']
     const rawPath = req.query["...path"];
-    let pathFromQuery = Array.isArray(rawPath) ? rawPath.join('/') : rawPath || '';
-    let pathFromUrl = '';
+    let path = Array.isArray(rawPath) ? rawPath.join('/') : rawPath || '';
     
-    // Si req.query["...path"] n'est pas disponible, extraire depuis l'URL (fallback)
-    if (!pathFromQuery) {
-      // Extraire le chemin depuis /api/woocommerce/...
+    // Fallback : extraire depuis l'URL si req.query["...path"] n'est pas disponible
+    if (!path) {
       const urlMatch = req.url.match(/\/api\/woocommerce\/(.+?)(?:\?|$)/);
       if (urlMatch) {
-        pathFromUrl = urlMatch[1];
-        console.log('[Proxy WooCommerce] ⚠️ req.query["...path"] non disponible, extraction depuis URL:', pathFromUrl);
+        path = urlMatch[1];
+        console.log('[Proxy WooCommerce] ⚠️ req.query["...path"] non disponible, extraction depuis URL:', path);
       }
     }
     
@@ -30,72 +32,22 @@ export default async function handler(req, res) {
     console.log('[Proxy WooCommerce] ✅ Handler appelé - Requête reçue:', {
       method: req.method,
       url: req.url,
-      query: req.query,
       rawPath: req.query["...path"],
-      pathFromQuery,
-      pathFromUrl,
+      pathFinal: path,
       timestamp: new Date().toISOString(),
     });
     
-    // Log détaillé de req.query pour diagnostiquer le bug Vercel
+    // Log détaillé de req.query pour diagnostiquer
     console.log('[Proxy WooCommerce] 🔍 REQ QUERY (détaillé):', JSON.stringify(req.query, null, 2));
 
-    // Gestion OPTIONS pour CORS
-    if (req.method === 'OPTIONS') {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-      return res.status(200).end();
-    }
-
-    // Méthodes HTTP autorisées
-    if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'DELETE') {
-      console.log('[Proxy WooCommerce] Méthode non autorisée:', req.method);
-      res.setHeader('Content-Type', 'application/json');
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
-
-  // Récupération des variables d'environnement (sans préfixe VITE_ pour le serveur)
-  const wp = process.env.WP_BASE_URL;
-  const ck = process.env.WC_CONSUMER_KEY;
-  const cs = process.env.WC_CONSUMER_SECRET;
-
-  // Vérification de la configuration
-  if (!wp || !ck || !cs) {
-    console.error('Configuration WooCommerce manquante:', {
-      wp: !!wp,
-      ck: !!ck,
-      cs: !!cs,
-    });
-    return res.status(500).json({ 
-      error: 'Configuration WooCommerce manquante',
-      message: 'Les variables d\'environnement WooCommerce ne sont pas configurées'
-    });
-  }
-
-  try {
-    // Construction du chemin WooCommerce
-    // Pour Vercel [...path].js, req.query["...path"] contient le chemin
-    // Exemple: /api/woocommerce/products -> req.query["...path"] = ['products'] ou "products"
-    // Exemple: /api/woocommerce/products/123 -> req.query["...path"] = ['products', '123']
-    
-    // Extraire directement depuis req.query["...path"]
-    const rawPath = req.query["...path"];
-    let path = Array.isArray(rawPath) ? rawPath.join('/') : rawPath || '';
-    
-    // Si path est vide, utiliser pathFromUrl extrait au début (fallback)
-    if (!path && pathFromUrl) {
-      path = pathFromUrl;
-    }
-    
-    // Si path est toujours vide, c'est une erreur
+    // ==========================================
+    // 2. VALIDATION DU CHEMIN
+    // ==========================================
     if (!path) {
       console.error('[Proxy WooCommerce] ❌ ERREUR: Impossible d\'extraire le chemin!', {
         query: req.query,
         url: req.url,
         rawPath: req.query["...path"],
-        pathFromQuery,
-        pathFromUrl,
       });
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Access-Control-Allow-Origin', '*');
@@ -111,13 +63,54 @@ export default async function handler(req, res) {
         data: []
       });
     }
-    
+
+    // ==========================================
+    // 3. GESTION CORS ET MÉTHODES HTTP
+    // ==========================================
+    // Gestion OPTIONS pour CORS
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+      return res.status(200).end();
+    }
+
+    // Méthodes HTTP autorisées
+    if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'DELETE') {
+      console.log('[Proxy WooCommerce] Méthode non autorisée:', req.method);
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ==========================================
+    // 4. VÉRIFICATION DES VARIABLES D'ENVIRONNEMENT
+    // ==========================================
+    const wp = process.env.WP_BASE_URL;
+    const ck = process.env.WC_CONSUMER_KEY;
+    const cs = process.env.WC_CONSUMER_SECRET;
+
+    if (!wp || !ck || !cs) {
+      console.error('Configuration WooCommerce manquante:', {
+        wp: !!wp,
+        ck: !!ck,
+        cs: !!cs,
+      });
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(500).json({ 
+        error: 'Configuration WooCommerce manquante',
+        message: 'Les variables d\'environnement WooCommerce ne sont pas configurées'
+      });
+    }
+
+    // ==========================================
+    // 5. CONSTRUCTION DE L'URL WOOCOMMERCE
+    // ==========================================
     const wooPath = `/wp-json/wc/v3/${path}`;
     
     console.log('[Proxy WooCommerce] Chemin construit:', {
       rawPath: req.query["...path"],
-      pathFromQuery,
-      pathFromUrl,
       pathFinal: path,
       wooPath,
       url: req.url,
@@ -125,7 +118,6 @@ export default async function handler(req, res) {
     
     // Construction de la query string (sauf '...path' et 'products' qui sont pour le routing)
     // Note: Vercel ajoute parfois 'products' comme clé fantôme dans req.query avec les routes dynamiques
-    // Note: Vercel utilise req.query["...path"] pour les routes catch-all [...path].js
     const queryParams = new URLSearchParams();
     const reservedKeys = ['...path', 'path', 'products']; // Clés réservées pour le routing Vercel
     
@@ -145,7 +137,10 @@ export default async function handler(req, res) {
     const url = `${wp}${wooPath}${queryString ? `?${queryString}` : ''}`;
     
     console.log('[Proxy WooCommerce] URL WooCommerce:', url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
-    
+
+    // ==========================================
+    // 6. PRÉPARATION DE LA REQUÊTE
+    // ==========================================
     // Préparation de l'authentification Basic Auth
     const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64');
 
@@ -180,7 +175,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Exécution de la requête vers WooCommerce avec Basic Auth
+    // ==========================================
+    // 7. EXÉCUTION DE LA REQUÊTE VERS WOOCOMMERCE
+    // ==========================================
     console.log('[Proxy WooCommerce] Envoi de la requête vers:', url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
     console.log('[Proxy WooCommerce] Authentification: Basic Auth (credentials masquées)');
     
@@ -197,7 +194,9 @@ export default async function handler(req, res) {
       url: url.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'),
     });
 
-    // Récupération du contenu de la réponse
+    // ==========================================
+    // 8. TRAITEMENT DE LA RÉPONSE
+    // ==========================================
     let data;
     let rawText = '';
     
@@ -210,7 +209,10 @@ export default async function handler(req, res) {
         if ('error' in data || 'message' in data || 'code' in data) {
           // C'est probablement une erreur WooCommerce
           console.error('[Proxy WooCommerce] WooCommerce API error response:', data);
-          return res.status(wooResponse.status).json({
+          res.status(wooResponse.status);
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.json({
             error: data.message || data.error || 'WooCommerce API error',
             code: data.code || 'unknown',
             data: [] // Retourner un tableau vide pour éviter les erreurs côté frontend
@@ -246,7 +248,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Retour de la réponse avec les mêmes headers et status
+    // ==========================================
+    // 9. RETOUR DE LA RÉPONSE
+    // ==========================================
     res.status(wooResponse.status);
     
     // Copie des headers pertinents
@@ -307,27 +311,10 @@ export default async function handler(req, res) {
     }
 
   } catch (error) {
+    // ==========================================
+    // 10. GESTION DES ERREURS
+    // ==========================================
     console.error('[Proxy WooCommerce] ❌ Erreur capturée:', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : 'Unknown',
-    });
-    
-    // Toujours retourner du JSON, même en cas d'erreur
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-    
-    return res.status(500).json({ 
-      error: 'Erreur lors de la requête WooCommerce',
-      message: error instanceof Error ? error.message : 'Erreur inconnue',
-      type: error instanceof Error ? error.name : 'Unknown',
-      data: []
-    });
-  }
-  } catch (error) {
-    console.error('[Proxy WooCommerce] ❌ Erreur globale capturée:', {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : 'Unknown',
