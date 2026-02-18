@@ -54,5 +54,10 @@ export type WooVariation = {
   attributes: WooVariationAttribute[];
   stock_status: "instock" | "outofstock" | "onbackorder" | string;
   sku?: string; // SKU (référence produit) pour identifier la série
+  meta_data?: Array<{
+    id: number;
+    key: string;
+    value: string | number | boolean;
+  }>; // Meta fields WooCommerce (peut contenir le matériau)
 };
 

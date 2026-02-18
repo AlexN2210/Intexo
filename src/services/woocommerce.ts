@@ -268,12 +268,24 @@ export async function getProductVariations(productId: number): Promise<WooVariat
       console.log(`[WooCommerce] Produit ${productId} a ${product.variations.length} variations (IDs: ${product.variations.join(', ')})`);
       
       // Récupérer chaque variation individuellement (cet endpoint fonctionne toujours, même si /variations renvoie 404)
+      // Essayer d'inclure les meta_data pour récupérer les matériaux (si WooCommerce les expose)
       const variationPromises = product.variations.map(async (variationId) => {
         try {
+          // Essayer d'abord sans paramètres spéciaux (meta_data peut être incluse par défaut selon la config WooCommerce)
           const variation = await wooFetch<WooVariation>(
             `/wp-json/wc/v3/products/${productId}/variations/${variationId}`,
             {}
           );
+          
+          // Log pour vérifier si meta_data est présente
+          if (variationId === product.variations[0]) {
+            console.log(`[WooCommerce] Structure de la première variation ${variationId}:`, Object.keys(variation));
+            console.log(`[WooCommerce] meta_data présente:`, !!variation.meta_data);
+            if (variation.meta_data) {
+              console.log(`[WooCommerce] Meta fields disponibles:`, variation.meta_data.map((m: any) => `${m.key}: ${m.value}`));
+            }
+          }
+          
           return variation;
         } catch (error) {
           console.warn(`[WooCommerce] Impossible de récupérer la variation ${variationId} du produit ${productId}:`, error);

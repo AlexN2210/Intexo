@@ -446,15 +446,80 @@ export default function Product() {
   );
 
   const selectedMaterial = useMemo(() => {
-    // Fonction helper pour trouver le matériau dans les attributs (avec plusieurs patterns possibles)
-    const findMaterialInAttributes = (attrs: typeof variations[0]['attributes'], source: string) => {
-      if (!attrs) {
-        console.log(`[Product ${product?.id}] 🔍 ${source}: Pas d'attributs disponibles`);
+    // Mapping des matériaux basé sur le SKU du produit parent (depuis le CSV)
+    // Les matériaux sont dans le CSV mais pas toujours importés comme attributs/meta dans WooCommerce
+    const materialMapping: Record<string, string> = {
+      "impexo-camera-protection": "TPU", // La plupart sont TPU, sauf JOJO1015-13 qui est PC
+      "impexo-transparent": "TPU", // La plupart sont TPU, sauf JOJO1015-4 qui est Acrylic+TPU
+      "impexo-luxury-transparent": "TPU", // La plupart sont TPU, sauf certaines avec TPU+Rhinestone
+      "impexo-magnetic": "PC", // La plupart sont PC, sauf JOJO1015-11 qui est TPU
+      "impexo-luxury-metal": "PC", // Cadre métallique
+      "impexo-anti-slip-matte": "TPU", // Texture antidérapante
+      "impexo-jean": "TPU", // Effet cuir/jean
+      "impexo-pc-tpu": "PC + TPU", // Renforcée PC + TPU
+    };
+    
+    // Mapping spécifique par référence (pour les cas particuliers)
+    const materialByReference: Record<string, string> = {
+      "JOJO1015-13": "PC", // impexo-camera-protection avec PC
+      "JOJO1015-4": "Acrylic + TPU", // impexo-transparent avec Acrylic+TPU
+      "JOJO1015-24": "TPU + Rhinestone", // impexo-luxury-transparent avec TPU+Rhinestone (pour certaines variations)
+      "JOJO1015-11": "TPU", // impexo-magnetic avec TPU
+    };
+    
+    // Fonction helper pour trouver le matériau dans les meta fields
+    const findMaterialInMeta = (variation: typeof variations[0], source: string): string | null => {
+      // Vérifier si meta_data existe (peut être undefined si WooCommerce ne renvoie pas les meta fields)
+      if (!variation.meta_data || variation.meta_data.length === 0) {
         return null;
       }
       
-      // Log tous les attributs disponibles pour debug
-      console.log(`[Product ${product?.id}] 🔍 ${source} - Attributs disponibles:`, attrs.map(a => `${a.name}: ${a.option}`));
+      // Log tous les meta fields disponibles pour debug (seulement pour la première variation)
+      if (source.includes("matchedVariation") || source.includes("variation 1865")) {
+        console.log(`[Product ${product?.id}] 🔍 ${source} - Meta fields disponibles:`, variation.meta_data.map(m => `${m.key}: ${m.value}`));
+      }
+      
+      // Chercher dans les meta fields avec plusieurs clés possibles
+      const materialMetaKeys = ["material", "matériau", "_material", "_matériau", "pa_material", "pa_matériau", "attribute_material", "attribute_matériau"];
+      
+      for (const key of materialMetaKeys) {
+        const meta = variation.meta_data.find((m) => norm(m.key) === norm(key));
+        if (meta?.value) {
+          const materialValue = String(meta.value);
+          console.log(`[Product ${product?.id}] ✅ Matériau trouvé dans meta "${key}": ${materialValue}`);
+          return materialValue;
+        }
+      }
+      
+      return null;
+    };
+    
+    // Fonction helper pour obtenir le matériau depuis le mapping basé sur le SKU/référence
+    const getMaterialFromMapping = (variation: typeof variations[0]): string | null => {
+      // 1. Essayer avec la référence de la variation
+      const ref = getAttr(variation, "Référence");
+      if (ref && materialByReference[ref]) {
+        console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping référence "${ref}": ${materialByReference[ref]}`);
+        return materialByReference[ref];
+      }
+      
+      // 2. Essayer avec le SKU du produit parent (slug)
+      if (product?.slug) {
+        const materialFromSlug = materialMapping[product.slug];
+        if (materialFromSlug) {
+          console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping slug "${product.slug}": ${materialFromSlug}`);
+          return materialFromSlug;
+        }
+      }
+      
+      return null;
+    };
+    
+    // Fonction helper pour trouver le matériau dans les attributs (avec plusieurs patterns possibles)
+    const findMaterialInAttributes = (attrs: typeof variations[0]['attributes'], source: string) => {
+      if (!attrs) {
+        return null;
+      }
       
       // Essayer plusieurs noms possibles pour l'attribut matériau
       const materialPatterns = ["Matériau", "Material", "matériau", "material", "Matériaux", "Materials", "pa_material", "pa_matériau"];
@@ -462,48 +527,45 @@ export default function Product() {
       for (const pattern of materialPatterns) {
         const attr = attrs.find((a) => norm(a.name) === norm(pattern));
         if (attr?.option) {
-          console.log(`[Product ${product?.id}] ✅ Matériau trouvé avec pattern "${pattern}": ${attr.option}`);
+          console.log(`[Product ${product?.id}] ✅ Matériau trouvé dans attributs avec pattern "${pattern}": ${attr.option}`);
           return attr.option;
         }
       }
       
-      // Fallback : chercher avec regex (plus permissif)
+      // Fallback : chercher avec regex
       const attr = attrs.find((a) => /mat[ée]riau|material/i.test(a.name));
       if (attr?.option) {
-        console.log(`[Product ${product?.id}] ✅ Matériau trouvé avec regex: ${attr.option}`);
+        console.log(`[Product ${product?.id}] ✅ Matériau trouvé dans attributs avec regex: ${attr.option}`);
         return attr.option;
       }
       
-      console.log(`[Product ${product?.id}] ❌ ${source}: Aucun matériau trouvé dans les attributs`);
       return null;
     };
     
-    // Log les matériaux du produit parent
-    console.log(`[Product ${product?.id}] 🔍 Matériaux du produit parent (getAttributeOptions):`, materials);
-    console.log(`[Product ${product?.id}] 🔍 Attributs du produit parent (raw):`, product?.attributes);
-    console.log(`[Product ${product?.id}] 🔍 Attributs du produit parent (formatted):`, product?.attributes?.map(a => `${a.name} (slug: ${a.slug}): [${a.options?.join(', ')}]`));
-    
-    // Vérifier aussi dans la description/short_description au cas où
-    const descriptionText = `${product?.description || ''} ${product?.short_description || ''}`;
-    const materialInDescription = descriptionText.match(/(TPU|PC\s*\+\s*TPU|silicone|Silicone|PC)/i);
-    if (materialInDescription) {
-      console.log(`[Product ${product?.id}] 🔍 Matériau trouvé dans la description: ${materialInDescription[0]}`);
-    }
-    
-    // 1. Essayer de récupérer depuis la variation correspondante
+    // 1. Essayer de récupérer depuis les meta fields de la variation correspondante
     if (matchedVariation) {
-      const materialFromVariation = findMaterialInAttributes(matchedVariation.attributes, "matchedVariation");
-      if (materialFromVariation) {
-        return materialFromVariation;
-      }
+      const materialFromMeta = findMaterialInMeta(matchedVariation, "matchedVariation (meta)");
+      if (materialFromMeta) return materialFromMeta;
+      
+      const materialFromAttrs = findMaterialInAttributes(matchedVariation.attributes, "matchedVariation (attrs)");
+      if (materialFromAttrs) return materialFromAttrs;
+      
+      // Essayer avec le mapping basé sur le SKU/référence
+      const materialFromMapping = getMaterialFromMapping(matchedVariation);
+      if (materialFromMapping) return materialFromMapping;
     }
     
     // 2. Essayer depuis la variation fallback
     if (fallbackVariationForModel) {
-      const materialFromFallback = findMaterialInAttributes(fallbackVariationForModel.attributes, "fallbackVariation");
-      if (materialFromFallback) {
-        return materialFromFallback;
-      }
+      const materialFromMeta = findMaterialInMeta(fallbackVariationForModel, "fallbackVariation (meta)");
+      if (materialFromMeta) return materialFromMeta;
+      
+      const materialFromAttrs = findMaterialInAttributes(fallbackVariationForModel.attributes, "fallbackVariation (attrs)");
+      if (materialFromAttrs) return materialFromAttrs;
+      
+      // Essayer avec le mapping basé sur le SKU/référence
+      const materialFromMapping = getMaterialFromMapping(fallbackVariationForModel);
+      if (materialFromMapping) return materialFromMapping;
     }
     
     // 3. Essayer depuis les attributs du produit parent
@@ -512,20 +574,31 @@ export default function Product() {
       return materials[0];
     }
     
-    // 4. Essayer de récupérer depuis toutes les variations disponibles
+    // 4. Essayer de récupérer depuis toutes les variations disponibles (meta fields d'abord)
     if (variations.length > 0) {
-      console.log(`[Product ${product?.id}] 🔍 Recherche dans ${variations.length} variations...`);
+      console.log(`[Product ${product?.id}] 🔍 Recherche dans ${variations.length} variations (meta fields puis attributs puis mapping)...`);
       for (const v of variations) {
-        const material = findMaterialInAttributes(v.attributes, `variation ${v.id}`);
-        if (material) {
-          return material;
-        }
+        const materialFromMeta = findMaterialInMeta(v, `variation ${v.id} (meta)`);
+        if (materialFromMeta) return materialFromMeta;
+        
+        const materialFromAttrs = findMaterialInAttributes(v.attributes, `variation ${v.id} (attrs)`);
+        if (materialFromAttrs) return materialFromAttrs;
+        
+        // Essayer avec le mapping basé sur le SKU/référence
+        const materialFromMapping = getMaterialFromMapping(v);
+        if (materialFromMapping) return materialFromMapping;
       }
+    }
+    
+    // 5. Fallback : utiliser le mapping basé sur le slug du produit parent
+    if (product?.slug && materialMapping[product.slug]) {
+      console.log(`[Product ${product?.id}] ✅ Matériau depuis mapping slug (fallback): ${materialMapping[product.slug]}`);
+      return materialMapping[product.slug];
     }
     
     console.warn(`[Product ${product?.id}] ⚠️ Aucun matériau trouvé après toutes les tentatives`);
     return undefined;
-  }, [matchedVariation, fallbackVariationForModel, materials, variations, product?.id, product?.attributes]);
+  }, [matchedVariation, fallbackVariationForModel, materials, variations, product?.id, product?.slug]);
 
   const mentionsMagSafe = useMemo(() => {
     const blob = `${product?.name ?? ""} ${product?.short_description ?? ""} ${product?.description ?? ""}`;
