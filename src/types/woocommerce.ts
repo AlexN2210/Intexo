@@ -53,5 +53,6 @@ export type WooVariation = {
   image?: WooImage;
   attributes: WooVariationAttribute[];
   stock_status: "instock" | "outofstock" | "onbackorder" | string;
+  sku?: string; // SKU (référence produit) pour identifier la série
 };
 

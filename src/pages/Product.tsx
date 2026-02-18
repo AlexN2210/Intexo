@@ -23,6 +23,7 @@ export default function Product() {
   const [qty, setQty] = useState(1);
   const [model, setModel] = useState<string>("");
   const [color, setColor] = useState<string>("");
+  const [series, setSeries] = useState<string>(""); // Série (extraite du SKU)
 
   const q = useProductBySlugQuery(slug);
   const product = q.data ?? null;
@@ -34,6 +35,14 @@ export default function Product() {
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
+
+  // Fonction pour extraire la série depuis le SKU (ex: "JOJO1015-24" -> "JOJO1015-24")
+  const extractSeriesFromSku = (sku?: string): string => {
+    if (!sku) return "";
+    // Le SKU contient la série complète (ex: JOJO1015-24)
+    // On peut aussi extraire depuis la référence dans les attributs si le SKU n'est pas disponible
+    return sku.trim();
+  };
 
   const hasVariations = Boolean(product && product.type === "variable" && product.variations?.length);
   const varsQ = useProductVariationsQuery(product?.id, hasVariations);
@@ -111,14 +120,57 @@ export default function Product() {
   const colors = useMemo(() => (product ? getAttributeOptions(product, "color") : []), [product]);
   const materials = useMemo(() => (product ? getAttributeOptions(product, "material") : []), [product]);
 
+  // Extraire toutes les séries disponibles depuis les SKU des variations
+  const availableSeries = useMemo(() => {
+    if (!hasVariations) return [];
+    const seriesSet = new Set<string>();
+    variations.forEach((v) => {
+      const sku = v.sku;
+      if (sku) {
+        const seriesValue = extractSeriesFromSku(sku);
+        if (seriesValue) {
+          seriesSet.add(seriesValue);
+        }
+      }
+      // Fallback : essayer d'extraire depuis la référence dans les attributs
+      if (!sku) {
+        const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+        if (ref) {
+          const seriesValue = extractSeriesFromSku(ref);
+          if (seriesValue) {
+            seriesSet.add(seriesValue);
+          }
+        }
+      }
+    });
+    return Array.from(seriesSet).sort();
+  }, [hasVariations, variations]);
+
+  // Filtrer les variations par série si une série est sélectionnée
+  const filteredVariationsBySeries = useMemo(() => {
+    if (!hasVariations || !series) return variations;
+    return variations.filter((v) => {
+      const sku = v.sku;
+      if (sku) {
+        return extractSeriesFromSku(sku) === series;
+      }
+      // Fallback : utiliser la référence dans les attributs
+      const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+      return ref && extractSeriesFromSku(ref) === series;
+    });
+  }, [hasVariations, variations, series]);
+
   const availableColorsByModel = useMemo(() => {
     const map = new Map<string, string[]>();
     if (!hasVariations) return map;
     
-    // Logger pour debug
-    console.log(`[Product ${product?.id}] 📊 Construction de la carte Modèle → Couleurs depuis ${variations.length} variations`);
+    // Utiliser les variations filtrées par série si une série est sélectionnée
+    const varsToUse = series ? filteredVariationsBySeries : variations;
     
-    variations.forEach((v) => {
+    // Logger pour debug
+    console.log(`[Product ${product?.id}] 📊 Construction de la carte Modèle → Couleurs depuis ${varsToUse.length} variations${series ? ` (série: ${series})` : ''}`);
+    
+    varsToUse.forEach((v) => {
       const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
       const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
       const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
@@ -148,7 +200,7 @@ export default function Product() {
     console.log(`[Product ${product?.id}] ✅ Carte construite: ${map.size} modèles avec couleurs`);
     
     return map;
-  }, [hasVariations, variations, product?.id]);
+  }, [hasVariations, variations, product?.id, series, filteredVariationsBySeries]);
 
   const allowedColorsForSelectedModel = useMemo(() => {
     if (!hasVariations) return colors;
@@ -162,10 +214,18 @@ export default function Product() {
 
   const preferredModel = searchParams.get("model") ?? "";
   const preferredColor = searchParams.get("color") ?? "";
+  const preferredSeries = searchParams.get("series") ?? "";
 
-  // Sélection initiale : prend en compte ?model= & ?color= si possible.
+  // Sélection initiale : prend en compte ?model= & ?color= & ?series= si possible.
   useEffect(() => {
     if (!product) return;
+    
+    // Initialiser la série si plusieurs séries sont disponibles
+    if (hasVariations && availableSeries.length > 0 && !series) {
+      const initialSeries = (preferredSeries && availableSeries.includes(preferredSeries) ? preferredSeries : "") || availableSeries[0] || "";
+      if (initialSeries && initialSeries !== series) setSeries(initialSeries);
+    }
+    
     const initialModel =
       (preferredModel && models.includes(preferredModel) ? preferredModel : "") || model || models[0] || "";
     if (initialModel && initialModel !== model) setModel(initialModel);
@@ -176,7 +236,7 @@ export default function Product() {
       preferred || color || allowedForModel[0] || colors[0] || "";
     if (initialColor && initialColor !== color) setColor(initialColor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor]);
+  }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor, preferredSeries, availableSeries]);
 
   // Si la couleur courante n’est pas disponible pour le modèle courant, on prend la première couleur disponible.
   useEffect(() => {
@@ -191,15 +251,22 @@ export default function Product() {
   }, [hasVariations, model, models, availableColorsByModel, color]);
 
   const selected = useMemo(() => {
-    return { model: model || models[0], color: color || undefined };
-  }, [model, color, models]);
+    return { 
+      model: model || models[0], 
+      color: color || undefined,
+      series: series || undefined
+    };
+  }, [model, color, series, models]);
 
   const matchedVariation = useMemo(() => {
     if (!hasVariations) return undefined;
     if (!selected.model || !selected.color) return undefined;
     
+    // Utiliser les variations filtrées par série si une série est sélectionnée
+    const varsToUse = series ? filteredVariationsBySeries : variations;
+    
     // Trouver toutes les variations correspondantes avec vérification stricte
-    const matching = variations.filter((v) => {
+    const matching = varsToUse.filter((v) => {
       const attrs = v.attributes ?? [];
       const m = attrs.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
       const c = attrs.find((a) => /couleur|color/i.test(a.name))?.option;
@@ -208,7 +275,20 @@ export default function Product() {
       const modelMatch = m && norm(m) === norm(selected.model);
       const colorMatch = c && norm(c) === norm(selected.color);
       
-      return modelMatch && colorMatch;
+      // Si une série est sélectionnée, vérifier aussi la série
+      let seriesMatch = true;
+      if (selected.series) {
+        const sku = v.sku;
+        if (sku) {
+          seriesMatch = extractSeriesFromSku(sku) === selected.series;
+        } else {
+          // Fallback : utiliser la référence dans les attributs
+          const ref = attrs.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+          seriesMatch = ref ? extractSeriesFromSku(ref) === selected.series : false;
+        }
+      }
+      
+      return modelMatch && colorMatch && seriesMatch;
     });
     
     // Si plusieurs variations correspondent, logger les détails pour debug
@@ -233,7 +313,7 @@ export default function Product() {
     }
     
     return matching[0];
-  }, [hasVariations, variations, selected, product?.id]);
+  }, [hasVariations, variations, selected, product?.id, series, filteredVariationsBySeries]);
 
   const fallbackVariationForModel = useMemo(() => {
     if (!hasVariations) return undefined;
@@ -435,29 +515,32 @@ export default function Product() {
 
               {gallery.length > 1 ? (
                 <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-6">
-                  {gallery.slice(0, 12).map((g) => (
-                    <button
-                      key={`${g.src}-${g.model ?? ""}-${g.color ?? ""}`}
-                      type="button"
-                      onClick={() => {
-                        if (g.model) setModel(g.model);
-                        if (g.color) setColor(g.color);
-                      }}
-                      className={[
-                        "group overflow-hidden rounded-2xl border bg-muted/30 transition",
-                        g.isActive ? "border-foreground/40" : "hover:border-foreground/25",
-                      ].join(" ")}
-                      aria-label={`Voir ${g.alt}`}
-                    >
-                      <img
-                        src={g.src}
-                        alt={g.alt}
-                        loading="lazy"
-                        decoding="async"
-                        className="impexo-cutout aspect-square w-full object-contain p-2 transition duration-300 ease-out group-hover:scale-[1.02]"
-                      />
-                    </button>
-                  ))}
+                  {gallery.slice(0, 12).map((g) => {
+                    const gWithAttrs = g as { src: string; alt: string; isActive: boolean; model?: string; color?: string };
+                    return (
+                      <button
+                        key={`${g.src}-${gWithAttrs.model ?? ""}-${gWithAttrs.color ?? ""}`}
+                        type="button"
+                        onClick={() => {
+                          if (gWithAttrs.model) setModel(gWithAttrs.model);
+                          if (gWithAttrs.color) setColor(gWithAttrs.color);
+                        }}
+                        className={[
+                          "group overflow-hidden rounded-2xl border bg-muted/30 transition",
+                          g.isActive ? "border-foreground/40" : "hover:border-foreground/25",
+                        ].join(" ")}
+                        aria-label={`Voir ${g.alt}`}
+                      >
+                        <img
+                          src={g.src}
+                          alt={g.alt}
+                          loading="lazy"
+                          decoding="async"
+                          className="impexo-cutout aspect-square w-full object-contain p-2 transition duration-300 ease-out group-hover:scale-[1.02]"
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
               ) : null}
 
@@ -544,13 +627,64 @@ export default function Product() {
                   </div>
                 </div>
 
+                {/* Sélecteur de série (si plusieurs séries disponibles) */}
+                {hasVariations && availableSeries.length > 1 && (
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground">Série / Design</div>
+                    <Select
+                      value={series}
+                      onValueChange={(next) => {
+                        setSeries(next);
+                        
+                        // Calculer les couleurs disponibles pour la nouvelle série immédiatement
+                        // (availableColorsByModel n'est pas encore recalculé à ce moment)
+                        const varsForNewSeries = variations.filter((v) => {
+                          const sku = v.sku;
+                          if (sku) return extractSeriesFromSku(sku) === next;
+                          const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+                          return ref && extractSeriesFromSku(ref) === next;
+                        });
+                        
+                        const currentModel = model || models[0] || "";
+                        const colorsForModel = varsForNewSeries
+                          .filter((v) => {
+                            const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
+                            return m && norm(m) === norm(currentModel);
+                          })
+                          .map((v) => v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option)
+                          .filter(Boolean) as string[];
+                        
+                        // Dédupliquer les couleurs
+                        const uniqueColors = Array.from(new Set(colorsForModel));
+                        
+                        // Garder la couleur si disponible dans la nouvelle série, sinon prendre la première
+                        const kept = uniqueColors.find((c) => norm(c) === norm(color));
+                        if (!kept && uniqueColors.length > 0) {
+                          setColor(uniqueColors[0]);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-11 rounded-full">
+                        <SelectValue placeholder="Choisir une série" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSeries.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 {hasVariations ? (
                   <div className="rounded-3xl border bg-card p-4 text-sm">
                     <div className="flex items-center justify-between gap-4">
                       <div className="text-muted-foreground">Variation</div>
                       <div className="font-medium">
                         {matchedVariation
-                          ? [selected.model, selected.color, selectedMaterial].filter(Boolean).join(" • ")
+                          ? [selected.series, selected.model, selected.color, selectedMaterial].filter(Boolean).join(" • ")
                           : "Sélectionner modèle/couleur"}
                       </div>
                     </div>
