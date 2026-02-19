@@ -11,19 +11,25 @@ const DEFAULT_TIMEOUT = 8000; // 8 secondes
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 seconde
 
-// URL du proxy Vercel (peut être configurée via variable d'environnement)
-const PROXY_BASE_URL = import.meta.env.VITE_WC_PROXY_BASE_URL 
-  || (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') 
-    ? window.location.origin 
-    : undefined);
-
-// Log de débogage pour vérifier la configuration
-if (typeof window !== 'undefined') {
-  console.log('[WooCommerce Cart] Configuration proxy:', {
-    proxyBaseUrl: PROXY_BASE_URL || 'non configuré',
-    currentOrigin: window.location.origin,
-    envVar: import.meta.env.VITE_WC_PROXY_BASE_URL || 'non définie',
-  });
+// URL du proxy Vercel - utilise la variable d'environnement ou détecte automatiquement
+function getProxyBaseUrl(): string {
+  // 1. Priorité : variable d'environnement
+  if (import.meta.env.VITE_WC_PROXY_BASE_URL) {
+    return import.meta.env.VITE_WC_PROXY_BASE_URL;
+  }
+  
+  // 2. Si on est déjà sur Vercel, utiliser l'origine actuelle
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return window.location.origin;
+  }
+  
+  // 3. Si on est sur le domaine WordPress, utiliser l'URL Vercel par défaut
+  if (typeof window !== 'undefined' && window.location.hostname.includes('impexo.fr')) {
+    return 'https://intexo.vercel.app';
+  }
+  
+  // 4. Sinon (dev local), utiliser l'origine actuelle
+  return typeof window !== 'undefined' ? window.location.origin : '';
 }
 
 // Stockage du nonce en mémoire (sera récupéré automatiquement)
@@ -148,11 +154,7 @@ export type WooCart = {
  * Le proxy attend le chemin relatif sans préfixe /wp-json/wc/store/v1/
  */
 function buildStoreCartUrl(endpoint: string): string {
-  // Simplification : accepter soit le chemin complet, soit juste l'endpoint
-  // Exemples acceptés :
-  // - "/wp-json/wc/store/v1/cart/add-item" -> "cart/add-item"
-  // - "cart/add-item" -> "cart/add-item"
-  // - "cart" -> "cart"
+  // Nettoyer le chemin de l'endpoint
   let cleanPath = endpoint
     .replace(/^\/wp-json\/wc\/store\/v1\//, '') // Enlever préfixe complet
     .replace(/^\/api\/woocommerce\/store\/v1\//, '') // Enlever préfixe proxy (au cas où)
@@ -161,41 +163,22 @@ function buildStoreCartUrl(endpoint: string): string {
   // Le proxy attend : /api/woocommerce/store/v1/{endpoint}
   const proxyPath = `/api/woocommerce/store/v1/${cleanPath}`.replace(/\/+/g, '/');
   
-  // CRITIQUE : Si on est sur le domaine WordPress (www.impexo.fr), utiliser l'URL Vercel
-  // Sinon, utiliser window.location.origin (pour le développement local ou Vercel)
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  const isWordPressDomain = currentOrigin.includes('impexo.fr') && !currentOrigin.includes('vercel.app');
+  // Obtenir l'URL de base du proxy
+  const baseUrl = getProxyBaseUrl();
   
-  let baseUrl: string;
-  if (PROXY_BASE_URL) {
-    // Utiliser l'URL du proxy configurée via variable d'environnement
-    baseUrl = PROXY_BASE_URL;
-    console.log(`[WooCommerce Cart] Utilisation de l'URL proxy configurée: ${baseUrl}`);
-  } else if (isWordPressDomain) {
-    // Si on est sur WordPress et pas de config, utiliser l'URL Vercel par défaut
-    // IMPORTANT : Cette URL doit pointer vers votre déploiement Vercel
-    baseUrl = 'https://intexo.vercel.app'; // Remplacez par votre URL Vercel réelle si différente
-    console.warn(`[WooCommerce Cart] ⚠️ Détection domaine WordPress (${currentOrigin})`);
-    console.warn(`[WooCommerce Cart] ⚠️ Redirection vers le proxy Vercel: ${baseUrl}`);
-    console.warn(`[WooCommerce Cart] ⚠️ Configurez VITE_WC_PROXY_BASE_URL dans vos variables d'environnement pour éviter ce warning`);
-  } else {
-    // En développement local ou sur Vercel, utiliser l'origine actuelle
-    baseUrl = currentOrigin;
-  }
-  
+  // Construire l'URL complète
   const url = new URL(proxyPath, baseUrl);
   const finalUrl = url.toString();
   
   // Vérification de sécurité
-  if (!finalUrl.includes('/api/woocommerce')) {
-    console.error('[WooCommerce Cart] ❌ ERREUR: URL ne pointe pas vers le proxy!', {
+  if (!finalUrl.includes('/api/woocommerce/store/v1')) {
+    console.error('[WooCommerce Cart] ❌ ERREUR: URL invalide!', {
       finalUrl,
       endpoint,
       proxyPath,
       baseUrl,
-      currentOrigin,
     });
-    throw new Error(`URL ne pointe pas vers le proxy: ${finalUrl}`);
+    throw new Error(`URL invalide: ${finalUrl}`);
   }
   
   console.log('[WooCommerce Cart] ✅ URL proxy construite:', finalUrl);
