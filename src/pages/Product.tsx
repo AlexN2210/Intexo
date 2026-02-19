@@ -800,7 +800,7 @@ export default function Product() {
         ) : (
           <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
             <FadeIn>
-              <div className="overflow-hidden rounded-3xl border bg-muted/30">
+              <div className="overflow-hidden">
                 <Dialog>
                   <DialogTrigger asChild>
                     <button className="group relative block w-full">
@@ -841,8 +841,8 @@ export default function Product() {
                           if (gWithAttrs.color) setColor(gWithAttrs.color);
                         }}
                         className={[
-                          "group overflow-hidden rounded-2xl border bg-muted/30 transition",
-                          g.isActive ? "border-foreground/40" : "hover:border-foreground/25",
+                          "group overflow-hidden transition",
+                          g.isActive ? "opacity-100" : "opacity-70 hover:opacity-100",
                         ].join(" ")}
                         aria-label={`Voir ${g.alt}`}
                       >
@@ -998,7 +998,7 @@ export default function Product() {
                   </div>
                 )}
 
-                <div className="rounded-3xl border bg-card p-5">
+                <div className="p-5">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-medium text-muted-foreground">Quantité</div>
                     <div className="flex items-center gap-2">
@@ -1038,7 +1038,7 @@ export default function Product() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="flex items-start gap-3 rounded-3xl border bg-card p-4">
+                  <div className="flex items-start gap-3 p-4">
                     <Shield className="mt-0.5 h-4 w-4 text-muted-foreground" />
                     <div>
                       <div className="text-sm font-medium tracking-tight">Protection fine</div>
@@ -1047,7 +1047,7 @@ export default function Product() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 rounded-3xl border bg-card p-4">
+                  <div className="flex items-start gap-3 p-4">
                     <Sparkles className="mt-0.5 h-4 w-4 text-muted-foreground" />
                     <div>
                       <div className="text-sm font-medium tracking-tight">Finitions premium</div>
@@ -1056,7 +1056,7 @@ export default function Product() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border bg-card p-6">
+                <div className="p-6">
                   <div className="flex items-start justify-between gap-6">
                     <div>
                       <div className="text-xs font-medium tracking-[0.22em] text-muted-foreground">DÉTAILS</div>
@@ -1065,15 +1065,15 @@ export default function Product() {
                   </div>
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border bg-background/40 p-4">
+                    <div className="p-4">
                       <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">MODÈLE</div>
                       <div className="mt-2 text-sm font-medium tracking-tight">{selected.model || "—"}</div>
                     </div>
-                    <div className="rounded-2xl border bg-background/40 p-4">
+                    <div className="p-4">
                       <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">COULEUR</div>
                       <div className="mt-2 text-sm font-medium tracking-tight">{selected.color || "—"}</div>
                     </div>
-                    <div className="rounded-2xl border bg-background/40 p-4">
+                    <div className="p-4">
                       <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">MATÉRIAU</div>
                       <div className="mt-2 text-sm font-medium tracking-tight">{selectedMaterial || "—"}</div>
                     </div>
