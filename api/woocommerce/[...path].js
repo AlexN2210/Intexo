@@ -194,6 +194,13 @@ export default async function handler(req, res) {
       }
     }
 
+    // CRITIQUE : Désactiver le cache pour les requêtes Store Cart
+    // Le nonce doit toujours être frais, ne pas utiliser de cache
+    if (isStoreCart) {
+      headers['Cache-Control'] = 'no-cache, no-store';
+      headers['Pragma'] = 'no-cache';
+    }
+
     // Forward de quelques headers clients non-sensibles
     ['user-agent', 'accept-language'].forEach(h => {
       const v = req.headers[h];
@@ -251,6 +258,12 @@ export default async function handler(req, res) {
     // ==========================================
     // 9. TRAITEMENT DE LA RÉPONSE
     // ==========================================
+
+    // CRITIQUE : Désactiver le cache pour les réponses Store Cart
+    // Le nonce doit toujours être frais, ne pas utiliser de cache
+    if (isStoreCart) {
+      res.setHeader('Cache-Control', 'no-store, no-cache');
+    }
 
     // Copie des headers utiles de WooCommerce
     // CORRECTION : Ajouter 'Nonce' à la liste des headers copiés
