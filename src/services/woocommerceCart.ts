@@ -13,23 +13,34 @@ const RETRY_DELAY = 1000; // 1 seconde
 
 // URL du proxy Vercel - utilise la variable d'environnement ou détecte automatiquement
 function getProxyBaseUrl(): string {
+  const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const envVar = import.meta.env.VITE_WC_PROXY_BASE_URL;
+  
   // 1. Priorité : variable d'environnement
-  if (import.meta.env.VITE_WC_PROXY_BASE_URL) {
-    return import.meta.env.VITE_WC_PROXY_BASE_URL;
+  if (envVar) {
+    console.log('[WooCommerce Cart] 🔧 Utilisation de VITE_WC_PROXY_BASE_URL:', envVar);
+    return envVar;
   }
   
   // 2. Si on est déjà sur Vercel, utiliser l'origine actuelle
-  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-    return window.location.origin;
+  if (currentHostname.includes('vercel.app')) {
+    console.log('[WooCommerce Cart] 🔧 Détection Vercel, utilisation de l\'origine:', currentOrigin);
+    return currentOrigin;
   }
   
-  // 3. Si on est sur le domaine WordPress, utiliser l'URL Vercel par défaut
-  if (typeof window !== 'undefined' && window.location.hostname.includes('impexo.fr')) {
-    return 'https://intexo.vercel.app';
+  // 3. CRITIQUE : Si on est sur le domaine WordPress, FORCER l'URL Vercel
+  if (currentHostname.includes('impexo.fr')) {
+    const vercelUrl = 'https://intexo.vercel.app';
+    console.warn('[WooCommerce Cart] ⚠️ Détection domaine WordPress:', currentHostname);
+    console.warn('[WooCommerce Cart] ⚠️ FORCAGE vers proxy Vercel:', vercelUrl);
+    console.warn('[WooCommerce Cart] ⚠️ Configurez VITE_WC_PROXY_BASE_URL pour éviter ce fallback');
+    return vercelUrl;
   }
   
   // 4. Sinon (dev local), utiliser l'origine actuelle
-  return typeof window !== 'undefined' ? window.location.origin : '';
+  console.log('[WooCommerce Cart] 🔧 Mode développement local, utilisation de l\'origine:', currentOrigin);
+  return currentOrigin;
 }
 
 // Stockage du nonce en mémoire (sera récupéré automatiquement)
@@ -164,11 +175,25 @@ function buildStoreCartUrl(endpoint: string): string {
   const proxyPath = `/api/woocommerce/store/v1/${cleanPath}`.replace(/\/+/g, '/');
   
   // Obtenir l'URL de base du proxy
-  const baseUrl = getProxyBaseUrl();
+  let baseUrl = getProxyBaseUrl();
+  
+  // SECURITE : Si l'URL de base pointe vers WordPress, forcer Vercel
+  if (baseUrl.includes('impexo.fr') && !baseUrl.includes('vercel.app')) {
+    console.error('[WooCommerce Cart] ❌ ERREUR CRITIQUE: baseUrl pointe vers WordPress!', baseUrl);
+    console.error('[WooCommerce Cart] 🔧 Correction automatique vers Vercel');
+    baseUrl = 'https://intexo.vercel.app';
+  }
   
   // Construire l'URL complète
   const url = new URL(proxyPath, baseUrl);
-  const finalUrl = url.toString();
+  let finalUrl = url.toString();
+  
+  // SECURITE : Double vérification - si l'URL finale pointe vers WordPress, corriger
+  if (finalUrl.includes('www.impexo.fr') || (finalUrl.includes('impexo.fr') && !finalUrl.includes('vercel.app'))) {
+    console.error('[WooCommerce Cart] ❌ ERREUR CRITIQUE: finalUrl pointe vers WordPress!', finalUrl);
+    console.error('[WooCommerce Cart] 🔧 Correction automatique vers Vercel');
+    finalUrl = finalUrl.replace(/https?:\/\/[^\/]+/, 'https://intexo.vercel.app');
+  }
   
   // Vérification de sécurité
   if (!finalUrl.includes('/api/woocommerce/store/v1')) {
