@@ -9,319 +9,140 @@ import { useToast } from "@/hooks/use-toast";
 import { useProductBySlugQuery, useProductVariationsQuery } from "@/hooks/useWooProducts";
 import { useCartStore } from "@/store/cartStore";
 import { formatEUR, parsePrice } from "@/utils/money";
-import { findMatchingVariation, getAttributeOptions } from "@/utils/productAttributes";
+import { getAttributeOptions } from "@/utils/productAttributes";
 import { Minus, Plus, Shield, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+/** Normalise une chaîne pour les comparaisons insensibles à la casse / aux accents */
+const norm = (s?: string) =>
+  (s ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+/** Récupère la valeur d'un attribut par nom (insensible à la casse) */
+const getAttr = (
+  attrs: Array<{ name: string; option: string }> | undefined,
+  name: string,
+): string | null => {
+  const attr = attrs?.find((a) => norm(a.name) === norm(name));
+  return attr?.option ?? null;
+};
+
+// ─── composant ───────────────────────────────────────────────────────────────
 
 export default function Product() {
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const addItem = useCartStore((s) => s.addItem);
-  const isLoading = useCartStore((s) => s.isLoading);
 
   const [qty, setQty] = useState(1);
   const [model, setModel] = useState<string>("");
   const [color, setColor] = useState<string>("");
-  const [series, setSeries] = useState<string>(""); // Série (extraite du SKU)
+
+  // ── données produit ──────────────────────────────────────────────────────
 
   const q = useProductBySlugQuery(slug);
   const product = q.data ?? null;
 
-  // Fonction de normalisation pour comparer les chaînes (définie avant son utilisation)
-  const norm = (s?: string) =>
-    (s ?? "")
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+  const hasVariations = Boolean(
+    product && product.type === "variable" && product.variations?.length,
+  );
 
-  // Fonction pour extraire la série depuis le SKU (ex: "JOJO1015-24" -> "JOJO1015-24")
-  const extractSeriesFromSku = (sku?: string): string => {
-    if (!sku) return "";
-    // Le SKU contient la série complète (ex: JOJO1015-24)
-    // On peut aussi extraire depuis la référence dans les attributs si le SKU n'est pas disponible
-    return sku.trim();
-  };
-
-  const hasVariations = Boolean(product && product.type === "variable" && product.variations?.length);
   const varsQ = useProductVariationsQuery(product?.id, hasVariations);
-  
-  // Filtrer les variations pour s'assurer qu'elles appartiennent bien à ce produit
+
+  /** Variations filtrées : uniquement celles qui appartiennent à ce produit */
   const variations = useMemo(() => {
     const raw = varsQ.data ?? [];
     if (!product?.id || !Array.isArray(raw)) return [];
-    
-    console.log(`[Product ${product.id}] 🔍 Analyse de ${raw.length} variations reçues pour "${product.name}"`);
-    
-    // Si le produit a une liste d'IDs de variations, utiliser seulement celles-là
-    // C'est la méthode la plus fiable pour s'assurer que les variations appartiennent au bon produit
-    if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
-      const validVariationIds = new Set(product.variations);
-      const filtered = raw.filter((v) => {
-        const isValid = validVariationIds.has(v.id);
-        if (!isValid) {
-          const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-          const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
-          const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
-          console.warn(`[Product ${product.id}] ❌ Variation ${v.id} FILTRÉE (n'est pas dans la liste des variations du produit)`);
-          console.warn(`  → Variation: ${m || '?'} + ${c || '?'} (Réf: ${ref || 'N/A'})`);
-          console.warn(`  → IDs attendus: ${product.variations.join(', ')}`);
-        }
-        return isValid;
-      });
-      
-      // Log pour debug si des variations sont filtrées
-      if (filtered.length !== raw.length) {
-        console.warn(`[Product ${product.id}] ⚠️  ${raw.length - filtered.length} variations filtrées sur ${raw.length}`);
-        console.warn(`  → Variations conservées: ${filtered.length}`);
-        console.warn(`  → IDs attendus: ${product.variations.join(', ')}`);
-        console.warn(`  → IDs reçus: ${raw.map(v => v.id).join(', ')}`);
-      } else {
-        console.log(`[Product ${product.id}] ✅ Toutes les variations sont valides (${filtered.length} variations)`);
-      }
-      
-      return filtered;
+
+    // Si le produit expose sa liste d'IDs de variations, on s'en sert directement
+    if (product.variations?.length) {
+      const validIds = new Set(product.variations);
+      return raw.filter((v) => validIds.has(v.id));
     }
-    
-    // Sinon, vérifier que les variations ont bien des attributs cohérents avec le produit
-    const productAttrNames = new Set((product.attributes ?? []).map(a => norm(a.name)));
-    console.log(`[Product ${product.id}] ⚠️  Pas de liste d'IDs de variations, filtrage par attributs`);
-    console.log(`  → Attributs du produit: ${Array.from(productAttrNames).join(', ')}`);
-    
-    const filtered = raw.filter((v) => {
-      // S'assurer que la variation a des attributs
-      if (!v.attributes || v.attributes.length === 0) return false;
-      
-      // Vérifier que les noms d'attributs de la variation correspondent aux attributs du produit
-      const variationAttrNames = (v.attributes ?? []).map(a => norm(a.name));
-      
-      // Au moins un attribut de la variation doit correspondre à un attribut du produit
-      return variationAttrNames.some(vName => {
-        // Vérifier correspondance exacte ou partielle
-        return Array.from(productAttrNames).some(pName => {
-          // Correspondance exacte
-          if (vName === pName) return true;
-          // Correspondance partielle (pour gérer les variations de nom)
-          if (vName.includes(pName) || pName.includes(vName)) return true;
-          // Vérifier les patterns communs (modèle, couleur, matériau)
-          const commonPatterns = ['model', 'modèle', 'color', 'couleur', 'material', 'matériau'];
-          return commonPatterns.some(pattern => vName.includes(pattern) && pName.includes(pattern));
-        });
-      });
-    });
-    
-    console.log(`[Product ${product.id}] → ${filtered.length} variations conservées après filtrage par attributs`);
-    
-    return filtered;
-  }, [varsQ.data, product?.id, product?.variations, product?.attributes, product?.name, norm]);
 
-  const models = useMemo(() => (product ? getAttributeOptions(product, "model") : []), [product]);
-  const colors = useMemo(() => (product ? getAttributeOptions(product, "color") : []), [product]);
-  const materials = useMemo(() => (product ? getAttributeOptions(product, "material") : []), [product]);
+    // Sinon, fallback : garder les variations qui ont au moins un attribut
+    return raw.filter((v) => v.attributes && v.attributes.length > 0);
+  }, [varsQ.data, product?.id, product?.variations]);
 
-  // Fonction helper pour récupérer un attribut depuis une variation
-  const getAttr = (variation: typeof variations[0], name: string): string | null => {
-    const attr = variation.attributes?.find((a) => norm(a.name) === norm(name));
-    return attr ? attr.option : null;
-  };
+  // ── options de sélection ─────────────────────────────────────────────────
 
-  // Extraire toutes les séries disponibles avec leurs labels lisibles
-  const availableSeries = useMemo(() => {
-    if (!hasVariations) return [];
-    const seriesMap = new Map<string, { value: string; label: string; firstVariation: typeof variations[0] | null }>();
-    
-    variations.forEach((v) => {
-      const sku = v.sku;
-      let seriesValue = "";
-      
-      if (sku) {
-        seriesValue = extractSeriesFromSku(sku);
-      } else {
-        // Fallback : essayer d'extraire depuis la référence dans les attributs
-        const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-        if (ref) {
-          seriesValue = extractSeriesFromSku(ref);
-        }
-      }
-      
-      if (seriesValue && !seriesMap.has(seriesValue)) {
-        // Stocker la première variation de cette série pour construire le label
-        seriesMap.set(seriesValue, { value: seriesValue, label: "", firstVariation: v });
-      }
-    });
-    
-    // Construire les labels pour chaque série
-    const seriesArray = Array.from(seriesMap.entries()).map(([value, data]) => {
-      const v = data.firstVariation;
-      if (!v) {
-        return { value, label: value };
-      }
-      
-      // Récupérer les attributs humains
-      const modele = getAttr(v, "Modèle");
-      const couleur = getAttr(v, "Couleur");
-      const reference = getAttr(v, "Référence") || value;
-      
-      // Construire le label : "iPhone 17 Pro Max — Violet (JOJO1015-24)"
-      const labelParts = [];
-      if (modele) labelParts.push(modele);
-      if (couleur) labelParts.push(couleur);
-      if (reference) labelParts.push(`(${reference})`);
-      
-      const label = labelParts.length > 0 
-        ? labelParts.join(" — ") 
-        : value; // Fallback sur la valeur brute si pas d'attributs
-      
-      return { value, label };
-    });
-    
-    return seriesArray.sort((a, b) => a.value.localeCompare(b.value));
-  }, [hasVariations, variations]);
+  const models = useMemo(
+    () => (product ? getAttributeOptions(product, "model") : []),
+    [product],
+  );
+  const colors = useMemo(
+    () => (product ? getAttributeOptions(product, "color") : []),
+    [product],
+  );
 
-  // Filtrer les variations par série si une série est sélectionnée
-  const filteredVariationsBySeries = useMemo(() => {
-    if (!hasVariations || !series) return variations;
-    return variations.filter((v) => {
-      const sku = v.sku;
-      if (sku) {
-        return extractSeriesFromSku(sku) === series;
-      }
-      // Fallback : utiliser la référence dans les attributs
-      const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-      return ref && extractSeriesFromSku(ref) === series;
-    });
-  }, [hasVariations, variations, series]);
-
+  /** Map modèle normalisé → couleurs disponibles (depuis les variations réelles) */
   const availableColorsByModel = useMemo(() => {
     const map = new Map<string, string[]>();
     if (!hasVariations) return map;
-    
-    // Utiliser les variations filtrées par série si une série est sélectionnée
-    const varsToUse = series ? filteredVariationsBySeries : variations;
-    
-    // Logger pour debug
-    console.log(`[Product ${product?.id}] 📊 Construction de la carte Modèle → Couleurs depuis ${varsToUse.length} variations${series ? ` (série: ${series})` : ''}`);
-    
-    varsToUse.forEach((v) => {
-      const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
-      const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
-      const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-      
-      if (!m || !c) {
-        console.warn(`[Product ${product?.id}] ⚠️  Variation ${v.id} ignorée (modèle ou couleur manquant)`);
-        return;
-      }
-      
+
+    variations.forEach((v) => {
+      const m = getAttr(v.attributes, "Modèle");
+      const c = getAttr(v.attributes, "Couleur");
+      if (!m || !c) return;
+
       const k = norm(m);
       const list = map.get(k) ?? [];
-      if (!list.some((x) => norm(x) === norm(c))) {
-        list.push(c);
-        console.log(`[Product ${product?.id}]   → ${m} + ${c} (Réf: ${ref || 'N/A'})`);
-      } else {
-        // Doublon détecté
-        console.warn(`[Product ${product?.id}] ⚠️  DOUBLON détecté: ${m} + ${c} (Réf: ${ref || 'N/A'})`);
-      }
+      if (!list.some((x) => norm(x) === norm(c))) list.push(c);
       map.set(k, list);
     });
-    
-    // tri pour un affichage stable
-    Array.from(map.entries()).forEach(([k, list]) => {
-      map.set(k, [...list].sort((a, b) => a.localeCompare(b)));
-    });
-    
-    console.log(`[Product ${product?.id}] ✅ Carte construite: ${map.size} modèles avec couleurs`);
-    
-    return map;
-  }, [hasVariations, variations, product?.id, series, filteredVariationsBySeries]);
 
-  const allowedColorsForSelectedModel = useMemo(() => {
+    // Tri stable
+    map.forEach((list, k) => map.set(k, [...list].sort((a, b) => a.localeCompare(b))));
+
+    return map;
+  }, [hasVariations, variations]);
+
+  const allowedColors = useMemo(() => {
     if (!hasVariations) return colors;
     const m = model || models[0];
     return (m ? availableColorsByModel.get(norm(m)) : undefined) ?? [];
   }, [hasVariations, colors, availableColorsByModel, model, models]);
-  const displayedColors = useMemo(() => {
-    // UX demandé: quand un modèle est sélectionné, on n'affiche que ses couleurs disponibles.
-    return hasVariations ? allowedColorsForSelectedModel : colors;
-  }, [hasVariations, allowedColorsForSelectedModel, colors]);
 
-  const selected = useMemo(() => {
-    return { 
-      model: model || models[0], 
-      color: color || undefined,
-      series: series || undefined
-    };
-  }, [model, color, series, models]);
+  // ── sélection courante ───────────────────────────────────────────────────
 
-  // Filtrer les variations selon le modèle et la couleur sélectionnés
-  const filteredVariationsByModelAndColor = useMemo(() => {
-    if (!hasVariations || !selected.model || !selected.color) return [];
-    
-    // 1. Filtrer selon le modèle choisi
-    const filteredByModel = variations.filter((v) => {
-      const modele = getAttr(v, "Modèle");
-      return modele === selected.model;
-    });
-    
-    // 2. Filtrer selon la couleur choisie
-    const filteredByColor = filteredByModel.filter((v) => {
-      const couleur = getAttr(v, "Couleur");
-      return couleur === selected.color;
-    });
-    
-    return filteredByColor;
-  }, [hasVariations, variations, selected.model, selected.color]);
+  const selected = useMemo(
+    () => ({ model: model || models[0], color: color || undefined }),
+    [model, color, models],
+  );
 
+  // Initialisation depuis les query params (?model=&color=)
   const preferredModel = searchParams.get("model") ?? "";
   const preferredColor = searchParams.get("color") ?? "";
-  const preferredSeries = searchParams.get("series") ?? "";
 
-  // Sélection initiale : prend en compte ?model= & ?color= & ?series= si possible.
   useEffect(() => {
     if (!product) return;
-    
-    // Initialiser la série si plusieurs variations sont disponibles pour le modèle et couleur sélectionnés
-    // On attend que le modèle et la couleur soient définis avant d'initialiser la série
-    if (hasVariations && filteredVariationsByModelAndColor.length > 1 && !series) {
-      const firstVariation = filteredVariationsByModelAndColor[0];
-      if (firstVariation) {
-        const sku = firstVariation.sku;
-        const seriesValue = sku ? extractSeriesFromSku(sku) : getAttr(firstVariation, "Référence");
-        if (seriesValue) {
-          // Vérifier si la série préférée existe dans les variations filtrées
-          const preferredVariation = preferredSeries 
-            ? filteredVariationsByModelAndColor.find((v) => {
-                const vSku = v.sku;
-                const vSeries = vSku ? extractSeriesFromSku(vSku) : getAttr(v, "Référence");
-                return vSeries === preferredSeries;
-              })
-            : null;
-          
-          const initialSeriesValue = preferredVariation 
-            ? (preferredVariation.sku ? extractSeriesFromSku(preferredVariation.sku) : getAttr(preferredVariation, "Référence"))
-            : seriesValue;
-          
-          if (initialSeriesValue && initialSeriesValue !== series) {
-            setSeries(initialSeriesValue);
-          }
-        }
-      }
-    }
-    
+
     const initialModel =
-      (preferredModel && models.includes(preferredModel) ? preferredModel : "") || model || models[0] || "";
+      (preferredModel && models.includes(preferredModel) ? preferredModel : "") ||
+      model ||
+      models[0] ||
+      "";
     if (initialModel && initialModel !== model) setModel(initialModel);
 
-    const allowedForModel = hasVariations ? availableColorsByModel.get(norm(initialModel)) ?? [] : colors;
-    const preferred = preferredColor ? allowedForModel.find((c) => norm(c) === norm(preferredColor)) : "";
-    const initialColor =
-      preferred || color || allowedForModel[0] || colors[0] || "";
+    const allowed = hasVariations
+      ? (availableColorsByModel.get(norm(initialModel)) ?? [])
+      : colors;
+    const preferred = preferredColor
+      ? allowed.find((c) => norm(c) === norm(preferredColor))
+      : "";
+    const initialColor = preferred || color || allowed[0] || colors[0] || "";
     if (initialColor && initialColor !== color) setColor(initialColor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor, preferredSeries, filteredVariationsByModelAndColor]);
+  }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor]);
 
-  // Si la couleur courante n'est pas disponible pour le modèle courant, on prend la première couleur disponible.
+  // Si la couleur courante n'est plus disponible pour le modèle sélectionné → reset
   useEffect(() => {
     if (!hasVariations) return;
     const m = model || models[0];
@@ -330,137 +151,134 @@ export default function Product() {
     if (!allowed.length) return;
     if (!color || !allowed.some((c) => norm(c) === norm(color))) {
       setColor(allowed[0]);
-      // Réinitialiser la série quand on change de couleur
-      setSeries("");
     }
   }, [hasVariations, model, models, availableColorsByModel, color]);
 
-  // Réinitialiser la série quand le modèle change (car les séries peuvent être différentes selon le modèle)
-  useEffect(() => {
-    if (!hasVariations) return;
-    if (model) {
-      // Vérifier si la série actuelle est toujours valide pour le nouveau modèle
-      const currentVariations = filteredVariationsByModelAndColor;
-      if (currentVariations.length > 0 && series) {
-        const isValidSeries = currentVariations.some(v => {
-          const sku = v.sku;
-          const vSeries = sku ? extractSeriesFromSku(sku) : getAttr(v, "Référence");
-          return vSeries === series;
-        });
-        if (!isValidSeries) {
-          console.log(`[Product ${product?.id}] Série ${series} invalide pour ${model}, réinitialisation`);
-          setSeries("");
-        }
-      }
-    }
-  }, [hasVariations, model, filteredVariationsByModelAndColor, series, product?.id]);
+  // ── variation correspondante ─────────────────────────────────────────────
 
   const matchedVariation = useMemo(() => {
-    if (!hasVariations) return undefined;
-    if (!selected.model || !selected.color) return undefined;
-    
-    // Utiliser les variations filtrées par série si une série est sélectionnée
-    const varsToUse = series ? filteredVariationsBySeries : variations;
-    
-    // Trouver toutes les variations correspondantes avec vérification stricte
-    const matching = varsToUse.filter((v) => {
-      const attrs = v.attributes ?? [];
-      const m = attrs.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
-      const c = attrs.find((a) => /couleur|color/i.test(a.name))?.option;
-      
-      // Vérification stricte : correspondance exacte après normalisation
-      const modelMatch = m && norm(m) === norm(selected.model);
-      const colorMatch = c && norm(c) === norm(selected.color);
-      
-      // Si une série est sélectionnée, vérifier aussi la série
-      let seriesMatch = true;
-      if (selected.series) {
-        const sku = v.sku;
-        if (sku) {
-          seriesMatch = extractSeriesFromSku(sku) === selected.series;
-        } else {
-          // Fallback : utiliser la référence dans les attributs
-          const ref = attrs.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-          seriesMatch = ref ? extractSeriesFromSku(ref) === selected.series : false;
-        }
-      }
-      
-      return modelMatch && colorMatch && seriesMatch;
+    if (!hasVariations || !selected.model || !selected.color) return undefined;
+
+    const matches = variations.filter((v) => {
+      const m = getAttr(v.attributes, "Modèle");
+      const c = getAttr(v.attributes, "Couleur");
+      return (
+        m && norm(m) === norm(selected.model) &&
+        c && norm(c) === norm(selected.color)
+      );
     });
-    
-    // Si plusieurs variations correspondent, logger les détails pour debug
-    if (matching.length > 1) {
-      console.warn(`[Product ${product?.id}] ⚠️ PLUSIEURS VARIATIONS trouvées pour ${selected.model} + ${selected.color}:`);
-      matching.forEach((v, idx) => {
-        const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-        const img = v.image?.src || 'Pas d\'image';
-        console.warn(`  ${idx + 1}. Variation ID ${v.id} (Réf: ${ref || 'N/A'}) - Image: ${img}`);
-      });
-      console.warn(`  → Sélection de la première variation (ID: ${matching[0].id})`);
+
+    if (matches.length > 1) {
+      // Plusieurs variations pour ce modèle+couleur (ex: deux designs différents)
+      // On prend la première — un sélecteur de "série" pourrait être ajouté ici si nécessaire
+      console.warn(
+        `[Product ${product?.id}] ${matches.length} variations pour ${selected.model} + ${selected.color} → première sélectionnée`,
+      );
     }
-    
-    // Si aucune variation ne correspond, logger pour debug
-    if (matching.length === 0) {
-      console.warn(`[Product ${product?.id}] ⚠️ AUCUNE variation trouvée pour ${selected.model} + ${selected.color}`);
-      console.warn(`  Variations disponibles:`, variations.map(v => {
-        const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
-        const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
-        return `${m || '?'} + ${c || '?'}`;
-      }));
-    }
-    
-    return matching[0];
-  }, [hasVariations, variations, selected, product?.id, series, filteredVariationsBySeries]);
+
+    return matches[0];
+  }, [hasVariations, variations, selected, product?.id]);
 
   const fallbackVariationForModel = useMemo(() => {
     if (!hasVariations) return undefined;
-    const m = selected.model;
-    if (!m) return undefined;
-    const mk = norm(m);
+    const mk = norm(selected.model);
     return variations.find((v) =>
-      v.attributes?.some((a) => /mod|mod[eè]le|iphone/i.test(a.name) && norm(a.option) === mk),
+      v.attributes?.some(
+        (a) => /mod|mod[eè]le|iphone/i.test(a.name) && norm(a.option) === mk,
+      ),
     );
   }, [hasVariations, variations, selected.model]);
 
-  // Image principale : utiliser l'image de la variation correspondante, sinon fallback
-  const heroImage = useMemo(() => {
-    if (matchedVariation?.image?.src) {
-      const ref = matchedVariation.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-      const m = matchedVariation.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
-      const c = matchedVariation.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
-      
-      // Vérifier que le nom de l'image correspond à la référence et au modèle
-      const imageUrl = matchedVariation.image.src;
-      const imageFilename = imageUrl.split('/').pop() || '';
-      const imageRef = imageFilename.split('-')[0]?.toUpperCase() || '';
-      const refNormalized = ref ? ref.toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
-      
-      // Vérifier la correspondance
-      if (refNormalized && imageRef && !imageRef.includes(refNormalized) && !refNormalized.includes(imageRef)) {
-        console.warn(`[Product ${product?.id}] ⚠️  INCOHERENCE DETECTEE:`);
-        console.warn(`  → Variation: ${m} + ${c} (Réf: ${ref})`);
-        console.warn(`  → Image URL: ${imageUrl}`);
-        console.warn(`  → Référence dans l'image: ${imageRef}`);
-        console.warn(`  → Référence attendue: ${refNormalized}`);
-      }
-      
-      console.log(`[Product ${product?.id}] ✅ Image sélectionnée pour ${selected.model} + ${selected.color}:`);
-      console.log(`  → Image: ${imageFilename}`);
-      console.log(`  → Référence: ${ref || 'N/A'}`);
-      console.log(`  → Modèle: ${m || 'N/A'}, Couleur: ${c || 'N/A'}`);
-      
-      return matchedVariation.image.src;
+  // ── matériau ─────────────────────────────────────────────────────────────
+
+  /**
+   * Cherche le matériau dans les attributs d'une variation.
+   * Avec le CSV importé, WooCommerce expose Attribut 3 "Matériau" directement
+   * dans v.attributes — c'est la source principale.
+   */
+  const selectedMaterial = useMemo((): string | undefined => {
+    const findInAttrs = (
+      attrs: Array<{ name: string; option: string }> | undefined,
+    ): string | null => {
+      if (!attrs) return null;
+      const attr = attrs.find((a) => /mat[ée]riau|material/i.test(a.name));
+      return attr?.option ?? null;
+    };
+
+    // 1. Variation sélectionnée (source principale après import CSV)
+    if (matchedVariation) {
+      const m = findInAttrs(matchedVariation.attributes);
+      if (m) return m;
+
+      // 2. Meta fields (au cas où WooCommerce stocke le matériau en meta)
+      const meta = matchedVariation.meta_data?.find((m) =>
+        /mat[ée]riau|material/i.test(m.key),
+      );
+      if (meta?.value) return String(meta.value);
     }
-    if (fallbackVariationForModel?.image?.src) {
-      console.log(`[Product ${product?.id}] Image fallback (variation pour modèle): ${fallbackVariationForModel.image.src}`);
-      return fallbackVariationForModel.image.src;
+
+    // 3. Variation fallback (même modèle, couleur différente)
+    if (fallbackVariationForModel) {
+      const m = findInAttrs(fallbackVariationForModel.attributes);
+      if (m) return m;
     }
-    if (product?.images?.[0]?.src) {
-      console.log(`[Product ${product?.id}] Image fallback (produit parent): ${product.images[0].src}`);
-      return product.images[0].src;
+
+    // 4. Première variation disponible (dernier recours)
+    for (const v of variations) {
+      const m = findInAttrs(v.attributes);
+      if (m) return m;
     }
+
     return undefined;
-  }, [matchedVariation, fallbackVariationForModel, product?.images, product?.id, selected.model, selected.color]);
+  }, [matchedVariation, fallbackVariationForModel, variations]);
+
+  // ── image héro ───────────────────────────────────────────────────────────
+
+  const heroImage = useMemo(() => {
+    // Image de la variation sélectionnée (priorité absolue)
+    if (matchedVariation?.image?.src) return matchedVariation.image.src;
+    // Fallback : image d'une variation du même modèle
+    if (fallbackVariationForModel?.image?.src) return fallbackVariationForModel.image.src;
+    // Fallback : première image du produit parent
+    return product?.images?.[0]?.src ?? undefined;
+  }, [matchedVariation, fallbackVariationForModel, product?.images]);
+
+  // ── galerie ──────────────────────────────────────────────────────────────
+
+  const gallery = useMemo(() => {
+    if (!product) return [];
+
+    if (hasVariations) {
+      // Une entrée par variation (une image par variation = comportement attendu)
+      const seen = new Set<number>();
+      return variations
+        .filter((v) => {
+          if (!v.image?.src || seen.has(v.id)) return false;
+          seen.add(v.id);
+          return true;
+        })
+        .map((v) => {
+          const m = getAttr(v.attributes, "Modèle");
+          const c = getAttr(v.attributes, "Couleur");
+          return {
+            src: v.image!.src,
+            alt: [product.name, m, c].filter(Boolean).join(" — "),
+            variationId: v.id,
+            isActive: matchedVariation?.id === v.id,
+          };
+        });
+    }
+
+    // Produit simple
+    return (product.images ?? []).map((im, idx) => ({
+      src: im.src,
+      alt: im.alt || `${product.name} — ${idx + 1}`,
+      variationId: 0,
+      isActive: idx === 0,
+    }));
+  }, [product, hasVariations, variations, matchedVariation]);
+
+  // ── prix & panier ────────────────────────────────────────────────────────
 
   const price = parsePrice(
     matchedVariation?.price ??
@@ -469,305 +287,14 @@ export default function Product() {
       product?.regular_price,
   );
 
-  const selectedMaterial = useMemo(() => {
-    // Mapping des matériaux basé sur le SKU du produit parent (depuis le CSV)
-    // Les matériaux sont dans le CSV mais pas toujours importés comme attributs/meta dans WooCommerce
-    const materialMapping: Record<string, string> = {
-      "impexo-camera-protection": "TPU", // La plupart sont TPU, sauf JOJO1015-13 qui est PC
-      "impexo-transparent": "TPU", // La plupart sont TPU, sauf JOJO1015-4 qui est Acrylic+TPU
-      "impexo-luxury-transparent": "TPU", // La plupart sont TPU, sauf certaines avec TPU+Rhinestone
-      "impexo-magnetic": "PC", // La plupart sont PC, sauf JOJO1015-11 qui est TPU
-      "impexo-luxury-metal": "PC", // Cadre métallique
-      "impexo-anti-slip-matte": "TPU", // Texture antidérapante
-      "impexo-jean": "TPU", // Effet cuir/jean
-      "impexo-pc-tpu": "PC + TPU", // Renforcée PC + TPU
-    };
-    
-    // Mapping basé sur le nom du produit (pour fallback si le slug ne correspond pas)
-    const materialMappingByName: Record<string, string> = {
-      "protection caméra": "TPU",
-      "transparente premium": "TPU",
-      "luxury transparente": "TPU",
-      "magnétique": "PC",
-      "luxury metal": "PC",
-      "texture antidérapante": "TPU",
-      "effet cuir": "TPU",
-      "renforcée pc": "PC + TPU",
-      "pc + tpu": "PC + TPU",
-    };
-    
-    // Mapping spécifique par référence (pour les cas particuliers)
-    const materialByReference: Record<string, string> = {
-      "JOJO1015-13": "PC", // impexo-camera-protection avec PC
-      "JOJO1015-4": "Acrylic + TPU", // impexo-transparent avec Acrylic+TPU
-      "JOJO1015-24": "TPU + Rhinestone", // impexo-luxury-transparent avec TPU+Rhinestone (pour certaines variations)
-      "JOJO1015-11": "TPU", // impexo-magnetic avec TPU
-    };
-    
-    // Fonction helper pour trouver le matériau dans les meta fields
-    const findMaterialInMeta = (variation: typeof variations[0], source: string): string | null => {
-      // Vérifier si meta_data existe (peut être undefined si WooCommerce ne renvoie pas les meta fields)
-      if (!variation.meta_data || variation.meta_data.length === 0) {
-        return null;
-      }
-      
-      // Log tous les meta fields disponibles pour debug (seulement pour la première variation)
-      if (source.includes("matchedVariation") || source.includes("variation 1865")) {
-        console.log(`[Product ${product?.id}] 🔍 ${source} - Meta fields disponibles:`, variation.meta_data.map(m => `${m.key}: ${m.value}`));
-      }
-      
-      // Chercher dans les meta fields avec plusieurs clés possibles
-      const materialMetaKeys = ["material", "matériau", "_material", "_matériau", "pa_material", "pa_matériau", "attribute_material", "attribute_matériau"];
-      
-      for (const key of materialMetaKeys) {
-        const meta = variation.meta_data.find((m) => norm(m.key) === norm(key));
-        if (meta?.value) {
-          const materialValue = String(meta.value);
-          console.log(`[Product ${product?.id}] ✅ Matériau trouvé dans meta "${key}": ${materialValue}`);
-          return materialValue;
-        }
-      }
-      
-      return null;
-    };
-    
-    // Fonction helper pour obtenir le matériau depuis le mapping basé sur le SKU/référence
-    const getMaterialFromMapping = (variation: typeof variations[0]): string | null => {
-      // Log pour debug
-      console.log(`[Product ${product?.id}] 🔍 Recherche matériau - Référence: "${getAttr(variation, "Référence")}", Slug produit: "${product?.slug}", Nom: "${product?.name}"`);
-      
-      // 1. Essayer avec la référence de la variation
-      const ref = getAttr(variation, "Référence");
-      if (ref && materialByReference[ref]) {
-        console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping référence "${ref}": ${materialByReference[ref]}`);
-        return materialByReference[ref];
-      }
-      
-      // 2. Essayer avec le SKU du produit parent (slug)
-      if (product?.slug) {
-        // Essayer avec le slug exact
-        let materialFromSlug = materialMapping[product.slug];
-        
-        // Si pas trouvé, essayer avec des variations du slug
-        if (!materialFromSlug) {
-          // Essayer avec le slug sans préfixe "coque-" ou autres variations
-          const slugVariations = [
-            product.slug,
-            product.slug.replace(/^coque-/, ''),
-            product.slug.replace(/^-/, ''),
-            product.slug.replace(/^impexo-/, ''), // Enlever préfixe impexo-
-          ];
-          
-          for (const slugVar of slugVariations) {
-            materialFromSlug = materialMapping[slugVar];
-            if (materialFromSlug) {
-              console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping slug variation "${slugVar}": ${materialFromSlug}`);
-              return materialFromSlug;
-            }
-          }
-        } else {
-          console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping slug "${product.slug}": ${materialFromSlug}`);
-          return materialFromSlug;
-        }
-      }
-      
-      // 3. Essayer avec le nom du produit (fallback)
-      if (product?.name) {
-        const productNameLower = product.name.toLowerCase();
-        for (const [key, material] of Object.entries(materialMappingByName)) {
-          if (productNameLower.includes(key)) {
-            console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping nom "${key}": ${material}`);
-            return material;
-          }
-        }
-      }
-      
-      return null;
-    };
-    
-    // Fonction helper pour trouver le matériau dans les attributs (avec plusieurs patterns possibles)
-    const findMaterialInAttributes = (attrs: typeof variations[0]['attributes'], source: string) => {
-      if (!attrs) {
-        return null;
-      }
-      
-      // Essayer plusieurs noms possibles pour l'attribut matériau
-      const materialPatterns = ["Matériau", "Material", "matériau", "material", "Matériaux", "Materials", "pa_material", "pa_matériau"];
-      
-      for (const pattern of materialPatterns) {
-        const attr = attrs.find((a) => norm(a.name) === norm(pattern));
-        if (attr?.option) {
-          console.log(`[Product ${product?.id}] ✅ Matériau trouvé dans attributs avec pattern "${pattern}": ${attr.option}`);
-          return attr.option;
-        }
-      }
-      
-      // Fallback : chercher avec regex
-      const attr = attrs.find((a) => /mat[ée]riau|material/i.test(a.name));
-      if (attr?.option) {
-        console.log(`[Product ${product?.id}] ✅ Matériau trouvé dans attributs avec regex: ${attr.option}`);
-        return attr.option;
-      }
-      
-      return null;
-    };
-    
-    // 1. Essayer de récupérer depuis les meta fields de la variation correspondante
-    if (matchedVariation) {
-      const materialFromMeta = findMaterialInMeta(matchedVariation, "matchedVariation (meta)");
-      if (materialFromMeta) return materialFromMeta;
-      
-      const materialFromAttrs = findMaterialInAttributes(matchedVariation.attributes, "matchedVariation (attrs)");
-      if (materialFromAttrs) return materialFromAttrs;
-      
-      // Essayer avec le mapping basé sur le SKU/référence
-      const materialFromMapping = getMaterialFromMapping(matchedVariation);
-      if (materialFromMapping) return materialFromMapping;
-    }
-    
-    // 2. Essayer depuis la variation fallback
-    if (fallbackVariationForModel) {
-      const materialFromMeta = findMaterialInMeta(fallbackVariationForModel, "fallbackVariation (meta)");
-      if (materialFromMeta) return materialFromMeta;
-      
-      const materialFromAttrs = findMaterialInAttributes(fallbackVariationForModel.attributes, "fallbackVariation (attrs)");
-      if (materialFromAttrs) return materialFromAttrs;
-      
-      // Essayer avec le mapping basé sur le SKU/référence
-      const materialFromMapping = getMaterialFromMapping(fallbackVariationForModel);
-      if (materialFromMapping) return materialFromMapping;
-    }
-    
-    // 3. Essayer depuis les attributs du produit parent
-    if (materials.length > 0) {
-      console.log(`[Product ${product?.id}] ✅ Matériau depuis produit parent: ${materials[0]}`);
-      return materials[0];
-    }
-    
-    // 4. Essayer de récupérer depuis toutes les variations disponibles (meta fields d'abord)
-    if (variations.length > 0) {
-      console.log(`[Product ${product?.id}] 🔍 Recherche dans ${variations.length} variations (meta fields puis attributs puis mapping)...`);
-      for (const v of variations) {
-        const materialFromMeta = findMaterialInMeta(v, `variation ${v.id} (meta)`);
-        if (materialFromMeta) return materialFromMeta;
-        
-        const materialFromAttrs = findMaterialInAttributes(v.attributes, `variation ${v.id} (attrs)`);
-        if (materialFromAttrs) return materialFromAttrs;
-        
-        // Essayer avec le mapping basé sur le SKU/référence
-        const materialFromMapping = getMaterialFromMapping(v);
-        if (materialFromMapping) return materialFromMapping;
-      }
-    }
-    
-    // 5. Fallback : utiliser le mapping basé sur le slug du produit parent
-    if (product?.slug) {
-      // Essayer avec le slug exact
-      let materialFromSlug = materialMapping[product.slug];
-      
-      // Si pas trouvé, essayer avec des variations du slug
-      if (!materialFromSlug) {
-        const slugVariations = [
-          product.slug,
-          product.slug.replace(/^coque-/, ''),
-          product.slug.replace(/^-/, ''),
-        ];
-        
-        for (const slugVar of slugVariations) {
-          materialFromSlug = materialMapping[slugVar];
-          if (materialFromSlug) {
-            console.log(`[Product ${product?.id}] ✅ Matériau depuis mapping slug (fallback) "${slugVar}": ${materialFromSlug}`);
-            return materialFromSlug;
-          }
-        }
-      } else {
-        console.log(`[Product ${product?.id}] ✅ Matériau depuis mapping slug (fallback): ${materialFromSlug}`);
-        return materialFromSlug;
-      }
-    }
-    
-    // 6. Fallback final : utiliser le mapping basé sur le nom du produit
-    if (product?.name) {
-      const productNameLower = product.name.toLowerCase();
-      for (const [key, material] of Object.entries(materialMappingByName)) {
-        if (productNameLower.includes(key)) {
-          console.log(`[Product ${product?.id}] ✅ Matériau trouvé via mapping nom (fallback final) "${key}": ${material}`);
-          return material;
-        }
-      }
-    }
-    
-    console.warn(`[Product ${product?.id}] ⚠️ Aucun matériau trouvé après toutes les tentatives`);
-    console.warn(`[Product ${product?.id}] ⚠️ Slug du produit: "${product?.slug}"`);
-    console.warn(`[Product ${product?.id}] ⚠️ Nom du produit: "${product?.name}"`);
-    console.warn(`[Product ${product?.id}] ⚠️ Clés disponibles dans mapping slug:`, Object.keys(materialMapping));
-    return undefined;
-  }, [matchedVariation, fallbackVariationForModel, materials, variations, product?.id, product?.slug]);
+  const canAdd =
+    Boolean(product) && qty > 0 && (!hasVariations || Boolean(matchedVariation));
 
   const mentionsMagSafe = useMemo(() => {
     const blob = `${product?.name ?? ""} ${product?.short_description ?? ""} ${product?.description ?? ""}`;
     return /magsafe/i.test(blob);
   }, [product?.name, product?.short_description, product?.description]);
 
-  const gallery = useMemo(() => {
-    if (!product) return [];
-    if (hasVariations) {
-      // REFONTE : Stocker l'ID de la variation pour une correspondance exacte
-      const uniq = new Map<string, { 
-        src: string; 
-        alt: string; 
-        variationId: number;
-        model?: string; 
-        color?: string; 
-        series?: string;
-        isActive: boolean;
-      }>();
-      
-      variations.forEach((v) => {
-        const src = v.image?.src;
-        if (!src) {
-          console.warn(`[Product ${product.id}] Variation ${v.id} ignorée dans la galerie (pas d'image)`);
-          return;
-        }
-        
-        const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
-        const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
-        const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-        const sku = v.sku;
-        const seriesValue = sku ? extractSeriesFromSku(sku) : (ref ? extractSeriesFromSku(ref) : undefined);
-        
-        // Clé unique basée sur l'image ET la variation pour éviter les doublons
-        const key = `${v.id}|${src}`;
-        
-        if (!uniq.has(key)) {
-          uniq.set(key, {
-            src,
-            alt: `${product.name}${m ? ` — ${m}` : ""}${c ? ` — ${c}` : ""}${seriesValue ? ` — ${seriesValue}` : ""}`,
-            variationId: v.id,
-            model: m,
-            color: c,
-            series: seriesValue,
-            isActive: Boolean(matchedVariation && v.id === matchedVariation.id),
-          });
-        }
-      });
-      
-      const galleryArray = Array.from(uniq.values());
-      console.log(`[Product ${product.id}] 📸 Galerie construite: ${galleryArray.length} images uniques`);
-      return galleryArray;
-    }
-    // simple product
-    return (product.images ?? []).map((im, idx) => ({
-      src: im.src,
-      alt: im.alt || `${product.name} — ${idx + 1}`,
-      variationId: 0,
-      isActive: idx === 0,
-    }));
-  }, [product, hasVariations, variations, matchedVariation, norm]);
-
-  const canAdd = Boolean(product) && qty > 0 && (!hasVariations || Boolean(matchedVariation));
-
-  // FIX: ajout du mot-clé "async" manquant sur la fonction onAdd
   const onAdd = async () => {
     if (!product) return;
     if (hasVariations && !matchedVariation) {
@@ -799,11 +326,14 @@ export default function Product() {
     } catch (error) {
       toast({
         title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible d'ajouter au panier",
+        description:
+          error instanceof Error ? error.message : "Impossible d'ajouter au panier",
         variant: "destructive",
       });
     }
   };
+
+  // ── rendu ────────────────────────────────────────────────────────────────
 
   return (
     <div className="bg-background">
@@ -821,10 +351,13 @@ export default function Product() {
         ) : !product ? (
           <div className="rounded-3xl border bg-card p-10 text-center">
             <div className="text-sm font-medium tracking-tight">Produit introuvable.</div>
-            <div className="mt-2 text-sm text-muted-foreground">Vérifie le lien ou retourne à la boutique.</div>
+            <div className="mt-2 text-sm text-muted-foreground">
+              Vérifie le lien ou retourne à la boutique.
+            </div>
           </div>
         ) : (
           <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
+            {/* ── Image + galerie ── */}
             <FadeIn>
               <div className="overflow-hidden">
                 <Dialog>
@@ -845,59 +378,39 @@ export default function Product() {
                     </button>
                   </DialogTrigger>
                   <DialogContent className="max-w-5xl p-0">
-                    {heroImage ? (
+                    {heroImage && (
                       <div className="bg-black">
-                        <img src={heroImage} alt={product.name} className="h-[80vh] w-full object-contain" />
+                        <img
+                          src={heroImage}
+                          alt={product.name}
+                          className="h-[80vh] w-full object-contain"
+                        />
                       </div>
-                    ) : null}
+                    )}
                   </DialogContent>
                 </Dialog>
               </div>
 
-              {gallery.length > 1 ? (
+              {gallery.length > 1 && (
                 <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-6">
                   {gallery.slice(0, 12).map((g) => {
-                    const gWithVariation = g as { 
-                      src: string; 
-                      alt: string; 
-                      variationId: number;
-                      isActive: boolean; 
-                      model?: string; 
-                      color?: string;
-                      series?: string;
-                    };
-                    
-                    // Trouver la variation correspondante
-                    const variation = variations.find(v => v.id === gWithVariation.variationId);
-                    
+                    const variation = variations.find((v) => v.id === g.variationId);
                     return (
                       <button
-                        key={`${g.src}-${gWithVariation.variationId}`}
+                        key={`${g.src}-${g.variationId}`}
                         type="button"
                         onClick={() => {
-                          // REFONTE : Sélectionner directement la variation exacte
-                          if (variation) {
-                            const m = variation.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
-                            const c = variation.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
-                            const sku = variation.sku;
-                            const ref = variation.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-                            const seriesValue = sku ? extractSeriesFromSku(sku) : (ref ? extractSeriesFromSku(ref) : undefined);
-                            
-                            console.log(`[Product ${product?.id}] 🖼️ Clic sur aperçu: Variation ${variation.id} (${m} + ${c}${seriesValue ? `, série: ${seriesValue}` : ''})`);
-                            
-                            if (m) setModel(m);
-                            if (c) setColor(c);
-                            if (seriesValue) setSeries(seriesValue);
-                          } else if (gWithVariation.model || gWithVariation.color) {
-                            // Fallback si la variation n'est pas trouvée
-                            if (gWithVariation.model) setModel(gWithVariation.model);
-                            if (gWithVariation.color) setColor(gWithVariation.color);
-                            if (gWithVariation.series) setSeries(gWithVariation.series);
-                          }
+                          if (!variation) return;
+                          const m = getAttr(variation.attributes, "Modèle");
+                          const c = getAttr(variation.attributes, "Couleur");
+                          if (m) setModel(m);
+                          if (c) setColor(c);
                         }}
                         className={[
                           "group overflow-hidden transition",
-                          g.isActive ? "opacity-100 ring-2 ring-foreground/40" : "opacity-70 hover:opacity-100",
+                          g.isActive
+                            ? "opacity-100 ring-2 ring-foreground/40"
+                            : "opacity-70 hover:opacity-100",
                         ].join(" ")}
                         aria-label={`Voir ${g.alt}`}
                       >
@@ -912,7 +425,7 @@ export default function Product() {
                     );
                   })}
                 </div>
-              ) : null}
+              )}
 
               <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
                 <span>Zoom élégant (cliquer)</span>
@@ -920,26 +433,35 @@ export default function Product() {
               </div>
             </FadeIn>
 
+            {/* ── Infos + sélecteurs ── */}
             <FadeIn delay={0.05}>
               <div className="space-y-6">
                 <div>
-                  <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">IMPEXO</div>
-                  <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{product.name}</h1>
-                  <div className="mt-3 text-lg font-medium tabular-nums">{formatEUR(price)}</div>
+                  <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">
+                    IMPEXO
+                  </div>
+                  <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+                    {product.name}
+                  </h1>
+                  <div className="mt-3 text-lg font-medium tabular-nums">
+                    {formatEUR(price)}
+                  </div>
                 </div>
 
                 <Separator />
 
                 <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Sélecteur modèle */}
                   <div className="space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">Modèle d'iPhone</div>
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Modèle d'iPhone
+                    </div>
                     <Select
                       value={model}
                       onValueChange={(next) => {
                         setModel(next);
                         if (!hasVariations) return;
                         const allowed = availableColorsByModel.get(norm(next)) ?? [];
-                        // On garde la couleur si elle existe pour ce modèle; sinon on choisit la première disponible.
                         if (color) {
                           const kept = allowed.find((c) => norm(c) === norm(color));
                           if (kept) {
@@ -963,96 +485,44 @@ export default function Product() {
                     </Select>
                   </div>
 
+                  {/* Sélecteur couleur */}
                   <div className="space-y-2">
                     <div className="text-xs font-medium text-muted-foreground">Couleur</div>
                     <div className="flex flex-wrap gap-2">
-                      {displayedColors.map((c) => {
+                      {allowedColors.map((c) => {
                         const active = color === c;
                         return (
                           <button
                             key={c}
                             type="button"
-                            onClick={() => {
-                              // Comme on n'affiche que les couleurs disponibles, on peut sélectionner directement.
-                              const inAllowed = allowedColorsForSelectedModel.find((x) => norm(x) === norm(c));
-                              setColor(inAllowed ?? c);
-                            }}
+                            onClick={() => setColor(c)}
                             className={[
                               "rounded-full border px-3 py-2 text-xs transition",
-                              active ? "bg-foreground text-background" : "bg-background hover:bg-muted/60",
+                              active
+                                ? "bg-foreground text-background"
+                                : "bg-background hover:bg-muted/60",
                             ].join(" ")}
-                            disabled={displayedColors.length <= 1}
+                            disabled={allowedColors.length <= 1}
                           >
                             {c}
                           </button>
                         );
                       })}
-                      {displayedColors.length === 1 ? (
-                        <span className="text-xs text-muted-foreground">1 couleur disponible pour ce modèle</span>
-                      ) : null}
-                      {displayedColors.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">Couleurs non renseignées</span>
-                      ) : null}
+                      {allowedColors.length === 1 && (
+                        <span className="text-xs text-muted-foreground">
+                          1 couleur disponible pour ce modèle
+                        </span>
+                      )}
+                      {allowedColors.length === 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          Couleurs non renseignées
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Sélecteur de série/design (affiche uniquement les variations correspondant au modèle et couleur sélectionnés) */}
-                {hasVariations && filteredVariationsByModelAndColor.length > 1 && (
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">Série / Design</div>
-                    <Select
-                      value={series}
-                      onValueChange={(next) => {
-                        // next est maintenant l'ID de la variation ou la série extraite
-                        // Extraire la série depuis la variation sélectionnée
-                        const selectedVariation = filteredVariationsByModelAndColor.find(
-                          (v) => {
-                            const sku = v.sku;
-                            if (sku) return extractSeriesFromSku(sku) === next;
-                            const ref = getAttr(v, "Référence");
-                            return ref && extractSeriesFromSku(ref) === next;
-                          }
-                        );
-                        
-                        if (selectedVariation) {
-                          const sku = selectedVariation.sku;
-                          const seriesValue = sku ? extractSeriesFromSku(sku) : getAttr(selectedVariation, "Référence");
-                          if (seriesValue) {
-                            setSeries(seriesValue);
-                          }
-                        } else {
-                          setSeries(next);
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-11 rounded-full">
-                        <SelectValue placeholder="Choisir une série" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredVariationsByModelAndColor.map((v) => {
-                          const modele = getAttr(v, "Modèle");
-                          const couleur = getAttr(v, "Couleur");
-                          const sku = v.sku;
-                          const seriesValue = sku ? extractSeriesFromSku(sku) : getAttr(v, "Référence") || "";
-                          
-                          // Construire le label sans référence interne : "iPhone 17 — Argent"
-                          const labelParts = [];
-                          if (modele) labelParts.push(modele);
-                          if (couleur) labelParts.push(couleur);
-                          const label = labelParts.length > 0 ? labelParts.join(" — ") : seriesValue;
-                          
-                          return (
-                            <SelectItem key={v.id} value={seriesValue}>
-                              {label}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
+                {/* Quantité + panier */}
                 <div className="p-5">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-medium text-muted-foreground">Quantité</div>
@@ -1066,7 +536,9 @@ export default function Product() {
                       >
                         <Minus className="h-4 w-4" />
                       </Button>
-                      <div className="w-10 text-center text-sm font-medium tabular-nums">{qty}</div>
+                      <div className="w-10 text-center text-sm font-medium tabular-nums">
+                        {qty}
+                      </div>
                       <Button
                         type="button"
                         variant="ghost"
@@ -1092,6 +564,7 @@ export default function Product() {
                   </div>
                 </div>
 
+                {/* Badges */}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="flex items-start gap-3 p-4">
                     <Shield className="mt-0.5 h-4 w-4 text-muted-foreground" />
@@ -1106,35 +579,48 @@ export default function Product() {
                     <Sparkles className="mt-0.5 h-4 w-4 text-muted-foreground" />
                     <div>
                       <div className="text-sm font-medium tracking-tight">Finitions premium</div>
-                      <div className="mt-1 text-sm text-muted-foreground">Reflets, textures, minimalisme.</div>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        Reflets, textures, minimalisme.
+                      </div>
                     </div>
                   </div>
                 </div>
 
+                {/* Fiche produit */}
                 <div className="p-6">
-                  <div className="flex items-start justify-between gap-6">
-                    <div>
-                      <div className="text-xs font-medium tracking-[0.22em] text-muted-foreground">DÉTAILS</div>
-                      <div className="mt-2 text-sm font-medium tracking-tight">Fiche produit</div>
-                    </div>
+                  <div className="text-xs font-medium tracking-[0.22em] text-muted-foreground">
+                    DÉTAILS
                   </div>
+                  <div className="mt-2 text-sm font-medium tracking-tight">Fiche produit</div>
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-3">
                     <div className="p-4">
-                      <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">MODÈLE</div>
-                      <div className="mt-2 text-sm font-medium tracking-tight">{selected.model || "—"}</div>
+                      <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">
+                        MODÈLE
+                      </div>
+                      <div className="mt-2 text-sm font-medium tracking-tight">
+                        {selected.model || "—"}
+                      </div>
                     </div>
                     <div className="p-4">
-                      <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">COULEUR</div>
-                      <div className="mt-2 text-sm font-medium tracking-tight">{selected.color || "—"}</div>
+                      <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">
+                        COULEUR
+                      </div>
+                      <div className="mt-2 text-sm font-medium tracking-tight">
+                        {selected.color || "—"}
+                      </div>
                     </div>
                     <div className="p-4">
-                      <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">MATÉRIAU</div>
-                      <div className="mt-2 text-sm font-medium tracking-tight">{selectedMaterial || "—"}</div>
+                      <div className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground">
+                        MATÉRIAU
+                      </div>
+                      <div className="mt-2 text-sm font-medium tracking-tight">
+                        {selectedMaterial || "—"}
+                      </div>
                     </div>
                   </div>
 
-                  {models.length ? (
+                  {models.length > 0 && (
                     <div className="mt-5">
                       <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground">
                         COMPATIBILITÉS DISPONIBLES
@@ -1150,29 +636,36 @@ export default function Product() {
                         ))}
                       </div>
                     </div>
-                  ) : null}
-                  {product.short_description ? (
+                  )}
+
+                  {product.short_description && (
                     <div
                       className="prose prose-sm mt-4 max-w-none text-muted-foreground prose-p:leading-relaxed"
                       dangerouslySetInnerHTML={{ __html: product.short_description }}
                     />
-                  ) : null}
-                  {product.description ? (
+                  )}
+                  {product.description && (
                     <div
                       className="prose prose-sm mt-4 max-w-none text-muted-foreground prose-p:leading-relaxed prose-ul:my-3 prose-li:my-1"
                       dangerouslySetInnerHTML={{ __html: product.description }}
                     />
-                  ) : null}
+                  )}
 
                   <div className="mt-4 space-y-1 text-xs text-muted-foreground">
-                    <div>Produit compatible avec les modèles iPhone 17, 17 Air, 17 Pro et 17 Pro Max.</div>
-                    <div>La marque Apple® est mentionnée uniquement à titre de compatibilité. IMPEXO est une marque indépendante.</div>
-                    {mentionsMagSafe ? (
+                    <div>
+                      Produit compatible avec les modèles iPhone 17, 17 Air, 17 Pro et 17 Pro Max.
+                    </div>
+                    <div>
+                      La marque Apple® est mentionnée uniquement à titre de compatibilité. IMPEXO
+                      est une marque indépendante.
+                    </div>
+                    {mentionsMagSafe && (
                       <div>
-                        MagSafe est une marque d'Apple Inc. La mention « compatible MagSafe » décrit une compatibilité avec des accessoires MagSafe, sans affiliation ni
+                        MagSafe est une marque d'Apple Inc. La mention « compatible MagSafe »
+                        décrit une compatibilité avec des accessoires MagSafe, sans affiliation ni
                         approbation.
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               </div>
