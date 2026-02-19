@@ -228,6 +228,14 @@ export default async function handler(req, res) {
     // ==========================================
     // 8. EXÉCUTION DE LA REQUÊTE VERS WOOCOMMERCE
     // ==========================================
+    logError('🔍 DEBUG POST:', {
+      url: maskSecret(url),
+      method: req.method,
+      bodyType: typeof req.body,
+      body: req.body ? JSON.stringify(req.body).substring(0, 200) : 'null',
+      hasContentLength: !!req.headers['content-length'],
+    });
+    
     let wooResponse;
     try {
       wooResponse = await fetch(url, fetchOptions);
