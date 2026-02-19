@@ -196,10 +196,15 @@ async function storeCartFetch<T>(
   const url = buildStoreCartUrl(endpoint);
   const isWriteOperation = init?.method && ['POST', 'PUT', 'DELETE'].includes(init.method);
   
-  // S'assurer d'avoir un nonce pour les opérations d'écriture
-  if (isWriteOperation && !currentNonce) {
-    console.log('[WooCommerce Cart] Récupération du nonce initial...');
+  // IMPORTANT : Pour les opérations d'écriture, toujours récupérer un nonce frais
+  // Le nonce peut expirer rapidement, donc on le récupère juste avant chaque opération
+  if (isWriteOperation) {
+    console.log('[WooCommerce Cart] Récupération d\'un nonce frais pour l\'opération d\'écriture...');
     await fetchInitialNonce();
+    
+    if (!currentNonce) {
+      console.error('[WooCommerce Cart] ❌ Impossible de récupérer un nonce - l\'opération va échouer');
+    }
   }
   
   const headers: HeadersInit = {
@@ -211,6 +216,9 @@ async function storeCartFetch<T>(
   // Ajouter le nonce pour les opérations d'écriture
   if (isWriteOperation && currentNonce) {
     headers['Nonce'] = currentNonce;
+    console.log(`[WooCommerce Cart] Envoi du nonce pour ${init?.method} ${endpoint}:`, currentNonce.substring(0, 10) + '...');
+  } else if (isWriteOperation && !currentNonce) {
+    console.warn(`[WooCommerce Cart] ⚠️ Pas de nonce disponible pour ${init?.method} ${endpoint}`);
   }
   
   // Créer un AbortController pour le timeout
@@ -231,6 +239,35 @@ async function storeCartFetch<T>(
     extractNonceFromResponse(response);
     
     if (!response.ok) {
+      // Gestion spéciale pour les erreurs 403 (nonce invalide)
+      if (response.status === 403 && isWriteOperation) {
+        const errorText = await response.text().catch(() => response.statusText);
+        let errorMessage = 'Le nonce n\'est pas valide.';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        // Si c'est une erreur de nonce et qu'on n'a pas encore retenté, récupérer un nouveau nonce et réessayer
+        if (errorMessage.toLowerCase().includes('nonce') && retryCount < MAX_RETRIES) {
+          console.log(`[WooCommerce Cart] Erreur 403 - Nonce invalide, récupération d'un nouveau nonce...`);
+          currentNonce = null; // Réinitialiser le nonce
+          await fetchInitialNonce(); // Récupérer un nouveau nonce
+          
+          if (currentNonce) {
+            console.log(`[WooCommerce Cart] Nouveau nonce récupéré, retry ${retryCount + 1}/${MAX_RETRIES}`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
+            return storeCartFetch<T>(endpoint, init, retryCount + 1);
+          } else {
+            console.error('[WooCommerce Cart] Impossible de récupérer un nouveau nonce');
+          }
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
       // Gestion des erreurs avec retry pour les erreurs réseau/transitoires
       const isRetryableError = 
         response.status === 0 || // Erreur réseau

@@ -40,10 +40,22 @@ export default async function handler(req, res) {
       }
     }
 
+    // Log des headers pour déboguer (surtout pour le nonce)
+    const headersForLog = {};
+    Object.keys(req.headers).forEach(key => {
+      if (key.toLowerCase().includes('nonce') || key.toLowerCase().includes('cookie')) {
+        const value = req.headers[key];
+        headersForLog[key] = typeof value === 'string' && value.length > 20 
+          ? value.substring(0, 20) + '...' 
+          : value;
+      }
+    });
+    
     log('✅ Requête reçue:', {
       method: req.method,
       url: req.url,
       pathFinal: path,
+      headersRelevants: headersForLog,
       timestamp: new Date().toISOString(),
     });
 
@@ -165,13 +177,21 @@ export default async function handler(req, res) {
 
     // CRITIQUE : Transmettre le header Nonce pour les opérations d'écriture Store Cart
     // Le nonce est requis pour POST/PUT/DELETE sur l'API Store Cart
-    // Vérifier les deux cas possibles (minuscule et majuscule)
-    const nonceHeader = req.headers.nonce || req.headers['Nonce'] || req.headers['nonce'];
-    if (isStoreCart && nonceHeader && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
-      headers.Nonce = nonceHeader;
-      log('Nonce transmis pour l\'API Store Cart:', nonceHeader.substring(0, 10) + '...');
-    } else if (isStoreCart && ['POST', 'PUT', 'DELETE'].includes(req.method) && !nonceHeader) {
-      log('⚠️ Aucun nonce fourni pour l\'opération d\'écriture Store Cart - risque de 403');
+    // Vérifier toutes les variantes de casse possibles (Node.js/Vercel normalise en minuscules)
+    const nonceHeader = req.headers.nonce 
+      || req.headers['Nonce'] 
+      || req.headers['nonce']
+      || req.headers['NONCE'];
+    
+    if (isStoreCart && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
+      if (nonceHeader) {
+        // IMPORTANT : WooCommerce attend le header avec la casse exacte "Nonce"
+        headers.Nonce = String(nonceHeader);
+        log('✅ Nonce transmis pour l\'API Store Cart:', String(nonceHeader).substring(0, 10) + '...');
+      } else {
+        logError('❌ Aucun nonce fourni pour l\'opération d\'écriture Store Cart - risque de 403');
+        logError('   Headers reçus:', Object.keys(req.headers).filter(h => h.toLowerCase().includes('nonce')));
+      }
     }
 
     // Forward de quelques headers clients non-sensibles
