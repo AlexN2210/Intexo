@@ -11,6 +11,21 @@ const DEFAULT_TIMEOUT = 8000; // 8 secondes
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 seconde
 
+// URL du proxy Vercel (peut être configurée via variable d'environnement)
+const PROXY_BASE_URL = import.meta.env.VITE_WC_PROXY_BASE_URL 
+  || (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') 
+    ? window.location.origin 
+    : undefined);
+
+// Log de débogage pour vérifier la configuration
+if (typeof window !== 'undefined') {
+  console.log('[WooCommerce Cart] Configuration proxy:', {
+    proxyBaseUrl: PROXY_BASE_URL || 'non configuré',
+    currentOrigin: window.location.origin,
+    envVar: import.meta.env.VITE_WC_PROXY_BASE_URL || 'non définie',
+  });
+}
+
 // Stockage du nonce en mémoire (sera récupéré automatiquement)
 let currentNonce: string | null = null;
 
@@ -145,9 +160,46 @@ function buildStoreCartUrl(endpoint: string): string {
   
   // Le proxy attend : /api/woocommerce/store/v1/{endpoint}
   const proxyPath = `/api/woocommerce/store/v1/${cleanPath}`.replace(/\/+/g, '/');
-  const url = new URL(proxyPath, window.location.origin);
   
-  return url.toString();
+  // CRITIQUE : Si on est sur le domaine WordPress (www.impexo.fr), utiliser l'URL Vercel
+  // Sinon, utiliser window.location.origin (pour le développement local ou Vercel)
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const isWordPressDomain = currentOrigin.includes('impexo.fr') && !currentOrigin.includes('vercel.app');
+  
+  let baseUrl: string;
+  if (PROXY_BASE_URL) {
+    // Utiliser l'URL du proxy configurée via variable d'environnement
+    baseUrl = PROXY_BASE_URL;
+    console.log(`[WooCommerce Cart] Utilisation de l'URL proxy configurée: ${baseUrl}`);
+  } else if (isWordPressDomain) {
+    // Si on est sur WordPress et pas de config, utiliser l'URL Vercel par défaut
+    // IMPORTANT : Cette URL doit pointer vers votre déploiement Vercel
+    baseUrl = 'https://intexo.vercel.app'; // Remplacez par votre URL Vercel réelle si différente
+    console.warn(`[WooCommerce Cart] ⚠️ Détection domaine WordPress (${currentOrigin})`);
+    console.warn(`[WooCommerce Cart] ⚠️ Redirection vers le proxy Vercel: ${baseUrl}`);
+    console.warn(`[WooCommerce Cart] ⚠️ Configurez VITE_WC_PROXY_BASE_URL dans vos variables d'environnement pour éviter ce warning`);
+  } else {
+    // En développement local ou sur Vercel, utiliser l'origine actuelle
+    baseUrl = currentOrigin;
+  }
+  
+  const url = new URL(proxyPath, baseUrl);
+  const finalUrl = url.toString();
+  
+  // Vérification de sécurité
+  if (!finalUrl.includes('/api/woocommerce')) {
+    console.error('[WooCommerce Cart] ❌ ERREUR: URL ne pointe pas vers le proxy!', {
+      finalUrl,
+      endpoint,
+      proxyPath,
+      baseUrl,
+      currentOrigin,
+    });
+    throw new Error(`URL ne pointe pas vers le proxy: ${finalUrl}`);
+  }
+  
+  console.log('[WooCommerce Cart] ✅ URL proxy construite:', finalUrl);
+  return finalUrl;
 }
 
 /**
