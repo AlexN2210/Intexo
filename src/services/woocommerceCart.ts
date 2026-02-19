@@ -11,35 +11,30 @@ const DEFAULT_TIMEOUT = 8000; // 8 secondes
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 seconde
 
-// URL du proxy Vercel - utilise la variable d'environnement ou détecte automatiquement
+// URL du proxy Vercel - SIMPLIFIÉ : utilise toujours window.location.origin
+// Le proxy est accessible sur le même domaine que le frontend
 function getProxyBaseUrl(): string {
-  const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  // TOUJOURS utiliser l'origine actuelle - le proxy est sur le même domaine
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  
+  // Si une variable d'environnement est définie, la nettoyer mais l'utiliser seulement
+  // si elle ne pointe pas vers wp.impexo.fr (WordPress)
   const envVar = import.meta.env.VITE_WC_PROXY_BASE_URL;
-  
-  // 1. Priorité : variable d'environnement
   if (envVar) {
-    console.log('[WooCommerce Cart] 🔧 Utilisation de VITE_WC_PROXY_BASE_URL:', envVar);
-    return envVar;
+    let cleanedUrl = envVar.trim().replace(/\/api\/woocommerce.*$/, '').replace(/\/+$/, '');
+    
+    // Seule protection : bloquer wp.impexo.fr (WordPress)
+    // www.impexo.fr est VALIDE car c'est Vercel
+    if (cleanedUrl.includes('wp.impexo.fr')) {
+      console.warn('[WooCommerce Cart] ⚠️ VITE_WC_PROXY_BASE_URL pointe vers WordPress, ignorée');
+      return currentOrigin;
+    }
+    
+    // Sinon, utiliser la variable d'environnement
+    return cleanedUrl;
   }
   
-  // 2. Si on est déjà sur Vercel, utiliser l'origine actuelle
-  if (currentHostname.includes('vercel.app')) {
-    console.log('[WooCommerce Cart] 🔧 Détection Vercel, utilisation de l\'origine:', currentOrigin);
-    return currentOrigin;
-  }
-  
-  // 3. CRITIQUE : Si on est sur le domaine WordPress, FORCER l'URL Vercel
-  if (currentHostname.includes('impexo.fr')) {
-    const vercelUrl = 'https://intexo.vercel.app';
-    console.warn('[WooCommerce Cart] ⚠️ Détection domaine WordPress:', currentHostname);
-    console.warn('[WooCommerce Cart] ⚠️ FORCAGE vers proxy Vercel:', vercelUrl);
-    console.warn('[WooCommerce Cart] ⚠️ Configurez VITE_WC_PROXY_BASE_URL pour éviter ce fallback');
-    return vercelUrl;
-  }
-  
-  // 4. Sinon (dev local), utiliser l'origine actuelle
-  console.log('[WooCommerce Cart] 🔧 Mode développement local, utilisation de l\'origine:', currentOrigin);
+  // Par défaut : utiliser l'origine actuelle (www.impexo.fr, localhost, ou vercel.app)
   return currentOrigin;
 }
 
@@ -175,24 +170,18 @@ function buildStoreCartUrl(endpoint: string): string {
   const proxyPath = `/api/woocommerce/store/v1/${cleanPath}`.replace(/\/+/g, '/');
   
   // Obtenir l'URL de base du proxy
-  let baseUrl = getProxyBaseUrl();
-  
-  // SECURITE : Si l'URL de base pointe vers WordPress, forcer Vercel
-  if (baseUrl.includes('impexo.fr') && !baseUrl.includes('vercel.app')) {
-    console.error('[WooCommerce Cart] ❌ ERREUR CRITIQUE: baseUrl pointe vers WordPress!', baseUrl);
-    console.error('[WooCommerce Cart] 🔧 Correction automatique vers Vercel');
-    baseUrl = 'https://intexo.vercel.app';
-  }
+  const baseUrl = getProxyBaseUrl();
   
   // Construire l'URL complète
   const url = new URL(proxyPath, baseUrl);
-  let finalUrl = url.toString();
+  const finalUrl = url.toString();
   
-  // SECURITE : Double vérification - si l'URL finale pointe vers WordPress, corriger
-  if (finalUrl.includes('www.impexo.fr') || (finalUrl.includes('impexo.fr') && !finalUrl.includes('vercel.app'))) {
-    console.error('[WooCommerce Cart] ❌ ERREUR CRITIQUE: finalUrl pointe vers WordPress!', finalUrl);
-    console.error('[WooCommerce Cart] 🔧 Correction automatique vers Vercel');
-    finalUrl = finalUrl.replace(/https?:\/\/[^\/]+/, 'https://intexo.vercel.app');
+  // SECURITE : Seule protection contre wp.impexo.fr (WordPress)
+  // www.impexo.fr est VALIDE car c'est Vercel
+  if (finalUrl.includes('wp.impexo.fr')) {
+    console.error('[WooCommerce Cart] ❌ ERREUR: URL pointe vers WordPress (wp.impexo.fr)!', finalUrl);
+    console.error('[WooCommerce Cart] 🔧 Correction automatique vers www.impexo.fr');
+    return finalUrl.replace(/https?:\/\/wp\.impexo\.fr/, 'https://www.impexo.fr');
   }
   
   // Vérification de sécurité
@@ -335,23 +324,42 @@ async function storeCartFetch<T>(
         response.status === 429 || // Too Many Requests
         response.status >= 500; // Erreurs serveur
       
+      // Récupérer le message d'erreur AVANT le retry pour le logger
+      const errorText = await response.text().catch(() => response.statusText);
+      let errorMessage = `WooCommerce Cart API error ${response.status}`;
+      let errorDetails: any = null;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.message || errorJson.error || errorMessage;
+        errorDetails = errorJson;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+      
+      // Logger l'erreur avant retry
+      console.error(`[WooCommerce Cart] ❌ Erreur ${response.status} du serveur:`, {
+        status: response.status,
+        url: response.url,
+        endpoint,
+        errorMessage: errorMessage.substring(0, 200),
+        errorDetails: errorDetails ? JSON.stringify(errorDetails).substring(0, 200) : null,
+      });
+      
+      // Retry pour les erreurs réseau/transitoires
       if (isRetryableError && retryCount < MAX_RETRIES) {
         console.log(`[WooCommerce Cart] Retry ${retryCount + 1}/${MAX_RETRIES} après erreur ${response.status}`);
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
         return storeCartFetch<T>(endpoint, init, retryCount + 1);
       }
       
-      // Récupérer le message d'erreur complet (sans troncature)
-      const errorText = await response.text().catch(() => response.statusText);
-      
-      // Essayer de parser le JSON d'erreur si disponible
-      let errorMessage = `WooCommerce Cart API error ${response.status}`;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.message || errorJson.error || errorMessage;
-      } catch {
-        // Si ce n'est pas du JSON, utiliser le texte brut
-        errorMessage = errorText || errorMessage;
+      // Pour les erreurs 500, inclure plus de détails
+      if (response.status === 500) {
+        const fullError = new Error(`Erreur serveur (500): ${errorMessage}`);
+        (fullError as any).details = errorDetails;
+        (fullError as any).status = response.status;
+        (fullError as any).url = response.url;
+        throw fullError;
       }
       
       throw new Error(errorMessage);
