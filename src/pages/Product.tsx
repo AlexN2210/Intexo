@@ -330,8 +330,30 @@ export default function Product() {
     if (!allowed.length) return;
     if (!color || !allowed.some((c) => norm(c) === norm(color))) {
       setColor(allowed[0]);
+      // Réinitialiser la série quand on change de couleur
+      setSeries("");
     }
   }, [hasVariations, model, models, availableColorsByModel, color]);
+
+  // Réinitialiser la série quand le modèle change (car les séries peuvent être différentes selon le modèle)
+  useEffect(() => {
+    if (!hasVariations) return;
+    if (model) {
+      // Vérifier si la série actuelle est toujours valide pour le nouveau modèle
+      const currentVariations = filteredVariationsByModelAndColor;
+      if (currentVariations.length > 0 && series) {
+        const isValidSeries = currentVariations.some(v => {
+          const sku = v.sku;
+          const vSeries = sku ? extractSeriesFromSku(sku) : getAttr(v, "Référence");
+          return vSeries === series;
+        });
+        if (!isValidSeries) {
+          console.log(`[Product ${product?.id}] Série ${series} invalide pour ${model}, réinitialisation`);
+          setSeries("");
+        }
+      }
+    }
+  }, [hasVariations, model, filteredVariationsByModelAndColor, series, product?.id]);
 
   const matchedVariation = useMemo(() => {
     if (!hasVariations) return undefined;
@@ -690,51 +712,55 @@ export default function Product() {
   const gallery = useMemo(() => {
     if (!product) return [];
     if (hasVariations) {
-      const uniq = new Map<string, { src: string; alt: string; model?: string; color?: string; isActive: boolean }>();
-      
-      // Filtrer les variations pour ne garder que celles qui appartiennent vraiment à ce produit
-      // Vérifier que les attributs correspondent aux attributs du produit parent
-      const productAttrNames = new Set((product.attributes ?? []).map(a => norm(a.name)));
+      // REFONTE : Stocker l'ID de la variation pour une correspondance exacte
+      const uniq = new Map<string, { 
+        src: string; 
+        alt: string; 
+        variationId: number;
+        model?: string; 
+        color?: string; 
+        series?: string;
+        isActive: boolean;
+      }>();
       
       variations.forEach((v) => {
-        // Vérification supplémentaire : s'assurer que la variation a des attributs cohérents
-        const variationAttrNames = (v.attributes ?? []).map(a => norm(a.name));
-        const hasMatchingAttrs = variationAttrNames.some(vName => 
-          Array.from(productAttrNames).some(pName => 
-            vName === pName || 
-            vName.includes(pName) || 
-            pName.includes(vName) ||
-            ['model', 'modèle', 'color', 'couleur'].some(pattern => vName.includes(pattern) && pName.includes(pattern))
-          )
-        );
-        
-        if (!hasMatchingAttrs) {
-          console.warn(`[Product ${product.id}] Variation ${v.id} ignorée dans la galerie (attributs non cohérents)`);
+        const src = v.image?.src;
+        if (!src) {
+          console.warn(`[Product ${product.id}] Variation ${v.id} ignorée dans la galerie (pas d'image)`);
           return;
         }
         
-        const src = v.image?.src;
-        if (!src) return;
         const m = v.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
         const c = v.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
         const ref = v.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
-        const key = `${src}|${m ?? ""}|${c ?? ""}|${ref ?? ""}`;
+        const sku = v.sku;
+        const seriesValue = sku ? extractSeriesFromSku(sku) : (ref ? extractSeriesFromSku(ref) : undefined);
+        
+        // Clé unique basée sur l'image ET la variation pour éviter les doublons
+        const key = `${v.id}|${src}`;
+        
         if (!uniq.has(key)) {
           uniq.set(key, {
             src,
-            alt: `${product.name}${m ? ` — ${m}` : ""}${c ? ` — ${c}` : ""}${ref ? ` — ${ref}` : ""}`,
+            alt: `${product.name}${m ? ` — ${m}` : ""}${c ? ` — ${c}` : ""}${seriesValue ? ` — ${seriesValue}` : ""}`,
+            variationId: v.id,
             model: m,
             color: c,
+            series: seriesValue,
             isActive: Boolean(matchedVariation && v.id === matchedVariation.id),
           });
         }
       });
-      return Array.from(uniq.values());
+      
+      const galleryArray = Array.from(uniq.values());
+      console.log(`[Product ${product.id}] 📸 Galerie construite: ${galleryArray.length} images uniques`);
+      return galleryArray;
     }
     // simple product
     return (product.images ?? []).map((im, idx) => ({
       src: im.src,
       alt: im.alt || `${product.name} — ${idx + 1}`,
+      variationId: 0,
       isActive: idx === 0,
     }));
   }, [product, hasVariations, variations, matchedVariation, norm]);
@@ -831,18 +857,47 @@ export default function Product() {
               {gallery.length > 1 ? (
                 <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-6">
                   {gallery.slice(0, 12).map((g) => {
-                    const gWithAttrs = g as { src: string; alt: string; isActive: boolean; model?: string; color?: string };
+                    const gWithVariation = g as { 
+                      src: string; 
+                      alt: string; 
+                      variationId: number;
+                      isActive: boolean; 
+                      model?: string; 
+                      color?: string;
+                      series?: string;
+                    };
+                    
+                    // Trouver la variation correspondante
+                    const variation = variations.find(v => v.id === gWithVariation.variationId);
+                    
                     return (
                       <button
-                        key={`${g.src}-${gWithAttrs.model ?? ""}-${gWithAttrs.color ?? ""}`}
+                        key={`${g.src}-${gWithVariation.variationId}`}
                         type="button"
                         onClick={() => {
-                          if (gWithAttrs.model) setModel(gWithAttrs.model);
-                          if (gWithAttrs.color) setColor(gWithAttrs.color);
+                          // REFONTE : Sélectionner directement la variation exacte
+                          if (variation) {
+                            const m = variation.attributes?.find((a) => /mod|mod[eè]le|iphone/i.test(a.name))?.option;
+                            const c = variation.attributes?.find((a) => /couleur|color/i.test(a.name))?.option;
+                            const sku = variation.sku;
+                            const ref = variation.attributes?.find((a) => /r[eé]f[eé]rence|reference/i.test(a.name))?.option;
+                            const seriesValue = sku ? extractSeriesFromSku(sku) : (ref ? extractSeriesFromSku(ref) : undefined);
+                            
+                            console.log(`[Product ${product?.id}] 🖼️ Clic sur aperçu: Variation ${variation.id} (${m} + ${c}${seriesValue ? `, série: ${seriesValue}` : ''})`);
+                            
+                            if (m) setModel(m);
+                            if (c) setColor(c);
+                            if (seriesValue) setSeries(seriesValue);
+                          } else if (gWithVariation.model || gWithVariation.color) {
+                            // Fallback si la variation n'est pas trouvée
+                            if (gWithVariation.model) setModel(gWithVariation.model);
+                            if (gWithVariation.color) setColor(gWithVariation.color);
+                            if (gWithVariation.series) setSeries(gWithVariation.series);
+                          }
                         }}
                         className={[
                           "group overflow-hidden transition",
-                          g.isActive ? "opacity-100" : "opacity-70 hover:opacity-100",
+                          g.isActive ? "opacity-100 ring-2 ring-foreground/40" : "opacity-70 hover:opacity-100",
                         ].join(" ")}
                         aria-label={`Voir ${g.alt}`}
                       >
