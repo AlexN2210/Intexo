@@ -251,66 +251,20 @@ export async function getProductVariations(productId: number): Promise<WooVariat
   if (env.useMocks) {
     return mockProductVariationsByProductId[productId] ?? [];
   }
-  
+
   try {
-    // Solution pour le bug WooCommerce : récupérer les IDs depuis le produit parent
-    // Le champ "variations" du produit contient toujours les IDs, même si /variations renvoie 404
-    console.log(`[WooCommerce] Récupération des variations pour le produit ${productId}`);
-    
-    // 1. Récupérer le produit parent pour obtenir les IDs des variations
-    const product = await wooFetch<WooProduct>(
-      `/wp-json/wc/v3/products/${productId}`,
-      {}
-    );
-    
-    // 2. Si le produit a des IDs de variations, les utiliser pour récupérer chaque variation individuellement
-    if (product?.variations && Array.isArray(product.variations) && product.variations.length > 0) {
-      console.log(`[WooCommerce] Produit ${productId} a ${product.variations.length} variations (IDs: ${product.variations.join(', ')})`);
-      
-      // Récupérer chaque variation individuellement (cet endpoint fonctionne toujours, même si /variations renvoie 404)
-      // Essayer d'inclure les meta_data pour récupérer les matériaux (si WooCommerce les expose)
-      const variationPromises = product.variations.map(async (variationId) => {
-        try {
-          // Essayer d'abord sans paramètres spéciaux (meta_data peut être incluse par défaut selon la config WooCommerce)
-          const variation = await wooFetch<WooVariation>(
-            `/wp-json/wc/v3/products/${productId}/variations/${variationId}`,
-            {}
-          );
-          
-          // Log pour vérifier si meta_data est présente
-          if (variationId === product.variations[0]) {
-            console.log(`[WooCommerce] Structure de la première variation ${variationId}:`, Object.keys(variation));
-            console.log(`[WooCommerce] meta_data présente:`, !!variation.meta_data);
-            if (variation.meta_data) {
-              console.log(`[WooCommerce] Meta fields disponibles:`, variation.meta_data.map((m: any) => `${m.key}: ${m.value}`));
-            }
-          }
-          
-          return variation;
-        } catch (error) {
-          console.warn(`[WooCommerce] Impossible de récupérer la variation ${variationId} du produit ${productId}:`, error);
-          return null;
-        }
-      });
-      
-      const variations = await Promise.all(variationPromises);
-      const validVariations = variations.filter((v): v is WooVariation => v !== null);
-      
-      console.log(`[WooCommerce] ${validVariations.length}/${product.variations.length} variations récupérées avec succès`);
-      
-      return validVariations;
-    }
-    
-    // 3. Fallback : essayer l'endpoint /variations classique (peut renvoyer 404 ou vide)
-    console.log(`[WooCommerce] Aucun ID de variation trouvé dans le produit ${productId}, tentative avec /variations`);
+    // Un seul appel : l'API WooCommerce REST retourne toutes les variations en une requête.
+    // Évite N requêtes parallèles qui déclenchent le rate limiting (429 / Imunify360).
+    console.log(`[WooCommerce] Récupération des variations pour le produit ${productId} (1 requête)`);
     const variations = await wooFetch<WooVariation[]>(
       `/wp-json/wc/v3/products/${productId}/variations`,
-      { status: "publish" }
+      { per_page: 100, status: "publish" }
     );
-    
-    return Array.isArray(variations) ? variations : [];
+    const list = Array.isArray(variations) ? variations : [];
+    console.log(`[WooCommerce] ${list.length} variation(s) récupérée(s) pour le produit ${productId}`);
+    return list;
   } catch (error) {
-    console.error("Erreur lors de la récupération des variations:", error);
+    console.error("[WooCommerce] Erreur lors de la récupération des variations:", error);
     return [];
   }
 }
