@@ -8,7 +8,8 @@
   "functions": {
     "api/woocommerce/[...path].js": {
       "memory": 512,
-      "maxDuration": 15
+      "maxDuration": 15,
+      "regions": ["cdg1"]
     }
   },
   "rewrites": [

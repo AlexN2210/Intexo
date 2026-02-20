@@ -330,8 +330,12 @@ export default async function handler(req, res) {
       headers['Pragma'] = 'no-cache';
     }
 
-    // Forward de quelques headers clients non-sensibles
-    ['user-agent', 'accept-language'].forEach(h => {
+    // User-Agent WordPress-like pour éviter les blocages ModSecurity
+    // ModSecurity peut bloquer les requêtes avec des User-Agents suspects
+    headers['User-Agent'] = 'WordPress/6.4; https://www.impexo.fr';
+    
+    // Forward de quelques headers clients non-sensibles (sauf User-Agent qui est déjà défini)
+    ['accept-language'].forEach(h => {
       const v = req.headers[h];
       if (v && typeof v === 'string') headers[h] = v;
     });
