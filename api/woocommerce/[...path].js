@@ -28,6 +28,12 @@ export default async function handler(req, res) {
   console.error('RAW QUERY:', JSON.stringify(req.query));
   console.error('RAW URL:', req.url);
   console.error('RAW METHOD:', req.method);
+  // Vérifier si l'URL contient déjà un paramètre path=
+  if (req.url && req.url.includes('path=')) {
+    console.error('⚠️ URL CONTIENT path=:', req.url);
+    const urlObj = new URL(req.url, 'http://localhost');
+    console.error('   Query params dans URL:', Object.fromEntries(urlObj.searchParams));
+  }
   
   // Log IMMÉDIATEMENT, avant tout traitement
   console.error('[Proxy WooCommerce] 🚀 HANDLER DÉMARRÉ:', {
@@ -371,7 +377,9 @@ export default async function handler(req, res) {
       wooResponse = await fetch(url, fetchOptions);
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      logError('FETCH ERROR CAUSE:', fetchError.cause); // Très important pour diagnostiquer
+      // Log détaillé du cause pour diagnostiquer le problème réseau
+      logError('FETCH CAUSE:', fetchError?.cause?.code, fetchError?.cause?.message);
+      logError('FETCH ERROR CAUSE (full):', fetchError.cause); // Très important pour diagnostiquer
       logError('FETCH ERROR:', fetchError.message);
       logError('❌ ERREUR FETCH:', {
         name: fetchError.name,
@@ -381,6 +389,8 @@ export default async function handler(req, res) {
         hasBody: !!fetchOptions.body,
         cause: fetchError.cause ? String(fetchError.cause) : undefined,
         causeType: fetchError.cause ? typeof fetchError.cause : undefined,
+        causeCode: fetchError?.cause?.code,
+        causeMessage: fetchError?.cause?.message,
         causeKeys: fetchError.cause && typeof fetchError.cause === 'object' ? Object.keys(fetchError.cause) : undefined,
       });
       if (fetchError.name === 'AbortError') {

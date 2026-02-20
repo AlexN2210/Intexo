@@ -260,9 +260,10 @@ async function storeCartFetch<T>(
   const url = buildStoreCartUrl(endpoint);
   const isWriteOperation = init?.method && ['POST', 'PUT', 'DELETE'].includes(init.method);
   
-  // IMPORTANT : Pour les opérations d'écriture, toujours récupérer un nonce frais
-  // Le nonce peut expirer rapidement, donc on le récupère juste avant chaque opération
-  if (isWriteOperation) {
+  // IMPORTANT : Pour les opérations d'écriture, récupérer un nonce frais UNIQUEMENT au premier appel
+  // Ne pas refaire fetchInitialNonce() lors des retries pour éviter les GET 200 / POST 500 en alternance
+  // Le nonce est récupéré une seule fois au début, puis réutilisé pour tous les retries
+  if (isWriteOperation && retryCount === 0) {
     console.log('[WooCommerce Cart] Récupération d\'un nonce frais pour l\'opération d\'écriture...');
     await fetchInitialNonce();
     
@@ -322,14 +323,16 @@ async function storeCartFetch<T>(
         }
         
         // Si c'est une erreur de nonce et qu'on n'a pas encore retenté, récupérer un nouveau nonce et réessayer
+        // NOTE: Pour les erreurs 403 (nonce invalide), on DOIT refaire fetchInitialNonce() car le nonce est vraiment invalide
         if (errorMessage.toLowerCase().includes('nonce') && retryCount < MAX_RETRIES) {
           console.log(`[WooCommerce Cart] Erreur 403 - Nonce invalide, récupération d'un nouveau nonce...`);
           currentNonce = null; // Réinitialiser le nonce
-          await fetchInitialNonce(); // Récupérer un nouveau nonce
+          await fetchInitialNonce(); // Récupérer un nouveau nonce (nécessaire pour les erreurs 403)
           
           if (currentNonce) {
             console.log(`[WooCommerce Cart] Nouveau nonce récupéré, retry ${retryCount + 1}/${MAX_RETRIES}`);
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
+            // Passer retryCount + 1 mais ne pas refaire fetchInitialNonce() car on vient de le faire
             return storeCartFetch<T>(endpoint, init, retryCount + 1);
           } else {
             console.error('[WooCommerce Cart] Impossible de récupérer un nouveau nonce');
