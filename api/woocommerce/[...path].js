@@ -187,25 +187,28 @@ export default async function handler(req, res) {
       logError('✅ Utilisation de l\'API REST classique (wc/v3):', wooPath);
     }
 
-    // Construction de la query string
-    // On exclut uniquement les clés de routing Vercel ("...path")
-    // Note: on n'exclut plus "products" pour ne pas bloquer un vrai paramètre éponyme
-    const queryParams = new URLSearchParams();
+    // Construction de l'URL proprement avec URL et URLSearchParams
+    // Exclure explicitement les clés de routing Vercel pour éviter la pollution de l'URL WordPress
     const routingKeys = ['...path', 'path']; // Exclure les clés de routing Vercel
-
+    
+    // Construire l'URL de base sans query params
+    const cleanUrl = new URL(`${wp}${wooPath}`);
+    
+    // Ajouter uniquement les query params valides (exclure les paramètres de routing)
     Object.entries(req.query).forEach(([key, value]) => {
       if (!routingKeys.includes(key) && value !== undefined && value !== '') {
         if (Array.isArray(value)) {
-          value.forEach(v => queryParams.append(key, String(v)));
+          value.forEach(v => cleanUrl.searchParams.append(key, String(v)));
         } else {
-          queryParams.set(key, String(value));
+          cleanUrl.searchParams.set(key, String(value));
         }
       }
     });
-
-    const queryString = queryParams.toString();
-    const url = `${wp}${wooPath}${queryString ? `?${queryString}` : ''}`;
-
+    
+    const url = cleanUrl.toString();
+    
+    logError('🔍 URL NETTOYÉE:', maskSecret(url));
+    logError('🔍 URL AVANT MASQUAGE:', url); // Pour debug complet
     log('URL WooCommerce:', maskSecret(url));
 
     // ==========================================
@@ -363,18 +366,59 @@ export default async function handler(req, res) {
         }, req);
       }
       
-      // Log détaillé de fetchOptions pour déboguer
-      logError('🔍 FETCH OPTIONS COMPLET:', {
-        method: fetchOptions.method,
-        headers: JSON.stringify(fetchOptions.headers),
-        hasBody: !!fetchOptions.body,
-        bodyType: typeof fetchOptions.body,
-        bodyLength: fetchOptions.body ? String(fetchOptions.body).length : 0,
-        hasSignal: !!fetchOptions.signal,
-        signalType: fetchOptions.signal ? fetchOptions.signal.constructor.name : 'undefined',
-      });
-      
-      wooResponse = await fetch(url, fetchOptions);
+      // Vérifier que l'URL ne contient pas de paramètres de routing polluants
+      const urlObj = new URL(url);
+      if (urlObj.searchParams.has('path') || urlObj.searchParams.has('...path')) {
+        logError('⚠️ URL CONTIENT ENCORE path= ! Nettoyage...');
+        urlObj.searchParams.delete('path');
+        urlObj.searchParams.delete('...path');
+        const cleanedUrl = urlObj.toString();
+        logError('🔧 URL NETTOYÉE FINALE:', cleanedUrl);
+        // Utiliser l'URL nettoyée
+        const finalUrl = cleanedUrl;
+        
+        logError('URL FINALE AVANT FETCH:', finalUrl);
+        logError('🔍 FETCH OPTIONS COMPLET:', {
+          method: fetchOptions.method,
+          headers: JSON.stringify(fetchOptions.headers),
+          hasBody: !!fetchOptions.body,
+          bodyType: typeof fetchOptions.body,
+          bodyLength: fetchOptions.body ? String(fetchOptions.body).length : 0,
+          hasSignal: !!fetchOptions.signal,
+          signalType: fetchOptions.signal ? fetchOptions.signal.constructor.name : 'undefined',
+        });
+        
+        wooResponse = await fetch(finalUrl, fetchOptions);
+      } else {
+        logError('URL FINALE AVANT FETCH:', url);
+        logError('🔍 FETCH OPTIONS COMPLET:', {
+          method: fetchOptions.method,
+          headers: JSON.stringify(fetchOptions.headers),
+          hasBody: !!fetchOptions.body,
+          bodyType: typeof fetchOptions.body,
+          bodyLength: fetchOptions.body ? String(fetchOptions.body).length : 0,
+          hasSignal: !!fetchOptions.signal,
+          signalType: fetchOptions.signal ? fetchOptions.signal.constructor.name : 'undefined',
+        });
+        
+        // Test optionnel avec agent undici pour diagnostiquer les problèmes SSL
+        // Décommenter si le fetch échoue avec des erreurs SSL/TLS
+        // try {
+        //   const { Agent } = await import('undici');
+        //   wooResponse = await fetch(url, {
+        //     ...fetchOptions,
+        //     // @ts-ignore - undici dispatcher option
+        //     dispatcher: new Agent({
+        //       connect: { rejectUnauthorized: false } // temporaire pour tester
+        //     }),
+        //   });
+        // } catch (undiciError) {
+        //   logError('❌ Erreur avec agent undici, fallback sur fetch standard:', undiciError);
+        //   wooResponse = await fetch(url, fetchOptions);
+        // }
+        
+        wooResponse = await fetch(url, fetchOptions);
+      }
     } catch (fetchError) {
       clearTimeout(timeoutId);
       // Log détaillé du cause pour diagnostiquer le problème réseau
