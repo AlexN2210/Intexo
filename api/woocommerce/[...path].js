@@ -24,6 +24,14 @@ const log = (...args) => DEBUG && console.log('[Proxy WooCommerce]', ...args);
 const logError = (...args) => console.error('[Proxy WooCommerce]', ...args);
 
 export default async function handler(req, res) {
+  // Log IMMÉDIATEMENT, avant tout traitement
+  console.error('[Proxy WooCommerce] 🚀 HANDLER DÉMARRÉ:', {
+    method: req.method,
+    url: req.url,
+    hasBody: !!req.body,
+    bodyType: typeof req.body,
+  });
+  
   try {
     logError('🔍 DEBUT HANDLER:', {
       method: req.method,
@@ -48,11 +56,25 @@ export default async function handler(req, res) {
     // Fallback : extraire depuis l'URL si req.query["...path"] n'est pas disponible
     if (!path) {
       logError('⚠️ Path vide, tentative extraction depuis URL');
-      const urlMatch = req.url.match(/\/api\/woocommerce\/(.+?)(?:\?|$)/);
-      if (urlMatch) {
-        path = urlMatch[1];
-        logError('✅ Path extrait depuis URL:', path);
-      } else {
+      logError('   req.url:', req.url);
+      logError('   typeof req.url:', typeof req.url);
+      // Essayer plusieurs patterns pour extraire le path
+      const patterns = [
+        /\/api\/woocommerce\/(.+?)(?:\?|$)/,
+        /\/api\/woocommerce\/(.+)/,
+        /store\/v1\/cart\/add-item/,
+      ];
+      
+      for (const pattern of patterns) {
+        const urlMatch = req.url ? req.url.match(pattern) : null;
+        if (urlMatch) {
+          path = urlMatch[1] || urlMatch[0];
+          logError('✅ Path extrait depuis URL avec pattern:', pattern.toString(), '->', path);
+          break;
+        }
+      }
+      
+      if (!path) {
         logError('❌ Impossible d\'extraire le path depuis l\'URL:', req.url);
       }
     }
@@ -270,13 +292,27 @@ export default async function handler(req, res) {
       hasContentLength: !!req.headers['content-length'],
       fetchOptionsBody: fetchOptions.body ? (typeof fetchOptions.body === 'string' ? fetchOptions.body.substring(0, 200) : String(fetchOptions.body).substring(0, 200)) : 'undefined',
       fetchOptionsMethod: fetchOptions.method,
-      headersKeys: Object.keys(fetchOptions.headers || {}),
-      headersSample: Object.fromEntries(
-        Object.entries(fetchOptions.headers || {}).slice(0, 5).map(([k, v]) => [
-          k,
-          typeof v === 'string' && v.length > 50 ? v.substring(0, 50) + '...' : v
-        ])
-      ),
+      headersKeys: (() => {
+        try {
+          return Object.keys(fetchOptions.headers || {});
+        } catch (e) {
+          return ['error: ' + String(e)];
+        }
+      })(),
+      headersSample: (() => {
+        try {
+          const headers = fetchOptions.headers || {};
+          const entries = Object.entries(headers);
+          return Object.fromEntries(
+            entries.slice(0, 5).map(([k, v]) => [
+              k,
+              typeof v === 'string' && v.length > 50 ? v.substring(0, 50) + '...' : v
+            ])
+          );
+        } catch (e) {
+          return { error: 'Impossible de lire les headers: ' + String(e) };
+        }
+      })(),
     });
     
     let wooResponse;
