@@ -24,6 +24,11 @@ const log = (...args) => DEBUG && console.log('[Proxy WooCommerce]', ...args);
 const logError = (...args) => console.error('[Proxy WooCommerce]', ...args);
 
 export default async function handler(req, res) {
+  // Log RAW IMMÉDIATEMENT, avant tout traitement
+  console.error('RAW QUERY:', JSON.stringify(req.query));
+  console.error('RAW URL:', req.url);
+  console.error('RAW METHOD:', req.method);
+  
   // Log IMMÉDIATEMENT, avant tout traitement
   console.error('[Proxy WooCommerce] 🚀 HANDLER DÉMARRÉ:', {
     method: req.method,
@@ -58,23 +63,13 @@ export default async function handler(req, res) {
       logError('⚠️ Path vide, tentative extraction depuis URL');
       logError('   req.url:', req.url);
       logError('   typeof req.url:', typeof req.url);
-      // Essayer plusieurs patterns pour extraire le path
-      const patterns = [
-        /\/api\/woocommerce\/(.+?)(?:\?|$)/,
-        /\/api\/woocommerce\/(.+)/,
-        /store\/v1\/cart\/add-item/,
-      ];
       
-      for (const pattern of patterns) {
-        const urlMatch = req.url ? req.url.match(pattern) : null;
-        if (urlMatch) {
-          path = urlMatch[1] || urlMatch[0];
-          logError('✅ Path extrait depuis URL avec pattern:', pattern.toString(), '->', path);
-          break;
-        }
-      }
-      
-      if (!path) {
+      // Regex améliorée : capture tout jusqu'au ? ou jusqu'à la fin
+      const urlMatch = req.url?.match(/\/api\/woocommerce\/([^?]+)/);
+      if (urlMatch) {
+        path = urlMatch[1];
+        logError('✅ Path extrait depuis URL:', path);
+      } else {
         logError('❌ Impossible d\'extraire le path depuis l\'URL:', req.url);
       }
     }
@@ -354,6 +349,17 @@ export default async function handler(req, res) {
         }, req);
       }
       
+      // Log détaillé de fetchOptions pour déboguer
+      logError('🔍 FETCH OPTIONS COMPLET:', {
+        method: fetchOptions.method,
+        headers: JSON.stringify(fetchOptions.headers),
+        hasBody: !!fetchOptions.body,
+        bodyType: typeof fetchOptions.body,
+        bodyLength: fetchOptions.body ? String(fetchOptions.body).length : 0,
+        hasSignal: !!fetchOptions.signal,
+        signalType: fetchOptions.signal ? fetchOptions.signal.constructor.name : 'undefined',
+      });
+      
       wooResponse = await fetch(url, fetchOptions);
     } catch (fetchError) {
       clearTimeout(timeoutId);
@@ -486,13 +492,25 @@ export default async function handler(req, res) {
     // ==========================================
     // 10. GESTION DES ERREURS GLOBALES
     // ==========================================
+    // Essayer d'extraire le path depuis l'URL si req.query n'est pas disponible
+    let errorPath = req.query?.['...path'];
+    if (!errorPath && req.url) {
+      const urlMatch = req.url.match(/\/api\/woocommerce\/(.+?)(?:\?|$)/);
+      if (urlMatch) {
+        errorPath = urlMatch[1];
+      }
+    }
+    
     logError('❌ Erreur non gérée:', {
       error: error instanceof Error ? error.message : String(error),
       name: error instanceof Error ? error.name : 'Unknown',
       stack: error instanceof Error ? error.stack : undefined,
       url: req.url,
       method: req.method,
-      path: req.query['...path'],
+      path: errorPath || 'undefined',
+      queryKeys: req.query ? Object.keys(req.query) : 'no query',
+      hasBody: !!req.body,
+      bodyType: typeof req.body,
     });
 
     return sendJson(res, 500, {

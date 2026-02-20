@@ -13,7 +13,7 @@
   },
   "rewrites": [
     {
-      "source": "/api/woocommerce/(.*)",
+      "source": "/api/woocommerce/:path*",
       "destination": "/api/woocommerce/[...path]"
     },
     {
@@ -31,7 +31,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Accept, Nonce"
+          "value": "Content-Type, Accept, Nonce, Cart-Token"
         },
         {
           "key": "Access-Control-Allow-Credentials",
@@ -39,7 +39,7 @@
         },
         {
           "key": "Access-Control-Expose-Headers",
-          "value": "Nonce, Set-Cookie"
+          "value": "Nonce, Set-Cookie, Cart-Token"
         }
       ]
     }
