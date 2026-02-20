@@ -24,24 +24,25 @@ const log = (...args) => DEBUG && console.log('[Proxy WooCommerce]', ...args);
 const logError = (...args) => console.error('[Proxy WooCommerce]', ...args);
 
 export default async function handler(req, res) {
-  // Log RAW IMMÉDIATEMENT, avant tout traitement
-  console.error('RAW QUERY:', JSON.stringify(req.query));
-  console.error('RAW URL:', req.url);
-  console.error('RAW METHOD:', req.method);
-  // Vérifier si l'URL contient déjà un paramètre path=
-  if (req.url && req.url.includes('path=')) {
-    console.error('⚠️ URL CONTIENT path=:', req.url);
-    const urlObj = new URL(req.url, 'http://localhost');
-    console.error('   Query params dans URL:', Object.fromEntries(urlObj.searchParams));
-  }
-  
-  // Log IMMÉDIATEMENT, avant tout traitement
+  // Log RAW IMMÉDIATEMENT, avant tout traitement - DIAGNOSTIC DÉFINITIF
   console.error('[Proxy WooCommerce] 🚀 HANDLER DÉMARRÉ:', {
     method: req.method,
     url: req.url,
-    hasBody: !!req.body,
-    bodyType: typeof req.body,
+    query: JSON.stringify(req.query),
+    body: req.body ? JSON.stringify(req.body).substring(0, 100) : 'null',
+    WP_BASE_URL: process.env.WP_BASE_URL ? process.env.WP_BASE_URL.substring(0, 30) : 'MANQUANT',
   });
+  
+  // Vérifier si l'URL contient déjà un paramètre path=
+  if (req.url && req.url.includes('path=')) {
+    console.error('⚠️ URL CONTIENT path=:', req.url);
+    try {
+      const urlObj = new URL(req.url, 'http://localhost');
+      console.error('   Query params dans URL:', Object.fromEntries(urlObj.searchParams));
+    } catch (e) {
+      console.error('   Erreur lors du parsing de l\'URL:', e.message);
+    }
+  }
   
   try {
     logError('🔍 DEBUT HANDLER:', {
@@ -147,11 +148,31 @@ export default async function handler(req, res) {
     const ck = process.env.WC_CONSUMER_KEY;
     const cs = process.env.WC_CONSUMER_SECRET;
 
+    // Log défensif pour diagnostiquer les variables d'environnement
+    logError('ENV CHECK:', {
+      WP_BASE_URL: wp || 'UNDEFINED',
+      WP_length: wp ? wp.length : 0,
+      WP_type: typeof wp,
+      hasCK: !!ck,
+      hasCS: !!cs,
+    });
+
     if (!wp || !ck || !cs) {
-      logError('Configuration WooCommerce manquante:', { wp: !!wp, ck: !!ck, cs: !!cs });
+      logError('❌ Configuration WooCommerce manquante:', { 
+        wp: wp || 'UNDEFINED', 
+        wpType: typeof wp,
+        ck: !!ck, 
+        cs: !!cs 
+      });
       return sendJson(res, 500, {
         error: 'Configuration WooCommerce manquante',
         message: 'Les variables d\'environnement WooCommerce ne sont pas configurées',
+        diagnostic: {
+          WP_BASE_URL: wp ? 'présent' : 'MANQUANT',
+          WP_BASE_URL_type: typeof wp,
+          WC_CONSUMER_KEY: ck ? 'présent' : 'MANQUANT',
+          WC_CONSUMER_SECRET: cs ? 'présent' : 'MANQUANT',
+        },
       });
     }
 
@@ -191,8 +212,40 @@ export default async function handler(req, res) {
     // Exclure explicitement les clés de routing Vercel pour éviter la pollution de l'URL WordPress
     const routingKeys = ['...path', 'path']; // Exclure les clés de routing Vercel
     
+    // Validation défensive : s'assurer que wp est valide avant de construire l'URL
+    if (!wp || typeof wp !== 'string' || !wp.startsWith('http')) {
+      logError('❌ WP_BASE_URL invalide avant construction URL:', {
+        wp,
+        wpType: typeof wp,
+        wpStartsWithHttp: wp ? wp.startsWith('http') : false,
+      });
+      return sendJson(res, 500, {
+        error: 'Configuration WooCommerce invalide',
+        message: `WP_BASE_URL est invalide: ${wp}`,
+        diagnostic: { wp, wpType: typeof wp },
+      });
+    }
+    
     // Construire l'URL de base sans query params
-    const cleanUrl = new URL(`${wp}${wooPath}`);
+    let cleanUrl;
+    try {
+      const baseUrl = `${wp}${wooPath}`;
+      logError('🔍 Construction URL avec baseUrl:', baseUrl.substring(0, 100));
+      cleanUrl = new URL(baseUrl);
+      logError('✅ URL CONSTRUITE:', cleanUrl.toString());
+    } catch (urlError) {
+      logError('❌ Erreur lors de la construction de l\'URL:', {
+        error: urlError.message,
+        wp,
+        wooPath,
+        combined: `${wp}${wooPath}`,
+      });
+      return sendJson(res, 500, {
+        error: 'Erreur lors de la construction de l\'URL WooCommerce',
+        message: urlError.message,
+        diagnostic: { wp, wooPath },
+      });
+    }
     
     // Ajouter uniquement les query params valides (exclure les paramètres de routing)
     Object.entries(req.query).forEach(([key, value]) => {
