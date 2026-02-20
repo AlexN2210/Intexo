@@ -5,11 +5,11 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
+  "regions": ["cdg1"],
   "functions": {
     "api/woocommerce/[...path].js": {
       "memory": 512,
-      "maxDuration": 15,
-      "regions": ["cdg1"]
+      "maxDuration": 15
     }
   },
   "rewrites": [
