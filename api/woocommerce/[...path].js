@@ -25,6 +25,12 @@ const logError = (...args) => console.error('[Proxy WooCommerce]', ...args);
 
 export default async function handler(req, res) {
   try {
+    logError('🔍 DEBUT HANDLER:', {
+      method: req.method,
+      url: req.url,
+      query: JSON.stringify(req.query),
+    });
+    
     // ==========================================
     // 1. EXTRACTION DU CHEMIN
     // ==========================================
