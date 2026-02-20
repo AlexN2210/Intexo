@@ -248,12 +248,15 @@ export default async function handler(req, res) {
     // ==========================================
     // 8. EXÉCUTION DE LA REQUÊTE VERS WOOCOMMERCE
     // ==========================================
-    logError('🔍 DEBUG POST:', {
+    logError('🔍 DEBUG REQUEST:', {
       url: maskSecret(url),
       method: req.method,
       bodyType: typeof req.body,
       body: req.body ? JSON.stringify(req.body).substring(0, 200) : 'null',
       hasContentLength: !!req.headers['content-length'],
+      fetchOptionsBody: fetchOptions.body ? (typeof fetchOptions.body === 'string' ? fetchOptions.body.substring(0, 200) : String(fetchOptions.body).substring(0, 200)) : 'undefined',
+      fetchOptionsMethod: fetchOptions.method,
+      headersKeys: Object.keys(fetchOptions.headers || {}),
     });
     
     let wooResponse;
@@ -385,6 +388,10 @@ export default async function handler(req, res) {
     logError('❌ Erreur non gérée:', {
       error: error instanceof Error ? error.message : String(error),
       name: error instanceof Error ? error.name : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined,
+      url: req.url,
+      method: req.method,
+      path: req.query['...path'],
     });
 
     return sendJson(res, 500, {
