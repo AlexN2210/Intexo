@@ -58,6 +58,14 @@ export default async function handler(req, res) {
     let path = Array.isArray(rawPath) ? rawPath.join('/') : rawPath || '';
     logError('🔍 PATH APRÈS JOIN:', { path });
 
+    // AJOUT : fallback sur req.query.path (cas où le client envoie ?path=...)
+    if (!path && req.query.path) {
+      path = Array.isArray(req.query.path) 
+        ? req.query.path.join('/') 
+        : req.query.path;
+      logError('⚠️ Path récupéré depuis req.query.path:', path);
+    }
+
     // Fallback : extraire depuis l'URL si req.query["...path"] n'est pas disponible
     if (!path) {
       logError('⚠️ Path vide, tentative extraction depuis URL');
@@ -177,7 +185,7 @@ export default async function handler(req, res) {
     // On exclut uniquement les clés de routing Vercel ("...path")
     // Note: on n'exclut plus "products" pour ne pas bloquer un vrai paramètre éponyme
     const queryParams = new URLSearchParams();
-    const routingKeys = ['...path'];
+    const routingKeys = ['...path', 'path']; // Exclure les clés de routing Vercel
 
     Object.entries(req.query).forEach(([key, value]) => {
       if (!routingKeys.includes(key) && value !== undefined && value !== '') {
@@ -363,6 +371,8 @@ export default async function handler(req, res) {
       wooResponse = await fetch(url, fetchOptions);
     } catch (fetchError) {
       clearTimeout(timeoutId);
+      logError('FETCH ERROR CAUSE:', fetchError.cause); // Très important pour diagnostiquer
+      logError('FETCH ERROR:', fetchError.message);
       logError('❌ ERREUR FETCH:', {
         name: fetchError.name,
         message: fetchError.message,
@@ -370,6 +380,8 @@ export default async function handler(req, res) {
         method: fetchOptions.method,
         hasBody: !!fetchOptions.body,
         cause: fetchError.cause ? String(fetchError.cause) : undefined,
+        causeType: fetchError.cause ? typeof fetchError.cause : undefined,
+        causeKeys: fetchError.cause && typeof fetchError.cause === 'object' ? Object.keys(fetchError.cause) : undefined,
       });
       if (fetchError.name === 'AbortError') {
         logError('❌ Timeout - WooCommerce n\'a pas répondu dans les délais');
