@@ -29,22 +29,35 @@ export default async function handler(req, res) {
       method: req.method,
       url: req.url,
       query: JSON.stringify(req.query),
+      queryKeys: Object.keys(req.query || {}),
     });
     
     // ==========================================
     // 1. EXTRACTION DU CHEMIN
     // ==========================================
     const rawPath = req.query['...path'];
+    logError('🔍 EXTRACTION PATH:', {
+      rawPath: rawPath,
+      rawPathType: typeof rawPath,
+      isArray: Array.isArray(rawPath),
+    });
+    
     let path = Array.isArray(rawPath) ? rawPath.join('/') : rawPath || '';
+    logError('🔍 PATH APRÈS JOIN:', { path });
 
     // Fallback : extraire depuis l'URL si req.query["...path"] n'est pas disponible
     if (!path) {
+      logError('⚠️ Path vide, tentative extraction depuis URL');
       const urlMatch = req.url.match(/\/api\/woocommerce\/(.+?)(?:\?|$)/);
       if (urlMatch) {
         path = urlMatch[1];
-        log('⚠️ req.query["...path"] non disponible, extraction depuis URL:', path);
+        logError('✅ Path extrait depuis URL:', path);
+      } else {
+        logError('❌ Impossible d\'extraire le path depuis l\'URL:', req.url);
       }
     }
+    
+    logError('🔍 PATH FINAL:', { path });
 
     // Log des headers pour déboguer (surtout pour le nonce)
     const headersForLog = {};
