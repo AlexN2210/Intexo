@@ -151,16 +151,31 @@ export default async function handler(req, res) {
     // ==========================================
     // Déterminer le namespace WooCommerce selon le chemin
     // wc/store/v1 pour l'API Store Cart, wc/v3 pour l'API REST classique
+    logError('🔍 CONSTRUCTION URL:', { path, pathType: typeof path, pathLength: path ? path.length : 0 });
+    
     let wooPath = '';
+    if (!path) {
+      logError('❌ Path est vide ou undefined lors de la construction de l\'URL!');
+      return sendJson(res, 400, {
+        error: 'Chemin WooCommerce manquant',
+        message: 'Le chemin de l\'API WooCommerce est manquant lors de la construction de l\'URL',
+        diagnostic: {
+          url: req.url,
+          query: req.query,
+        },
+        data: [],
+      }, req);
+    }
+    
     if (path.startsWith('store/v1/')) {
       // API Store Cart (wc/store/v1) - ne nécessite pas d'authentification
       // CORRECTION : Ajouter le préfixe 'wc/' manquant
       wooPath = `/wp-json/wc/${path}`;
-      log('Utilisation de l\'API Store Cart (wc/store/v1)');
+      logError('✅ Utilisation de l\'API Store Cart (wc/store/v1):', wooPath);
     } else {
       // API REST classique (wc/v3) - nécessite l'authentification
       wooPath = `/wp-json/wc/v3/${path}`;
-      log('Utilisation de l\'API REST classique (wc/v3)');
+      logError('✅ Utilisation de l\'API REST classique (wc/v3):', wooPath);
     }
 
     // Construction de la query string
@@ -319,11 +334,26 @@ export default async function handler(req, res) {
     try {
       logError('🔍 AVANT FETCH:', {
         url: maskSecret(url),
+        urlRaw: url,
         method: fetchOptions.method,
         hasBody: !!fetchOptions.body,
         bodyLength: fetchOptions.body ? String(fetchOptions.body).length : 0,
+        bodyPreview: fetchOptions.body ? (typeof fetchOptions.body === 'string' ? fetchOptions.body.substring(0, 100) : String(fetchOptions.body).substring(0, 100)) : 'undefined',
         signalType: fetchOptions.signal ? 'AbortSignal' : 'undefined',
+        path: path,
+        wooPath: wooPath,
       });
+      
+      // Validation finale de l'URL avant le fetch
+      if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+        logError('❌ URL invalide avant fetch:', { url, type: typeof url });
+        return sendJson(res, 500, {
+          error: 'URL WooCommerce invalide',
+          message: `L'URL construite est invalide: ${url}`,
+          diagnostic: { path, wooPath, url },
+        }, req);
+      }
+      
       wooResponse = await fetch(url, fetchOptions);
     } catch (fetchError) {
       clearTimeout(timeoutId);
