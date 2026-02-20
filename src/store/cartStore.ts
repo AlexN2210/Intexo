@@ -68,19 +68,15 @@ function wooCartItemToCartItem(wooItem: WooCartItem): CartItem {
     });
   }
 
-  // Extraire l'ID de variation depuis la clé WooCommerce (format: "variation-{id}")
-  const variationIdMatch = wooItem.key.match(/variation-(\d+)/);
-  const variationId = variationIdMatch ? parseInt(variationIdMatch[1], 10) : undefined;
-
-  // Extraire l'ID produit depuis la clé WooCommerce (format: "{productId}" ou "{productId}-variation-{variationId}")
-  const productIdMatch = wooItem.key.match(/^(\d+)/);
-  const productId = productIdMatch ? parseInt(productIdMatch[1], 10) : 0;
-
+  // CORRECTION : wooItem.id contient directement l'ID de la variation (quand c'est une variation)
+  // La key WooCommerce est un hash aléatoire (ex: a1b2c3d4e5f6), pas un format variation-{id}
+  // Pour les produits variables, wooItem.id est l'ID de la variation
+  // Pour les produits simples, wooItem.id est l'ID du produit
   return {
     key: wooItem.key,
-    productId,
-    variationId,
-    name: wooItem.name,
+    productId: wooItem.id, // WooCommerce retourne l'ID variation ici pour les produits variables
+    variationId: undefined, // Non nécessaire si productId est déjà l'ID variation
+    name: wooItem.name || wooItem.title,
     slug: "", // WooCommerce ne fournit pas le slug dans le panier
     imageSrc: wooItem.images?.[0]?.src || wooItem.images?.[0]?.thumbnail,
     unitPrice: parsePrice(wooItem.prices.price),

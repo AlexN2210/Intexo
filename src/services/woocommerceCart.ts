@@ -343,10 +343,11 @@ async function storeCartFetch<T>(
       }
       
       // Gestion des erreurs avec retry pour les erreurs réseau/transitoires
+      // NOTE: 429 (Too Many Requests) retiré des codes retryables pour éviter d'empirer le rate limiting
       const isRetryableError = 
         response.status === 0 || // Erreur réseau
         response.status === 408 || // Timeout
-        response.status === 429 || // Too Many Requests
+        // response.status === 429 || // Too Many Requests - NE PAS RETRY (empire le rate limiting)
         response.status >= 500; // Erreurs serveur
       
       // Récupérer le message d'erreur AVANT le retry pour le logger
