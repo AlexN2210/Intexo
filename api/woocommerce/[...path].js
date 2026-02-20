@@ -251,19 +251,41 @@ export default async function handler(req, res) {
     logError('🔍 DEBUG REQUEST:', {
       url: maskSecret(url),
       method: req.method,
+      path: path,
       bodyType: typeof req.body,
       body: req.body ? JSON.stringify(req.body).substring(0, 200) : 'null',
       hasContentLength: !!req.headers['content-length'],
       fetchOptionsBody: fetchOptions.body ? (typeof fetchOptions.body === 'string' ? fetchOptions.body.substring(0, 200) : String(fetchOptions.body).substring(0, 200)) : 'undefined',
       fetchOptionsMethod: fetchOptions.method,
       headersKeys: Object.keys(fetchOptions.headers || {}),
+      headersSample: Object.fromEntries(
+        Object.entries(fetchOptions.headers || {}).slice(0, 5).map(([k, v]) => [
+          k,
+          typeof v === 'string' && v.length > 50 ? v.substring(0, 50) + '...' : v
+        ])
+      ),
     });
     
     let wooResponse;
     try {
+      logError('🔍 AVANT FETCH:', {
+        url: maskSecret(url),
+        method: fetchOptions.method,
+        hasBody: !!fetchOptions.body,
+        bodyLength: fetchOptions.body ? String(fetchOptions.body).length : 0,
+        signalType: fetchOptions.signal ? 'AbortSignal' : 'undefined',
+      });
       wooResponse = await fetch(url, fetchOptions);
     } catch (fetchError) {
       clearTimeout(timeoutId);
+      logError('❌ ERREUR FETCH:', {
+        name: fetchError.name,
+        message: fetchError.message,
+        url: maskSecret(url),
+        method: fetchOptions.method,
+        hasBody: !!fetchOptions.body,
+        cause: fetchError.cause ? String(fetchError.cause) : undefined,
+      });
       if (fetchError.name === 'AbortError') {
         logError('❌ Timeout - WooCommerce n\'a pas répondu dans les délais');
         return sendJson(res, 504, {
