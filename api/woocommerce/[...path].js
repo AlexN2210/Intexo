@@ -220,7 +220,13 @@ export default async function handler(req, res) {
     };
 
     // Ajouter le body pour POST, PUT et DELETE (DELETE peut avoir un body pour l'API Store Cart)
-    if ((req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') && req.body) {
+    // Vérifier que req.body existe et n'est pas un objet vide (bodyParser: true peut créer {} pour les GET)
+    const hasBody =
+      req.body &&
+      (typeof req.body === 'string'
+        ? req.body.length > 0
+        : Object.keys(req.body).length > 0);
+    if ((req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') && hasBody) {
       fetchOptions.body =
         typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     }
