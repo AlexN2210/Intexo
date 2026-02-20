@@ -194,6 +194,14 @@ export default async function handler(req, res) {
       }
     }
 
+    // CRITIQUE : Transmettre le Cart-Token du client vers WordPress
+    // Le Cart-Token JWT identifie la session panier et doit être transmis pour maintenir la session
+    const cartToken = req.headers['cart-token'] || req.headers['Cart-Token'];
+    if (isStoreCart && cartToken) {
+      headers['Cart-Token'] = String(cartToken);
+      log('✅ Cart-Token transmis pour l\'API Store Cart:', String(cartToken).substring(0, 20) + '...');
+    }
+
     // CRITIQUE : Désactiver le cache pour les requêtes Store Cart
     // Le nonce doit toujours être frais, ne pas utiliser de cache
     if (isStoreCart) {
@@ -280,13 +288,15 @@ export default async function handler(req, res) {
     }
 
     // Copie des headers utiles de WooCommerce
-    // CORRECTION : Ajouter 'Nonce' à la liste des headers copiés
-    ['cache-control', 'x-total', 'x-total-pages', 'Nonce'].forEach(h => {
+    // CORRECTION : Ajouter 'Nonce' et 'Cart-Token' à la liste des headers copiés
+    ['cache-control', 'x-total', 'x-total-pages', 'Nonce', 'Cart-Token'].forEach(h => {
       const v = wooResponse.headers.get(h);
       if (v) {
         res.setHeader(h, v);
         if (h === 'Nonce') {
           log('Nonce retourné au client:', v.substring(0, 10) + '...');
+        } else if (h === 'Cart-Token') {
+          log('Cart-Token retourné au client:', v.substring(0, 20) + '...');
         }
       }
     });
@@ -416,9 +426,9 @@ function setCorsHeaders(res, req = null) {
   
   res.setHeader('Access-Control-Allow-Origin', finalOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Nonce');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Nonce, Cart-Token');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Expose-Headers', 'Nonce, Set-Cookie');
+  res.setHeader('Access-Control-Expose-Headers', 'Nonce, Set-Cookie, Cart-Token');
 }
 
 /** Masque le consumer_secret dans les logs */

@@ -41,6 +41,9 @@ function getProxyBaseUrl(): string {
 // Stockage du nonce en mémoire (sera récupéré automatiquement)
 let currentNonce: string | null = null;
 
+// Stockage du Cart-Token JWT en mémoire (identifie la session panier)
+let currentCartToken: string | null = null;
+
 // Types pour l'API WooCommerce Cart
 export type WooCartItem = {
   id: number; // Corrigé : WooCommerce retourne un number, pas string
@@ -211,6 +214,17 @@ function extractNonceFromResponse(response: Response): void {
 }
 
 /**
+ * Récupère le Cart-Token depuis les headers de réponse
+ */
+function extractCartTokenFromResponse(response: Response): void {
+  const token = response.headers.get('Cart-Token');
+  if (token) {
+    currentCartToken = token;
+    console.log('[WooCommerce Cart] Cart-Token mis à jour:', token.substring(0, 20) + '...');
+  }
+}
+
+/**
  * Récupère un nonce initial en faisant un GET sur le panier
  */
 async function fetchInitialNonce(): Promise<void> {
@@ -225,6 +239,7 @@ async function fetchInitialNonce(): Promise<void> {
     });
     
     extractNonceFromResponse(response);
+    extractCartTokenFromResponse(response);
     
     if (!response.ok) {
       console.warn('[WooCommerce Cart] Échec de récupération du nonce initial');
@@ -270,6 +285,12 @@ async function storeCartFetch<T>(
     console.warn(`[WooCommerce Cart] ⚠️ Pas de nonce disponible pour ${init?.method} ${endpoint}`);
   }
   
+  // Ajouter le Cart-Token pour maintenir la session panier
+  if (currentCartToken) {
+    headers['Cart-Token'] = currentCartToken;
+    console.log(`[WooCommerce Cart] Envoi du Cart-Token pour ${init?.method || 'GET'} ${endpoint}:`, currentCartToken.substring(0, 20) + '...');
+  }
+  
   // Créer un AbortController pour le timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
@@ -284,8 +305,9 @@ async function storeCartFetch<T>(
     
     clearTimeout(timeoutId);
     
-    // Mettre à jour le nonce depuis la réponse
+    // Mettre à jour le nonce et le Cart-Token depuis la réponse
     extractNonceFromResponse(response);
+    extractCartTokenFromResponse(response);
     
     if (!response.ok) {
       // Gestion spéciale pour les erreurs 403 (nonce invalide)
