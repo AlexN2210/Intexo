@@ -45,9 +45,19 @@ export type CreateOrderResult = {
   status?: string;
 };
 
+/**
+ * URL du proxy checkout. Doit pointer vers le projet Vercel (qui expose /api/checkout/create-order),
+ * pas vers www.impexo.fr si ce domaine sert WordPress → 404.
+ * En prod : définir VITE_CHECKOUT_API_ORIGIN (ex. https://www.impexo.fr si le front est sur Vercel avec ce domaine).
+ * En preview Vercel : ex. https://intexo-git-main-alexn2210s-projects.vercel.app
+ */
 const getCheckoutApiUrl = (): string => {
-  if (typeof window === "undefined") return "/api/checkout/create-order";
-  return `${window.location.origin}/api/checkout/create-order`;
+  const envOrigin = import.meta.env.VITE_CHECKOUT_API_ORIGIN as string | undefined;
+  const origin =
+    envOrigin?.trim() ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+  const base = origin.replace(/\/+$/, "");
+  return base ? `${base}/api/checkout/create-order` : "/api/checkout/create-order";
 };
 
 export async function createOrderFromCart(payload: CreateOrderPayload): Promise<CreateOrderResult> {
