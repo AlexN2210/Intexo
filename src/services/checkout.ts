@@ -45,11 +45,8 @@ export type CreateOrderResult = {
   status?: string;
 };
 
-/** URL du proxy checkout (Vercel). Ne pas utiliser www.impexo.fr → 404. */
-const CHECKOUT_API_URL =
-  import.meta.env.VITE_CHECKOUT_API_ORIGIN?.trim()
-    ? `${import.meta.env.VITE_CHECKOUT_API_ORIGIN.replace(/\/+$/, "")}/api/checkout/create-order`
-    : "https://intexo-git-main-alexn2210s-projects.vercel.app/api/checkout/create-order";
+/** Chemin relatif : même domaine que le front (www.impexo.fr ou preview Vercel). */
+const CHECKOUT_API_URL = "/api/checkout/create-order";
 
 export async function createOrderFromCart(payload: CreateOrderPayload): Promise<CreateOrderResult> {
   const url = CHECKOUT_API_URL;
