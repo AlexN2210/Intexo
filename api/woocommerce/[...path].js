@@ -183,9 +183,10 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 4. URL de l'endpoint custom woo-api.php (https://www.impexo.fr/woo-api.php)
+    // 4. URL de l'endpoint custom woo-api.php (doit être le serveur où le PHP tourne = WordPress)
+    // www.impexo.fr = Vercel (front) → pas de PHP. wp.impexo.fr = hébergeur WordPress → woo-api.php
     // ==========================================
-    const wooApiOrigin = (process.env.WOO_API_ORIGIN || 'https://www.impexo.fr').replace(/\/+$/, '');
+    const wooApiOrigin = (process.env.WOO_API_ORIGIN || process.env.WP_BASE_URL || 'https://wp.impexo.fr').replace(/\/+$/, '');
     const wooApiUrl = `${wooApiOrigin}/woo-api.php`;
     logError('ENV CHECK:', { WOO_API_ORIGIN: wooApiOrigin });
 
