@@ -9,11 +9,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { impexoCollections } from "@/content/collections";
 import { useProductsQuery } from "@/hooks/useWooProducts";
 import { ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 const Index = () => {
-  const best = useProductsQuery({ orderby: "popularity", per_page: 4 });
+  const [allowBestSellers, setAllowBestSellers] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setAllowBestSellers(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
   const hero = useProductsQuery({ orderby: "date", per_page: 5 });
+  const best = useProductsQuery({ orderby: "popularity", per_page: 4 }, { enabled: allowBestSellers });
 
   return (
     <div>

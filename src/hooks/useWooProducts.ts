@@ -1,17 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { getProductBySlug, getProducts, getProductVariations } from "@/services/woocommerce";
 
-export function useProductsQuery(params?: { search?: string; featured?: boolean; orderby?: string; per_page?: number }) {
+export function useProductsQuery(
+  params?: { search?: string; featured?: boolean; orderby?: string; per_page?: number },
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ["woo", "products", params ?? {}],
     queryFn: async () => {
       const result = await getProducts({ ...params, per_page: params?.per_page ?? 24, orderby: params?.orderby ?? "date" });
-      // Garantir qu'on retourne toujours un tableau
       return Array.isArray(result) ? result : [];
     },
-    retry: 0, // Plus de retry (aggrave le 429)
-    staleTime: 1000 * 60 * 10, // 10 min (limiter requêtes, rate limit hébergeur)
-    gcTime: 1000 * 60 * 30, // 30 min
+    retry: 0,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
+    enabled: options?.enabled !== false,
   });
 }
 

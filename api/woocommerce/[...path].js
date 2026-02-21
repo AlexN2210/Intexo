@@ -54,6 +54,16 @@ function setCachedResponse(url, entry) {
   getProductCache.set(url, { ...entry, expiresAt: Date.now() + GET_CACHE_TTL_MS });
 }
 
+// ==========================================
+// FILE D'ATTENTE : une seule requête à la fois vers wp.impexo.fr (éviter 429)
+// ==========================================
+let wpFetchTail = Promise.resolve();
+function runWpFetch(fn) {
+  const next = wpFetchTail.then(() => fn(), () => fn());
+  wpFetchTail = next;
+  return next;
+}
+
 export default async function handler(req, res) {
   // Log RAW IMMÉDIATEMENT, avant tout traitement - DIAGNOSTIC DÉFINITIF
   console.error('[Proxy WooCommerce] 🚀 HANDLER DÉMARRÉ:', {
@@ -478,59 +488,28 @@ export default async function handler(req, res) {
         }, req);
       }
       
-      // Vérifier que l'URL ne contient pas de paramètres de routing polluants
+      let fetchTargetUrl = url;
       const urlObj = new URL(url);
       if (urlObj.searchParams.has('path') || urlObj.searchParams.has('...path')) {
         logError('⚠️ URL CONTIENT ENCORE path= ! Nettoyage...');
         urlObj.searchParams.delete('path');
         urlObj.searchParams.delete('...path');
-        const cleanedUrl = urlObj.toString();
-        logError('🔧 URL NETTOYÉE FINALE:', cleanedUrl);
-        // Utiliser l'URL nettoyée
-        const finalUrl = cleanedUrl;
-        
-        logError('URL FINALE AVANT FETCH:', finalUrl);
-        logError('🔍 FETCH OPTIONS COMPLET:', {
-          method: fetchOptions.method,
-          headers: JSON.stringify(fetchOptions.headers),
-          hasBody: !!fetchOptions.body,
-          bodyType: typeof fetchOptions.body,
-          bodyLength: fetchOptions.body ? String(fetchOptions.body).length : 0,
-          hasSignal: !!fetchOptions.signal,
-          signalType: fetchOptions.signal ? fetchOptions.signal.constructor.name : 'undefined',
-        });
-        
-        wooResponse = await fetch(finalUrl, fetchOptions);
-      } else {
-        logError('URL FINALE AVANT FETCH:', url);
-        logError('🔍 FETCH OPTIONS COMPLET:', {
-          method: fetchOptions.method,
-          headers: JSON.stringify(fetchOptions.headers),
-          hasBody: !!fetchOptions.body,
-          bodyType: typeof fetchOptions.body,
-          bodyLength: fetchOptions.body ? String(fetchOptions.body).length : 0,
-          hasSignal: !!fetchOptions.signal,
-          signalType: fetchOptions.signal ? fetchOptions.signal.constructor.name : 'undefined',
-        });
-        
-        // Test optionnel avec agent undici pour diagnostiquer les problèmes SSL
-        // Décommenter si le fetch échoue avec des erreurs SSL/TLS
-        // try {
-        //   const { Agent } = await import('undici');
-        //   wooResponse = await fetch(url, {
-        //     ...fetchOptions,
-        //     // @ts-ignore - undici dispatcher option
-        //     dispatcher: new Agent({
-        //       connect: { rejectUnauthorized: false } // temporaire pour tester
-        //     }),
-        //   });
-        // } catch (undiciError) {
-        //   logError('❌ Erreur avec agent undici, fallback sur fetch standard:', undiciError);
-        //   wooResponse = await fetch(url, fetchOptions);
-        // }
-        
-        wooResponse = await fetch(url, fetchOptions);
+        fetchTargetUrl = urlObj.toString();
+        logError('🔧 URL NETTOYÉE FINALE:', fetchTargetUrl);
       }
+      logError('URL FINALE AVANT FETCH:', fetchTargetUrl);
+      logError('🔍 FETCH OPTIONS COMPLET:', {
+        method: fetchOptions.method,
+        headers: JSON.stringify(fetchOptions.headers),
+        hasBody: !!fetchOptions.body,
+        bodyType: typeof fetchOptions.body,
+        bodyLength: fetchOptions.body ? String(fetchOptions.body).length : 0,
+        hasSignal: !!fetchOptions.signal,
+        signalType: fetchOptions.signal ? fetchOptions.signal.constructor.name : 'undefined',
+      });
+      
+      // Une seule requête à la fois vers wp.impexo.fr pour rester sous le rate limit
+      wooResponse = await runWpFetch(() => fetch(fetchTargetUrl, fetchOptions));
     } catch (fetchError) {
       clearTimeout(timeoutId);
       // Log détaillé du cause pour diagnostiquer le problème réseau
