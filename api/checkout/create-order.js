@@ -1,17 +1,16 @@
 /**
  * Proxy Vercel : POST /api/checkout/create-order → WordPress custom-checkout/v1/create-order
+ * CORS : headers posés en premier pour être présents sur toutes les réponses (y compris OPTIONS si le handler est appelé).
  */
 
-function setCors(res, req) {
+export default async function handler(req, res) {
+  // Toujours renvoyer les headers CORS en premier (compatible Vercel, préflight OPTIONS)
   res.setHeader("Access-Control-Allow-Origin", req.headers?.origin || "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Allow-Credentials", "true");
-}
 
-export default async function handler(req, res) {
-  setCors(res, req);
-
+  // Réponse au préflight OPTIONS
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -26,9 +25,7 @@ export default async function handler(req, res) {
 
     const response = await fetch(wpUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req.body || {}),
     });
 
