@@ -11,31 +11,30 @@ const DEFAULT_TIMEOUT = 8000; // 8 secondes
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 seconde
 
-// URL du proxy Vercel - SIMPLIFIÉ : utilise toujours window.location.origin
-// Le proxy est accessible sur le même domaine que le frontend
-function getProxyBaseUrl(): string {
-  // TOUJOURS utiliser l'origine actuelle - le proxy est sur le même domaine
+/** URL du proxy Store Cart : soit le mini-proxy PHP sur WordPress, soit le proxy Vercel */
+function getStoreCartProxyConfig(): { baseUrl: string; usePhpProxy: boolean } {
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  
-  // Si une variable d'environnement est définie, la nettoyer mais l'utiliser seulement
-  // si elle ne pointe pas vers wp.impexo.fr (WordPress)
+
+  // Priorité 1 : mini-proxy PHP sur WordPress (contourne Imunify360 / rate limit o2switch)
+  const phpProxy = import.meta.env.VITE_WC_STORE_PROXY_URL;
+  if (phpProxy && typeof phpProxy === 'string') {
+    const url = phpProxy.trim().replace(/\?.*$/, '').replace(/\/+$/, '');
+    if (url.startsWith('http')) {
+      console.log('[WooCommerce Cart] Utilisation du proxy Store PHP (WordPress):', url);
+      return { baseUrl: url, usePhpProxy: true };
+    }
+  }
+
+  // Priorité 2 : proxy Vercel (même domaine)
   const envVar = import.meta.env.VITE_WC_PROXY_BASE_URL;
   if (envVar) {
-    let cleanedUrl = envVar.trim().replace(/\/api\/woocommerce.*$/, '').replace(/\/+$/, '');
-    
-    // Seule protection : bloquer wp.impexo.fr (WordPress)
-    // www.impexo.fr est VALIDE car c'est Vercel
-    if (cleanedUrl.includes('wp.impexo.fr')) {
-      console.warn('[WooCommerce Cart] ⚠️ VITE_WC_PROXY_BASE_URL pointe vers WordPress, ignorée');
-      return currentOrigin;
+    const cleanedUrl = envVar.trim().replace(/\/api\/woocommerce.*$/, '').replace(/\/+$/, '');
+    if (cleanedUrl && !cleanedUrl.includes('wp.impexo.fr')) {
+      return { baseUrl: cleanedUrl, usePhpProxy: false };
     }
-    
-    // Sinon, utiliser la variable d'environnement
-    return cleanedUrl;
   }
-  
-  // Par défaut : utiliser l'origine actuelle (www.impexo.fr, localhost, ou vercel.app)
-  return currentOrigin;
+
+  return { baseUrl: currentOrigin, usePhpProxy: false };
 }
 
 // Stockage du nonce en mémoire (sera récupéré automatiquement)
@@ -159,45 +158,38 @@ export type WooCart = {
 };
 
 /**
- * Construit l'URL du proxy pour l'API Store Cart
- * Le proxy attend le chemin relatif sans préfixe /wp-json/wc/store/v1/
+ * Construit l'URL pour l'API Store Cart
+ * - Si VITE_WC_STORE_PROXY_URL est défini (proxy PHP WordPress) : ?endpoint=cart ou cart/add-item
+ * - Sinon : /api/woocommerce/store/v1/{endpoint} (proxy Vercel)
  */
 function buildStoreCartUrl(endpoint: string): string {
-  // Nettoyer le chemin de l'endpoint
   let cleanPath = endpoint
-    .replace(/^\/wp-json\/wc\/store\/v1\//, '') // Enlever préfixe complet
-    .replace(/^\/api\/woocommerce\/store\/v1\//, '') // Enlever préfixe proxy (au cas où)
-    .replace(/^\//, ''); // Enlever slash initial
-  
-  // Le proxy attend : /api/woocommerce/store/v1/{endpoint}
+    .replace(/^\/wp-json\/wc\/store\/v1\//, '')
+    .replace(/^\/api\/woocommerce\/store\/v1\//, '')
+    .replace(/^\//, '');
+
+  const { baseUrl, usePhpProxy } = getStoreCartProxyConfig();
+
+  if (usePhpProxy) {
+    const url = new URL(baseUrl);
+    url.searchParams.set('endpoint', cleanPath);
+    const finalUrl = url.toString();
+    console.log('[WooCommerce Cart] ✅ URL proxy Store PHP:', finalUrl);
+    return finalUrl;
+  }
+
   const proxyPath = `/api/woocommerce/store/v1/${cleanPath}`.replace(/\/+/g, '/');
-  
-  // Obtenir l'URL de base du proxy
-  const baseUrl = getProxyBaseUrl();
-  
-  // Construire l'URL complète
   const url = new URL(proxyPath, baseUrl);
   const finalUrl = url.toString();
-  
-  // SECURITE : Seule protection contre wp.impexo.fr (WordPress)
-  // www.impexo.fr est VALIDE car c'est Vercel
-  if (finalUrl.includes('wp.impexo.fr')) {
-    console.error('[WooCommerce Cart] ❌ ERREUR: URL pointe vers WordPress (wp.impexo.fr)!', finalUrl);
-    console.error('[WooCommerce Cart] 🔧 Correction automatique vers www.impexo.fr');
-    return finalUrl.replace(/https?:\/\/wp\.impexo\.fr/, 'https://www.impexo.fr');
+
+  if (finalUrl.includes('wp.impexo.fr') && !import.meta.env.VITE_WC_STORE_PROXY_URL) {
+    console.warn('[WooCommerce Cart] ⚠️ URL pointe vers WordPress sans proxy Store PHP; risque de 429.');
   }
-  
-  // Vérification de sécurité
-  if (!finalUrl.includes('/api/woocommerce/store/v1')) {
-    console.error('[WooCommerce Cart] ❌ ERREUR: URL invalide!', {
-      finalUrl,
-      endpoint,
-      proxyPath,
-      baseUrl,
-    });
+  if (!finalUrl.includes('/api/woocommerce/store/v1') && !usePhpProxy) {
+    console.error('[WooCommerce Cart] ❌ URL invalide:', { finalUrl, endpoint, baseUrl });
     throw new Error(`URL invalide: ${finalUrl}`);
   }
-  
+
   console.log('[WooCommerce Cart] ✅ URL proxy construite:', finalUrl);
   return finalUrl;
 }

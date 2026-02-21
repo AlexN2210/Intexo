@@ -184,6 +184,7 @@ export default async function handler(req, res) {
     logError('🔍 CONSTRUCTION URL:', { path, pathType: typeof path, pathLength: path ? path.length : 0 });
     
     let wooPath = '';
+    let pathStoreEndpoint = null; // pour store/v1/ → ?endpoint=...
     if (!path) {
       logError('❌ Path est vide ou undefined lors de la construction de l\'URL!');
       return sendJson(res, 400, {
@@ -198,11 +199,15 @@ export default async function handler(req, res) {
     }
     
     if (path.startsWith('store/v1/')) {
-      // API Store Cart (wc/store/v1) - ne nécessite pas d'authentification
-      // CORRECTION : Ajouter le préfixe 'wc/' manquant
-      wooPath = `/wp-json/wc/${path}`;
-      logError('✅ Utilisation de l\'API Store Cart (wc/store/v1):', wooPath);
+      // Store API : rediriger vers le proxy PHP (appel direct REST, zéro requête HTTP interne)
+      // Évite Imunify360 en n'appelant pas /wp-json/ en HTTP
+      const storeEndpoint = path.replace(/^store\/v1\//, '');
+      wooPath = `/wp-content/api/store-proxy.php`;
+      logError('✅ Store API → proxy PHP (endpoint=', storeEndpoint, '):', wooPath);
+      // On ajoutera ?endpoint=... dans les query params ci-dessous
+      pathStoreEndpoint = storeEndpoint; // pour l'ajout en query
     } else {
+      pathStoreEndpoint = null;
       // API REST classique (wc/v3) - nécessite l'authentification
       wooPath = `/wp-json/wc/v3/${path}`;
       logError('✅ Utilisation de l\'API REST classique (wc/v3):', wooPath);
@@ -245,6 +250,11 @@ export default async function handler(req, res) {
         message: urlError.message,
         diagnostic: { wp, wooPath },
       });
+    }
+    
+    // Pour Store API : ajouter le paramètre endpoint (proxy PHP)
+    if (pathStoreEndpoint) {
+      cleanUrl.searchParams.set('endpoint', pathStoreEndpoint);
     }
     
     // Ajouter uniquement les query params valides (exclure les paramètres de routing)
