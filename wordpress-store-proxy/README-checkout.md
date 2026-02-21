@@ -18,9 +18,11 @@ Le front envoie le panier (localStorage) à WordPress **uniquement au clic sur "
      -d '{"items":[{"product_id":123,"variation_id":0,"quantity":1}],"customer":{"billing":{"first_name":"A","last_name":"B","address_1":"1 rue X","city":"Paris","postcode":"75001","country":"FR","email":"a@b.fr"}}}'
    ```
 
-## Stripe
+## Stripe Checkout (SDK Stripe PHP)
 
-Le script renvoie `payment_url` si le gateway Stripe WooCommerce l’expose (méthode `get_payment_url`). Sinon, il faut brancher votre plugin Stripe (création de session, etc.) dans la callback et remplir `payment_url` avant de retourner la réponse.
+Le script crée une **Stripe Checkout Session** et renvoie `payment_url`. Dans `wp-config.php` : `STRIPE_SECRET_KEY` (sk_test_xxx / sk_live_xxx), et optionnellement `STRIPE_VENDOR_AUTOLOAD` (chemin vers vendor/autoload.php). Installer le SDK : `composer require stripe/stripe-php`. Optionnel : `IMPEXO_STRIPE_SUCCESS_URL` et `IMPEXO_STRIPE_CANCEL_URL`.
+
+Ancien : le script renvoie `payment_url` si le gateway Stripe WooCommerce l’expose (méthode `get_payment_url`). Sinon, il faut brancher votre plugin Stripe (création de session, etc.) dans la callback et remplir `payment_url` avant de retourner la réponse.
 
 ## CORS
 

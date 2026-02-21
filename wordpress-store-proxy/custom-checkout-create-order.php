@@ -110,9 +110,53 @@ function impexo_create_order_from_cart(WP_REST_Request $request) {
         $order_key  = $order->get_order_key();
         $payment_url = '';
 
-        // Stripe : si vous utilisez WooCommerce Stripe Gateway, récupérer l'URL de paiement
-        if ($payment_method === 'stripe' && function_exists('WC')) {
-            $gateways = WC()->payment_gateways()->get_available_payment_gateways();
+        // Stripe Checkout Session (SDK Stripe PHP). wp-config : STRIPE_SECRET_KEY, optionnel STRIPE_VENDOR_AUTOLOAD
+        if ($payment_method === 'stripe') {
+            $stripe_key = defined('STRIPE_SECRET_KEY') ? STRIPE_SECRET_KEY : '';
+            $autoload   = defined('STRIPE_VENDOR_AUTOLOAD') ? STRIPE_VENDOR_AUTOLOAD : (dirname(ABSPATH) . '/vendor/autoload.php');
+            if ($stripe_key !== '' && file_exists($autoload)) {
+                try {
+                    require_once $autoload;
+                    \Stripe\Stripe::setApiKey($stripe_key);
+
+                    $line_items = [];
+                    foreach ($items as $line) {
+                        $pid = (int) ($line['product_id'] ?? 0);
+                        $vid = (int) ($line['variation_id'] ?? 0);
+                        $qty = max(1, (int) ($line['quantity'] ?? 1));
+                        if ($pid <= 0) continue;
+                        $product = wc_get_product($vid ? $vid : $pid);
+                        if (!$product) continue;
+                        $line_items[] = [
+                            'price_data' => [
+                                'currency' => 'eur',
+                                'product_data' => [
+                                    'name' => $product->get_name(),
+                                ],
+                                'unit_amount' => (int) round((float) $product->get_price() * 100),
+                            ],
+                            'quantity' => $qty,
+                        ];
+                    }
+
+                    if (!empty($line_items)) {
+                        $success_url = defined('IMPEXO_STRIPE_SUCCESS_URL') ? IMPEXO_STRIPE_SUCCESS_URL : site_url('/merci/?order_id=' . $order_id);
+                        $cancel_url  = defined('IMPEXO_STRIPE_CANCEL_URL')  ? IMPEXO_STRIPE_CANCEL_URL  : site_url('/panier');
+                        $session = \Stripe\Checkout\Session::create([
+                            'mode' => 'payment',
+                            'line_items' => $line_items,
+                            'success_url' => $success_url,
+                            'cancel_url'  => $cancel_url,
+                        ]);
+                        $payment_url = $session->url;
+                    }
+                } catch (Exception $e) {
+                    $payment_url = '';
+                }
+            }
+        }
+        // (code mort retiré)
+        if (false) { $gateways = WC()->payment_gateways()->get_available_payment_gateways();
             if (!empty($gateways['stripe'])) {
                 $gateway = $gateways['stripe'];
                 if (is_callable([ $gateway, 'get_payment_url' ])) {
