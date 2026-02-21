@@ -1,16 +1,15 @@
-/**
- * Proxy Vercel : POST /api/checkout/create-order → WordPress custom-checkout/v1/create-order
- * CORS : headers posés en premier pour être présents sur toutes les réponses (y compris OPTIONS si le handler est appelé).
- */
+export const config = {
+  runtime: "nodejs",
+};
 
 export default async function handler(req, res) {
-  // Toujours renvoyer les headers CORS en premier (compatible Vercel, préflight OPTIONS)
-  res.setHeader("Access-Control-Allow-Origin", req.headers?.origin || "*");
+  // CORS pour toutes les réponses
+  res.setHeader("Access-Control-Allow-Origin", process.env.CORS_ORIGIN || "https://www.impexo.fr");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Allow-Credentials", "true");
 
-  // Réponse au préflight OPTIONS
+  // Préflight OPTIONS
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -30,12 +29,13 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json().catch(() => ({}));
+
     return res.status(response.status).json(data);
+
   } catch (error) {
-    console.error("[Checkout] Erreur proxy:", error);
     return res.status(500).json({
       error: "Erreur proxy checkout",
-      details: error?.message || String(error),
+      details: error.message,
     });
   }
 }
