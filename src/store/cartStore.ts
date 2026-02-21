@@ -1,13 +1,11 @@
 import { create } from "zustand";
-import { parsePrice } from "@/utils/money";
-import {
-  addToWooCart,
-  getWooCart,
-  updateWooCartItem,
-  removeFromWooCart,
-  clearWooCart,
-  type WooCartItem,
-} from "@/services/woocommerceCart";
+import { persist } from "zustand/middleware";
+
+/**
+ * Panier 100 % côté client (localStorage).
+ * Aucun appel à la Store API WooCommerce → pas de 429 Imunify360.
+ * La commande est créée côté WordPress uniquement au checkout (POST custom endpoint).
+ */
 
 export type CartItemOptions = {
   model?: string;
@@ -16,13 +14,13 @@ export type CartItemOptions = {
 };
 
 export type CartItem = {
-  key: string; // Clé WooCommerce du panier
+  key: string; // `${productId}-${variationId ?? 0}`
   productId: number;
   variationId?: number;
   name: string;
   slug: string;
   imageSrc?: string;
-  unitPrice: number;
+  unitPrice: number; // en euros
   options?: CartItemOptions;
   quantity: number;
 };
@@ -33,184 +31,93 @@ type AddToCartInput = {
   name: string;
   slug: string;
   imageSrc?: string;
-  price: string | number;
+  price: string | number; // REST API = string "29.00", on parse en euros
   options?: CartItemOptions;
   quantity?: number;
 };
 
-const CART_REFRESH_DEBOUNCE_MS = 30000; // 30 s - rate limit hébergeur, pas de whitelist possible
+function itemKey(productId: number, variationId?: number): string {
+  return `${productId}-${variationId ?? 0}`;
+}
+
+/** Parse prix depuis l'API REST (string "29.00") ou nombre, en euros (pas de /100) */
+function parsePriceEur(price: string | number | null | undefined): number {
+  if (typeof price === "number") return Number.isFinite(price) ? price : 0;
+  if (!price) return 0;
+  const n = Number(String(price).replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
 
 type CartState = {
   items: CartItem[];
   packOfferId: "pack2" | "pack3" | null;
-  isLoading: boolean;
+  isLoading: boolean; // uniquement pendant le checkout (création commande)
   error: string | null;
-  _lastRefreshAt: number;
   setPackOfferId: (offerId: CartState["packOfferId"]) => void;
-  addItem: (input: AddToCartInput) => Promise<void>;
-  removeItem: (key: string) => Promise<void>;
-  setQuantity: (key: string, quantity: number) => Promise<void>;
-  clear: () => Promise<void>;
-  refresh: () => Promise<void>; // Rafraîchir le panier depuis WooCommerce
+  addItem: (input: AddToCartInput) => void;
+  removeItem: (key: string) => void;
+  setQuantity: (key: string, quantity: number) => void;
+  clear: () => void;
+  setCheckoutLoading: (loading: boolean, error?: string | null) => void;
 };
 
-// Convertir un WooCartItem en CartItem
-function wooCartItemToCartItem(wooItem: WooCartItem): CartItem {
-  // Extraire les options depuis les variations WooCommerce
-  const options: CartItemOptions = {};
-  if (wooItem.variation) {
-    wooItem.variation.forEach((v) => {
-      const attrName = v.attribute.toLowerCase();
-      if (attrName.includes("modèle") || attrName.includes("model")) {
-        options.model = v.value;
-      } else if (attrName.includes("couleur") || attrName.includes("color")) {
-        options.color = v.value;
-      } else if (attrName.includes("matériau") || attrName.includes("material")) {
-        options.material = v.value;
-      }
-    });
-  }
+export const useCartStore = create<CartState>()(
+  persist(
+    (set, get) => ({
+      items: [],
+      packOfferId: null,
+      isLoading: false,
+      error: null,
 
-  // CORRECTION : wooItem.id contient directement l'ID de la variation (quand c'est une variation)
-  // La key WooCommerce est un hash aléatoire (ex: a1b2c3d4e5f6), pas un format variation-{id}
-  // Pour les produits variables, wooItem.id est l'ID de la variation
-  // Pour les produits simples, wooItem.id est l'ID du produit
-  return {
-    key: wooItem.key,
-    productId: wooItem.id, // WooCommerce retourne l'ID variation ici pour les produits variables
-    variationId: undefined, // Non nécessaire si productId est déjà l'ID variation
-    name: wooItem.name || wooItem.title,
-    slug: "", // WooCommerce ne fournit pas le slug dans le panier
-    imageSrc: wooItem.images?.[0]?.src || wooItem.images?.[0]?.thumbnail,
-    unitPrice: parsePrice(wooItem.prices.price),
-    options,
-    quantity: wooItem.quantity,
-  };
-}
+      setPackOfferId: (offerId) => set({ packOfferId: offerId }),
 
-export const useCartStore = create<CartState>()((set, get) => ({
-  items: [],
-  packOfferId: null,
-  isLoading: false,
-  error: null,
-  _lastRefreshAt: 0,
+      addItem: (input) => {
+        const quantity = Math.max(1, input.quantity ?? 1);
+        const unitPrice = parsePriceEur(input.price);
+        const key = itemKey(input.productId, input.variationId);
+        set((state) => {
+          const existing = state.items.find((i) => i.key === key);
+          const next = existing
+            ? state.items.map((i) =>
+                i.key === key ? { ...i, quantity: i.quantity + quantity } : i
+              )
+            : [
+                ...state.items,
+                {
+                  key,
+                  productId: input.productId,
+                  variationId: input.variationId,
+                  name: input.name,
+                  slug: input.slug,
+                  imageSrc: input.imageSrc,
+                  unitPrice,
+                  options: input.options,
+                  quantity,
+                },
+              ];
+          return { items: next };
+        });
+      },
 
-  setPackOfferId: (offerId) => set({ packOfferId: offerId }),
+      removeItem: (key) => {
+        set((state) => ({ items: state.items.filter((i) => i.key !== key) }));
+      },
 
-  // Rafraîchir le panier depuis WooCommerce (debounce pour limiter les 429)
-  refresh: async () => {
-    const now = Date.now();
-    if (now - get()._lastRefreshAt < CART_REFRESH_DEBOUNCE_MS) {
-      return; // Éviter trop d'appels rapprochés vers wp.impexo.fr
-    }
-    set({ isLoading: true, error: null });
-    try {
-      const cart = await getWooCart();
-      const items = cart.items.map(wooCartItemToCartItem);
-      set({ items, isLoading: false, _lastRefreshAt: Date.now() });
-    } catch (error) {
-      console.error("[CartStore] Erreur lors du rafraîchissement du panier:", error);
-      set({
-        error: error instanceof Error ? error.message : "Erreur lors du rafraîchissement du panier",
-        isLoading: false,
-      });
-    }
-  },
+      setQuantity: (key, quantity) => {
+        const q = Math.max(1, Math.floor(quantity || 1));
+        set((state) => ({
+          items: state.items.map((i) => (i.key === key ? { ...i, quantity: q } : i)),
+        }));
+      },
 
-  // Ajouter un article au panier WooCommerce
-  addItem: async (input) => {
-    set({ isLoading: true, error: null });
-    try {
-      const quantity = Math.max(1, input.quantity ?? 1);
+      clear: () => set({ items: [], packOfferId: null }),
 
-      // Préparer les attributs de variation si nécessaire
-      const variationAttributes: Record<string, string> = {};
-      if (input.options?.model) {
-        variationAttributes["Modèle"] = input.options.model;
-      }
-      if (input.options?.color) {
-        variationAttributes["Couleur"] = input.options.color;
-      }
-      if (input.options?.material) {
-        variationAttributes["Matériau"] = input.options.material;
-      }
-
-      // Ajouter au panier WooCommerce
-      const cart = await addToWooCart({
-        id: input.productId,
-        quantity,
-        variation: input.variationId
-          ? {
-              id: input.variationId,
-              attributes: Object.keys(variationAttributes).length > 0 ? variationAttributes : undefined,
-            }
-          : undefined,
-      });
-
-      // Mettre à jour le store avec le nouveau panier
-      const items = cart.items.map(wooCartItemToCartItem);
-      set({ items, isLoading: false });
-    } catch (error) {
-      console.error("[CartStore] Erreur lors de l'ajout au panier:", error);
-      set({
-        error: error instanceof Error ? error.message : "Erreur lors de l'ajout au panier",
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
-
-  // Supprimer un article du panier
-  removeItem: async (key) => {
-    set({ isLoading: true, error: null });
-    try {
-      const cart = await removeFromWooCart(key);
-      const items = cart.items.map(wooCartItemToCartItem);
-      set({ items, isLoading: false });
-    } catch (error) {
-      console.error("[CartStore] Erreur lors de la suppression:", error);
-      set({
-        error: error instanceof Error ? error.message : "Erreur lors de la suppression",
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
-
-  // Modifier la quantité d'un article
-  setQuantity: async (key, quantity) => {
-    set({ isLoading: true, error: null });
-    try {
-      const q = Math.max(1, Math.floor(quantity || 1));
-      const cart = await updateWooCartItem(key, q);
-      const items = cart.items.map(wooCartItemToCartItem);
-      set({ items, isLoading: false });
-    } catch (error) {
-      console.error("[CartStore] Erreur lors de la mise à jour de la quantité:", error);
-      set({
-        error: error instanceof Error ? error.message : "Erreur lors de la mise à jour de la quantité",
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
-
-  // Vider le panier
-  clear: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      await clearWooCart();
-      set({ items: [], packOfferId: null, isLoading: false });
-    } catch (error) {
-      console.error("[CartStore] Erreur lors du vidage du panier:", error);
-      set({
-        error: error instanceof Error ? error.message : "Erreur lors du vidage du panier",
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
-}));
+      setCheckoutLoading: (loading, error = null) =>
+        set({ isLoading: loading, error: loading ? null : error }),
+    }),
+    { name: "impexo-cart", version: 1 }
+  )
+);
 
 export function selectCartCount(items: CartItem[]) {
   return items.reduce((acc, i) => acc + i.quantity, 0);
@@ -220,7 +127,11 @@ export function selectCartSubtotal(items: CartItem[]) {
   return items.reduce((acc, i) => acc + i.unitPrice * i.quantity, 0);
 }
 
-export function selectCartDiscount(subtotal: number, itemsCount: number, offerId: "pack2" | "pack3" | null) {
+export function selectCartDiscount(
+  subtotal: number,
+  itemsCount: number,
+  offerId: "pack2" | "pack3" | null
+) {
   if (!offerId) return 0;
   if (offerId === "pack3") {
     if (itemsCount < 3) return 0;
@@ -231,4 +142,13 @@ export function selectCartDiscount(subtotal: number, itemsCount: number, offerId
     return subtotal * 0.1;
   }
   return 0;
+}
+
+/** Payload pour l’endpoint WordPress create-order (product_id, variation_id, quantity) */
+export function getCartPayloadForCheckout(items: CartItem[]) {
+  return items.map((i) => ({
+    product_id: i.productId,
+    variation_id: i.variationId ?? 0,
+    quantity: i.quantity,
+  }));
 }

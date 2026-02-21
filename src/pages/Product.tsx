@@ -16,7 +16,6 @@ import { useParams, useSearchParams } from "react-router-dom";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-/** Normalise une chaîne pour les comparaisons insensibles à la casse / aux accents */
 const norm = (s?: string) =>
   (s ?? "")
     .trim()
@@ -24,14 +23,11 @@ const norm = (s?: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-/** Récupère la valeur d'un attribut par nom (insensible à la casse) */
 const getAttr = (
   attrs: Array<{ name: string; option: string }> | undefined,
   name: string,
-): string | null => {
-  const attr = attrs?.find((a) => norm(a.name) === norm(name));
-  return attr?.option ?? null;
-};
+): string | null =>
+  attrs?.find((a) => norm(a.name) === norm(name))?.option ?? null;
 
 // ─── composant ───────────────────────────────────────────────────────────────
 
@@ -54,21 +50,43 @@ export default function Product() {
     product && product.type === "variable" && product.variations?.length,
   );
 
-  const varsQ = useProductVariationsQuery(product?.id, hasVariations);
+  // Décaller la requête variations pour ne pas burst avec product by slug (rate limit)
+  const [allowVariations, setAllowVariations] = useState(false);
+  useEffect(() => {
+    if (!product?.id || !hasVariations) {
+      setAllowVariations(false);
+      return;
+    }
+    const t = setTimeout(() => setAllowVariations(true), 800);
+    return () => clearTimeout(t);
+  }, [product?.id, hasVariations]);
 
-  /** Variations filtrées : uniquement celles qui appartiennent à ce produit */
+  const varsQ = useProductVariationsQuery(product?.id, hasVariations && allowVariations);
+
+  /**
+   * Variations filtrées (uniquement celles de ce produit) et triées
+   * de façon stable par modèle puis couleur.
+   */
   const variations = useMemo(() => {
     const raw = varsQ.data ?? [];
     if (!product?.id || !Array.isArray(raw)) return [];
 
-    // Si le produit expose sa liste d'IDs de variations, on s'en sert directement
+    let filtered = raw;
     if (product.variations?.length) {
       const validIds = new Set(product.variations);
-      return raw.filter((v) => validIds.has(v.id));
+      filtered = raw.filter((v) => validIds.has(v.id));
+    } else {
+      filtered = raw.filter((v) => v.attributes?.length);
     }
 
-    // Sinon, fallback : garder les variations qui ont au moins un attribut
-    return raw.filter((v) => v.attributes && v.attributes.length > 0);
+    // Tri stable : modèle puis couleur → galerie et sélecteurs toujours dans le même ordre
+    return [...filtered].sort((a, b) => {
+      const modelA = getAttr(a.attributes, "Modèle") ?? "";
+      const modelB = getAttr(b.attributes, "Modèle") ?? "";
+      const colorA = getAttr(a.attributes, "Couleur") ?? "";
+      const colorB = getAttr(b.attributes, "Couleur") ?? "";
+      return modelA.localeCompare(modelB) || colorA.localeCompare(colorB);
+    });
   }, [varsQ.data, product?.id, product?.variations]);
 
   // ── options de sélection ─────────────────────────────────────────────────
@@ -82,8 +100,12 @@ export default function Product() {
     [product],
   );
 
-  /** Map modèle normalisé → couleurs disponibles (depuis les variations réelles) */
-  const availableColorsByModel = useMemo(() => {
+  /**
+   * Map : modèle normalisé → couleurs réellement disponibles.
+   * Construite depuis les variations réelles — garantit qu'on ne propose
+   * jamais une combinaison modèle+couleur inexistante dans WooCommerce.
+   */
+  const colorsByModel = useMemo(() => {
     const map = new Map<string, string[]>();
     if (!hasVariations) return map;
 
@@ -91,75 +113,81 @@ export default function Product() {
       const m = getAttr(v.attributes, "Modèle");
       const c = getAttr(v.attributes, "Couleur");
       if (!m || !c) return;
-
       const k = norm(m);
       const list = map.get(k) ?? [];
       if (!list.some((x) => norm(x) === norm(c))) list.push(c);
       map.set(k, list);
     });
 
-    // Tri stable
-    map.forEach((list, k) => map.set(k, [...list].sort((a, b) => a.localeCompare(b))));
+    // Tri alphabétique stable pour chaque liste de couleurs
+    map.forEach((list, k) =>
+      map.set(k, [...list].sort((a, b) => a.localeCompare(b))),
+    );
 
     return map;
   }, [hasVariations, variations]);
 
-  const allowedColors = useMemo(() => {
-    if (!hasVariations) return colors;
-    const m = model || models[0];
-    return (m ? availableColorsByModel.get(norm(m)) : undefined) ?? [];
-  }, [hasVariations, colors, availableColorsByModel, model, models]);
+  const currentModel = model || models[0] || "";
+
+  const allowedColors = useMemo(
+    () =>
+      hasVariations
+        ? (colorsByModel.get(norm(currentModel)) ?? [])
+        : colors,
+    [hasVariations, colorsByModel, currentModel, colors],
+  );
 
   // ── sélection courante ───────────────────────────────────────────────────
 
   const selected = useMemo(
-    () => ({ model: model || models[0], color: color || undefined }),
-    [model, color, models],
+    () => ({ model: currentModel, color: color || undefined }),
+    [currentModel, color],
   );
 
-  // Initialisation depuis les query params (?model=&color=)
   const preferredModel = searchParams.get("model") ?? "";
   const preferredColor = searchParams.get("color") ?? "";
 
+  // Initialisation depuis les query params ou valeurs par défaut
   useEffect(() => {
     if (!product) return;
 
-    const initialModel =
+    const initModel =
       (preferredModel && models.includes(preferredModel) ? preferredModel : "") ||
       model ||
       models[0] ||
       "";
-    if (initialModel && initialModel !== model) setModel(initialModel);
+    if (initModel && initModel !== model) setModel(initModel);
 
     const allowed = hasVariations
-      ? (availableColorsByModel.get(norm(initialModel)) ?? [])
+      ? (colorsByModel.get(norm(initModel)) ?? [])
       : colors;
     const preferred = preferredColor
       ? allowed.find((c) => norm(c) === norm(preferredColor))
-      : "";
-    const initialColor = preferred || color || allowed[0] || colors[0] || "";
-    if (initialColor && initialColor !== color) setColor(initialColor);
+      : undefined;
+    const initColor = preferred || color || allowed[0] || colors[0] || "";
+    if (initColor && initColor !== color) setColor(initColor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor]);
 
-  // Si la couleur courante n'est plus disponible pour le modèle sélectionné → reset
+  // Quand le modèle change, reset la couleur si elle n'est plus disponible
   useEffect(() => {
-    if (!hasVariations) return;
-    const m = model || models[0];
-    if (!m) return;
-    const allowed = availableColorsByModel.get(norm(m)) ?? [];
+    if (!hasVariations || !currentModel) return;
+    const allowed = colorsByModel.get(norm(currentModel)) ?? [];
     if (!allowed.length) return;
     if (!color || !allowed.some((c) => norm(c) === norm(color))) {
       setColor(allowed[0]);
     }
-  }, [hasVariations, model, models, availableColorsByModel, color]);
+  }, [hasVariations, currentModel, colorsByModel, color]);
 
   // ── variation correspondante ─────────────────────────────────────────────
 
+  /**
+   * Recherche exacte modèle + couleur après normalisation.
+   * S'il y a plusieurs résultats (cas rare), on prend le premier.
+   */
   const matchedVariation = useMemo(() => {
     if (!hasVariations || !selected.model || !selected.color) return undefined;
-
-    const matches = variations.filter((v) => {
+    return variations.find((v) => {
       const m = getAttr(v.attributes, "Modèle");
       const c = getAttr(v.attributes, "Couleur");
       return (
@@ -167,122 +195,103 @@ export default function Product() {
         c && norm(c) === norm(selected.color)
       );
     });
+  }, [hasVariations, variations, selected]);
 
-    if (matches.length > 1) {
-      // Plusieurs variations pour ce modèle+couleur (ex: deux designs différents)
-      // On prend la première — un sélecteur de "série" pourrait être ajouté ici si nécessaire
-      console.warn(
-        `[Product ${product?.id}] ${matches.length} variations pour ${selected.model} + ${selected.color} → première sélectionnée`,
-      );
-    }
-
-    return matches[0];
-  }, [hasVariations, variations, selected, product?.id]);
-
-  const fallbackVariationForModel = useMemo(() => {
-    if (!hasVariations) return undefined;
-    const mk = norm(selected.model);
-    return variations.find((v) =>
-      v.attributes?.some(
-        (a) => /mod|mod[eè]le|iphone/i.test(a.name) && norm(a.option) === mk,
-      ),
+  // Fallback : première variation du même modèle (pour l'image héro si couleur pas encore choisie)
+  const fallbackVariation = useMemo(() => {
+    if (!hasVariations || !selected.model) return undefined;
+    return variations.find(
+      (v) => norm(getAttr(v.attributes, "Modèle") ?? "") === norm(selected.model),
     );
   }, [hasVariations, variations, selected.model]);
 
   // ── matériau ─────────────────────────────────────────────────────────────
 
-  /**
-   * Cherche le matériau dans les attributs d'une variation.
-   * Avec le CSV importé, WooCommerce expose Attribut 3 "Matériau" directement
-   * dans v.attributes — c'est la source principale.
-   */
   const selectedMaterial = useMemo((): string | undefined => {
-    const findInAttrs = (
-      attrs: Array<{ name: string; option: string }> | undefined,
-    ): string | null => {
-      if (!attrs) return null;
-      const attr = attrs.find((a) => /mat[ée]riau|material/i.test(a.name));
-      return attr?.option ?? null;
-    };
+    const fromAttrs = (attrs: Array<{ name: string; option: string }> | undefined) =>
+      attrs?.find((a) => /mat[ée]riau|material/i.test(a.name))?.option ?? null;
 
-    // 1. Variation sélectionnée (source principale après import CSV)
+    // 1. Attributs de la variation sélectionnée (importés via CSV)
     if (matchedVariation) {
-      const m = findInAttrs(matchedVariation.attributes);
+      const m = fromAttrs(matchedVariation.attributes);
       if (m) return m;
-
-      // 2. Meta fields (au cas où WooCommerce stocke le matériau en meta)
       const meta = matchedVariation.meta_data?.find((m) =>
         /mat[ée]riau|material/i.test(m.key),
       );
       if (meta?.value) return String(meta.value);
     }
-
-    // 3. Variation fallback (même modèle, couleur différente)
-    if (fallbackVariationForModel) {
-      const m = findInAttrs(fallbackVariationForModel.attributes);
+    // 2. Variation fallback (même modèle)
+    if (fallbackVariation) {
+      const m = fromAttrs(fallbackVariation.attributes);
       if (m) return m;
     }
-
-    // 4. Première variation disponible (dernier recours)
+    // 3. Première variation disponible
     for (const v of variations) {
-      const m = findInAttrs(v.attributes);
+      const m = fromAttrs(v.attributes);
       if (m) return m;
     }
-
     return undefined;
-  }, [matchedVariation, fallbackVariationForModel, variations]);
+  }, [matchedVariation, fallbackVariation, variations]);
 
   // ── image héro ───────────────────────────────────────────────────────────
 
-  const heroImage = useMemo(() => {
-    // Image de la variation sélectionnée (priorité absolue)
-    if (matchedVariation?.image?.src) return matchedVariation.image.src;
-    // Fallback : image d'une variation du même modèle
-    if (fallbackVariationForModel?.image?.src) return fallbackVariationForModel.image.src;
-    // Fallback : première image du produit parent
-    return product?.images?.[0]?.src ?? undefined;
-  }, [matchedVariation, fallbackVariationForModel, product?.images]);
+  const heroImage = useMemo(
+    () =>
+      matchedVariation?.image?.src ??
+      fallbackVariation?.image?.src ??
+      product?.images?.[0]?.src ??
+      undefined,
+    [matchedVariation, fallbackVariation, product?.images],
+  );
 
   // ── galerie ──────────────────────────────────────────────────────────────
 
+  /**
+   * Galerie filtrée STRICTEMENT par modèle sélectionné.
+   *
+   * Chaque entrée correspond à une variation précise (modèle + couleur).
+   * Le clic sur une miniature change uniquement la couleur — le modèle
+   * reste celui du sélecteur du dessus.
+   *
+   * isActive est vrai pour la variation exactement sélectionnée (modèle + couleur).
+   */
   const gallery = useMemo(() => {
     if (!product) return [];
 
-    if (hasVariations) {
-      // Une entrée par variation (une image par variation = comportement attendu)
-      const seen = new Set<number>();
-      return variations
-        .filter((v) => {
-          if (!v.image?.src || seen.has(v.id)) return false;
-          seen.add(v.id);
-          return true;
-        })
-        .map((v) => {
-          const m = getAttr(v.attributes, "Modèle");
-          const c = getAttr(v.attributes, "Couleur");
-          return {
-            src: v.image!.src,
-            alt: [product.name, m, c].filter(Boolean).join(" — "),
-            variationId: v.id,
-            isActive: matchedVariation?.id === v.id,
-          };
-        });
+    if (!hasVariations) {
+      return (product.images ?? []).map((im, idx) => ({
+        src: im.src,
+        alt: im.alt || `${product.name} — ${idx + 1}`,
+        variationId: 0,
+        color: null as string | null,
+        isActive: idx === 0,
+      }));
     }
 
-    // Produit simple
-    return (product.images ?? []).map((im, idx) => ({
-      src: im.src,
-      alt: im.alt || `${product.name} — ${idx + 1}`,
-      variationId: 0,
-      isActive: idx === 0,
-    }));
-  }, [product, hasVariations, variations, matchedVariation]);
+    // Filtre strict : on ne garde que les variations dont le Modèle
+    // correspond EXACTEMENT au modèle actuellement sélectionné
+    return variations
+      .filter((v) => {
+        const m = getAttr(v.attributes, "Modèle");
+        return m && norm(m) === norm(selected.model) && Boolean(v.image?.src);
+      })
+      .map((v) => ({
+        src: v.image!.src,
+        alt: [product.name, selected.model, getAttr(v.attributes, "Couleur")]
+          .filter(Boolean)
+          .join(" — "),
+        variationId: v.id,
+        color: getAttr(v.attributes, "Couleur"),
+        // isActive : cette miniature correspond-elle exactement à la sélection courante ?
+        isActive: matchedVariation?.id === v.id,
+      }));
+  }, [product, hasVariations, variations, selected.model, matchedVariation]);
 
   // ── prix & panier ────────────────────────────────────────────────────────
 
   const price = parsePrice(
     matchedVariation?.price ??
-      fallbackVariationForModel?.price ??
+      fallbackVariation?.price ??
       product?.price ??
       product?.regular_price,
   );
@@ -295,7 +304,7 @@ export default function Product() {
     return /magsafe/i.test(blob);
   }, [product?.name, product?.short_description, product?.description]);
 
-  const onAdd = async () => {
+  const onAdd = () => {
     if (!product) return;
     if (hasVariations && !matchedVariation) {
       toast({
@@ -304,33 +313,24 @@ export default function Product() {
       });
       return;
     }
-    try {
-      await addItem({
-        productId: product.id,
-        variationId: matchedVariation?.id,
-        name: product.name,
-        slug: product.slug,
-        imageSrc: matchedVariation?.image?.src ?? heroImage,
-        price: matchedVariation?.price ?? product.price ?? product.regular_price,
-        options: {
-          model: selected.model,
-          color: selected.color,
-          material: selectedMaterial,
-        },
-        quantity: qty,
-      });
-      toast({
-        title: "Ajouté au panier",
-        description: `${product.name}${selected.model ? ` — ${selected.model}` : ""}${selected.color ? ` — ${selected.color}` : ""}`,
-      });
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description:
-          error instanceof Error ? error.message : "Impossible d'ajouter au panier",
-        variant: "destructive",
-      });
-    }
+    addItem({
+      productId: product.id,
+      variationId: matchedVariation?.id,
+      name: product.name,
+      slug: product.slug,
+      imageSrc: matchedVariation?.image?.src ?? heroImage,
+      price: matchedVariation?.price ?? product.price ?? product.regular_price,
+      options: {
+        model: selected.model,
+        color: selected.color,
+        material: selectedMaterial,
+      },
+      quantity: qty,
+    });
+    toast({
+      title: "Ajouté au panier",
+      description: `${product.name}${selected.model ? ` — ${selected.model}` : ""}${selected.color ? ` — ${selected.color}` : ""}`,
+    });
   };
 
   // ── rendu ────────────────────────────────────────────────────────────────
@@ -357,8 +357,10 @@ export default function Product() {
           </div>
         ) : (
           <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
-            {/* ── Image + galerie ── */}
+
+            {/* ── Colonne gauche : image principale + galerie ── */}
             <FadeIn>
+              {/* Image héro */}
               <div className="overflow-hidden">
                 <Dialog>
                   <DialogTrigger asChild>
@@ -391,51 +393,56 @@ export default function Product() {
                 </Dialog>
               </div>
 
+              {/*
+                Galerie des couleurs — filtrée par modèle sélectionné.
+                Chaque miniature = une couleur disponible pour ce modèle.
+                Clic → change la couleur (le modèle reste fixe).
+              */}
               {gallery.length > 1 && (
-                <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-6">
-                  {gallery.slice(0, 12).map((g) => {
-                    const variation = variations.find((v) => v.id === g.variationId);
-                    return (
-                      <button
-                        key={`${g.src}-${g.variationId}`}
-                        type="button"
-                        onClick={() => {
-                          if (!variation) return;
-                          const m = getAttr(variation.attributes, "Modèle");
-                          const c = getAttr(variation.attributes, "Couleur");
-                          if (m) setModel(m);
-                          if (c) setColor(c);
-                        }}
-                        className={[
-                          "group overflow-hidden transition",
-                          g.isActive
-                            ? "opacity-100 ring-2 ring-foreground/40"
-                            : "opacity-70 hover:opacity-100",
-                        ].join(" ")}
-                        aria-label={`Voir ${g.alt}`}
-                      >
-                        <img
-                          src={g.src}
-                          alt={g.alt}
-                          loading="lazy"
-                          decoding="async"
-                          className="impexo-cutout aspect-square w-full object-contain p-2 transition duration-300 ease-out group-hover:scale-[1.02]"
-                        />
-                      </button>
-                    );
-                  })}
+                <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5">
+                  {gallery.map((g) => (
+                    <button
+                      key={g.variationId}
+                      type="button"
+                      onClick={() => {
+                        if (g.color) setColor(g.color);
+                      }}
+                      aria-label={g.color ? `Couleur ${g.color}` : g.alt}
+                      aria-pressed={g.isActive}
+                      className={[
+                        "group flex flex-col items-center gap-1 rounded-xl border p-1.5 transition-all duration-200",
+                        g.isActive
+                          ? "border-foreground/60 bg-muted/50 shadow-sm"
+                          : "border-border opacity-55 hover:opacity-100 hover:border-foreground/25 hover:bg-muted/20",
+                      ].join(" ")}
+                    >
+                      <img
+                        src={g.src}
+                        alt={g.alt}
+                        loading="lazy"
+                        decoding="async"
+                        className="impexo-cutout aspect-square w-full object-contain transition duration-300 ease-out group-hover:scale-[1.05]"
+                      />
+                      {g.color && (
+                        <span className="w-full truncate text-center text-[10px] leading-tight text-muted-foreground">
+                          {g.color}
+                        </span>
+                      )}
+                    </button>
+                  ))}
                 </div>
               )}
 
               <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Zoom élégant (cliquer)</span>
+                <span>Cliquer pour agrandir</span>
                 <span className="tabular-nums">{formatEUR(price)}</span>
               </div>
             </FadeIn>
 
-            {/* ── Infos + sélecteurs ── */}
+            {/* ── Colonne droite : infos produit + sélecteurs ── */}
             <FadeIn delay={0.05}>
               <div className="space-y-6">
+                {/* En-tête */}
                 <div>
                   <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">
                     IMPEXO
@@ -450,26 +457,23 @@ export default function Product() {
 
                 <Separator />
 
+                {/* Sélecteurs */}
                 <div className="grid gap-4 sm:grid-cols-2">
+
                   {/* Sélecteur modèle */}
                   <div className="space-y-2">
                     <div className="text-xs font-medium text-muted-foreground">
                       Modèle d'iPhone
                     </div>
                     <Select
-                      value={model}
+                      value={model || models[0]}
                       onValueChange={(next) => {
                         setModel(next);
                         if (!hasVariations) return;
-                        const allowed = availableColorsByModel.get(norm(next)) ?? [];
-                        if (color) {
-                          const kept = allowed.find((c) => norm(c) === norm(color));
-                          if (kept) {
-                            if (kept !== color) setColor(kept);
-                            return;
-                          }
-                        }
-                        if (allowed.length) setColor(allowed[0]);
+                        const allowed = colorsByModel.get(norm(next)) ?? [];
+                        // Conserver la couleur actuelle si elle existe pour ce modèle
+                        const kept = allowed.find((c) => norm(c) === norm(color));
+                        setColor(kept ?? allowed[0] ?? "");
                       }}
                     >
                       <SelectTrigger className="h-11 rounded-full">
@@ -485,44 +489,33 @@ export default function Product() {
                     </Select>
                   </div>
 
-                  {/* Sélecteur couleur */}
+                  {/* Sélecteur couleur — uniquement les couleurs du modèle sélectionné */}
                   <div className="space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">Couleur</div>
-                    <div className="flex flex-wrap gap-2">
-                      {allowedColors.map((c) => {
-                        const active = color === c;
-                        return (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => setColor(c)}
-                            className={[
-                              "rounded-full border px-3 py-2 text-xs transition",
-                              active
-                                ? "bg-foreground text-background"
-                                : "bg-background hover:bg-muted/60",
-                            ].join(" ")}
-                            disabled={allowedColors.length <= 1}
-                          >
-                            {c}
-                          </button>
-                        );
-                      })}
-                      {allowedColors.length === 1 && (
-                        <span className="text-xs text-muted-foreground">
-                          1 couleur disponible pour ce modèle
-                        </span>
-                      )}
-                      {allowedColors.length === 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          Couleurs non renseignées
-                        </span>
-                      )}
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Couleur
                     </div>
+                    {allowedColors.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">
+                        Couleurs non renseignées
+                      </span>
+                    ) : (
+                      <Select value={color} onValueChange={setColor}>
+                        <SelectTrigger className="h-11 rounded-full">
+                          <SelectValue placeholder="Choisir une couleur" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allowedColors.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
 
-                {/* Quantité + panier */}
+                {/* Quantité + bouton panier */}
                 <div className="p-5">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-medium text-muted-foreground">Quantité</div>
@@ -564,7 +557,7 @@ export default function Product() {
                   </div>
                 </div>
 
-                {/* Badges */}
+                {/* Points forts */}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="flex items-start gap-3 p-4">
                     <Shield className="mt-0.5 h-4 w-4 text-muted-foreground" />
@@ -586,7 +579,7 @@ export default function Product() {
                   </div>
                 </div>
 
-                {/* Fiche produit */}
+                {/* Fiche technique */}
                 <div className="p-6">
                   <div className="text-xs font-medium tracking-[0.22em] text-muted-foreground">
                     DÉTAILS
@@ -620,19 +613,34 @@ export default function Product() {
                     </div>
                   </div>
 
+                  {/* Boutons modèles cliquables (changent le modèle sélectionné) */}
                   {models.length > 0 && (
                     <div className="mt-5">
                       <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground">
-                        COMPATIBILITÉS DISPONIBLES
+                        COMPATIBILITÉS
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {models.map((m) => (
-                          <span
+                          <button
                             key={m}
-                            className="inline-flex items-center rounded-full border bg-background/40 px-3 py-1 text-xs font-medium text-foreground/90"
+                            type="button"
+                            onClick={() => {
+                              setModel(m);
+                              if (hasVariations) {
+                                const allowed = colorsByModel.get(norm(m)) ?? [];
+                                const kept = allowed.find((c) => norm(c) === norm(color));
+                                setColor(kept ?? allowed[0] ?? "");
+                              }
+                            }}
+                            className={[
+                              "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition",
+                              norm(m) === norm(selected.model)
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border bg-background/40 text-foreground/80 hover:border-foreground/40",
+                            ].join(" ")}
                           >
                             {m}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -651,19 +659,20 @@ export default function Product() {
                     />
                   )}
 
+                  {/* Mentions légales */}
                   <div className="mt-4 space-y-1 text-xs text-muted-foreground">
                     <div>
                       Produit compatible avec les modèles iPhone 17, 17 Air, 17 Pro et 17 Pro Max.
                     </div>
                     <div>
-                      La marque Apple® est mentionnée uniquement à titre de compatibilité. IMPEXO
-                      est une marque indépendante.
+                      La marque Apple® est mentionnée uniquement à titre de compatibilité.
+                      IMPEXO est une marque indépendante.
                     </div>
                     {mentionsMagSafe && (
                       <div>
                         MagSafe est une marque d'Apple Inc. La mention « compatible MagSafe »
-                        décrit une compatibilité avec des accessoires MagSafe, sans affiliation ni
-                        approbation.
+                        décrit une compatibilité avec des accessoires MagSafe, sans affiliation
+                        ni approbation.
                       </div>
                     )}
                   </div>

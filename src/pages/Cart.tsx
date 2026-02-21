@@ -3,12 +3,17 @@ import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { selectCartCount, selectCartDiscount, selectCartSubtotal, useCartStore } from "@/store/cartStore";
-import { createWooOrder } from "@/services/woocommerceCart";
+import {
+  getCartPayloadForCheckout,
+  selectCartCount,
+  selectCartDiscount,
+  selectCartSubtotal,
+  useCartStore,
+} from "@/store/cartStore";
+import { createOrderFromCart } from "@/services/checkout";
 import { formatEUR } from "@/utils/money";
 import { Minus, Plus, Trash2, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
 
 export default function Cart() {
   const { toast } = useToast();
@@ -16,70 +21,27 @@ export default function Cart() {
   const setQuantity = useCartStore((s) => s.setQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clear = useCartStore((s) => s.clear);
-  const refresh = useCartStore((s) => s.refresh);
   const isLoading = useCartStore((s) => s.isLoading);
+  const setCheckoutLoading = useCartStore((s) => s.setCheckoutLoading);
   const packOfferId = useCartStore((s) => s.packOfferId);
   const setPackOfferId = useCartStore((s) => s.setPackOfferId);
   const subtotal = selectCartSubtotal(items);
   const count = selectCartCount(items);
   const discount = selectCartDiscount(subtotal, count, packOfferId);
   const total = Math.max(0, subtotal - discount);
-  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
 
-  // Rafraîchir le panier au chargement de la page
-  useEffect(() => {
-    refresh().catch((error) => {
-      console.error("[Cart] Erreur lors du rafraîchissement du panier:", error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger le panier",
-        variant: "destructive",
-      });
-    });
-  }, [refresh, toast]);
-
-  const handleSetQuantity = async (key: string, quantity: number) => {
-    try {
-      await setQuantity(key, quantity);
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de modifier la quantité",
-        variant: "destructive",
-      });
-    }
+  const handleSetQuantity = (key: string, quantity: number) => {
+    setQuantity(key, quantity);
   };
 
-  const handleRemoveItem = async (key: string) => {
-    try {
-      await removeItem(key);
-      toast({
-        title: "Article retiré",
-        description: "L'article a été retiré du panier",
-      });
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de retirer l'article",
-        variant: "destructive",
-      });
-    }
+  const handleRemoveItem = (key: string) => {
+    removeItem(key);
+    toast({ title: "Article retiré", description: "L'article a été retiré du panier" });
   };
 
-  const handleClear = async () => {
-    try {
-      await clear();
-      toast({
-        title: "Panier vidé",
-        description: "Tous les articles ont été retirés du panier",
-      });
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de vider le panier",
-        variant: "destructive",
-      });
-    }
+  const handleClear = () => {
+    clear();
+    toast({ title: "Panier vidé", description: "Tous les articles ont été retirés du panier" });
   };
 
   const checkout = async () => {
@@ -92,48 +54,47 @@ export default function Cart() {
       return;
     }
 
-    setIsCheckoutLoading(true);
+    setCheckoutLoading(true);
     try {
-      // Pour l'instant, on redirige vers une page de checkout WooCommerce
-      // TODO: Implémenter un formulaire de checkout complet avec création de commande
-      toast({
-        title: "Redirection vers le checkout",
-        description: "Vous allez être redirigé vers le paiement sécurisé",
-      });
-
-      // Créer une commande WooCommerce (exemple avec données minimales)
-      // En production, vous devrez collecter les informations de livraison et de facturation
-      const order = await createWooOrder({
-        billing_address: {
-          first_name: "", // À remplir par le formulaire
-          last_name: "",
-          address_1: "",
-          city: "",
-          postcode: "",
-          country: "FR",
-          email: "",
+      const payload = {
+        items: getCartPayloadForCheckout(items),
+        customer: {
+          billing: {
+            first_name: "",
+            last_name: "",
+            address_1: "",
+            city: "",
+            postcode: "",
+            country: "FR",
+            email: "",
+          },
         },
-        payment_method: "stripe", // ou "bacs", "cheque", etc.
-      });
+        payment_method: "stripe",
+      };
 
-      // Si WooCommerce retourne une URL de paiement (Stripe), rediriger
+      const order = await createOrderFromCart(payload);
+
       if (order.payment_url) {
+        toast({
+          title: "Redirection",
+          description: "Vous allez être redirigé vers le paiement sécurisé",
+        });
         window.location.href = order.payment_url;
       } else {
         toast({
           title: "Commande créée",
-          description: `Commande #${order.id} créée avec succès`,
+          description: `Commande #${order.order_id} créée avec succès`,
         });
       }
     } catch (error) {
-      console.error("[Cart] Erreur lors du checkout:", error);
+      console.error("[Cart] Erreur checkout:", error);
       toast({
         title: "Erreur",
         description: error instanceof Error ? error.message : "Impossible de créer la commande",
         variant: "destructive",
       });
     } finally {
-      setIsCheckoutLoading(false);
+      setCheckoutLoading(false);
     }
   };
 
@@ -305,9 +266,9 @@ export default function Cart() {
               <Button
                 className="mt-6 h-12 w-full rounded-full"
                 onClick={checkout}
-                disabled={isLoading || isCheckoutLoading || items.length === 0}
+                disabled={isLoading || items.length === 0}
               >
-                {isCheckoutLoading ? (
+                {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Création de la commande...
