@@ -202,7 +202,7 @@ export default async function handler(req, res) {
       // Store API : rediriger vers le proxy PHP (appel direct REST, zéro requête HTTP interne)
       // Évite Imunify360 en n'appelant pas /wp-json/ en HTTP
       const storeEndpoint = path.replace(/^store\/v1\//, '');
-      wooPath = `/wp-content/api/store-proxy.php`;
+      wooPath = `/store-proxy.php`;
       logError('✅ Store API → proxy PHP (endpoint=', storeEndpoint, '):', wooPath);
       // On ajoutera ?endpoint=... dans les query params ci-dessous
       pathStoreEndpoint = storeEndpoint; // pour l'ajout en query
