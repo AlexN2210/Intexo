@@ -278,7 +278,7 @@ export default async function handler(req, res) {
     const headers = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'User-Agent': 'WordPress/6.4; https://www.impexo.fr',
+      'User-Agent': 'Mozilla/5.0',
     };
     const acceptLang = req.headers['accept-language'];
     if (acceptLang && typeof acceptLang === 'string') headers['accept-language'] = acceptLang;
