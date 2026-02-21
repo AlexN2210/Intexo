@@ -20,7 +20,7 @@ header('Cache-Control: no-store, no-cache');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
 // Charger WordPress
-$wp_load = dirname(__FILE__) . '/../../wp-load.php';
+$wp_load = dirname(__FILE__) . '/wp-load.php';
 if (!file_exists($wp_load)) {
     http_response_code(500);
     echo json_encode(['error' => 'WordPress not found']);
