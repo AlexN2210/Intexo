@@ -183,24 +183,16 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 4. VÉRIFICATION WP_BASE_URL (woo-api.php = pas de clés API)
+    // 4. URL de l'endpoint custom woo-api.php (https://www.impexo.fr/woo-api.php)
     // ==========================================
-    const wp = process.env.WP_BASE_URL;
-    logError('ENV CHECK:', { WP_BASE_URL: wp ? 'présent' : 'UNDEFINED' });
-    if (!wp || typeof wp !== 'string' || !wp.startsWith('http')) {
-      logError('❌ WP_BASE_URL manquant ou invalide');
-      return sendJson(res, 500, {
-        error: 'Configuration manquante',
-        message: 'WP_BASE_URL doit être défini (ex: https://wp.impexo.fr)',
-        diagnostic: { WP_BASE_URL: wp ? 'invalide' : 'MANQUANT' },
-      }, req);
-    }
+    const wooApiOrigin = (process.env.WOO_API_ORIGIN || 'https://www.impexo.fr').replace(/\/+$/, '');
+    const wooApiUrl = `${wooApiOrigin}/woo-api.php`;
+    logError('ENV CHECK:', { WOO_API_ORIGIN: wooApiOrigin });
 
     // ==========================================
-    // 5. CONSTRUCTION DE L'URL — endpoint custom woo-api.php (plus de store-proxy ni wp-json)
+    // 5. CONSTRUCTION DE L'URL — redirection vers woo-api.php (jamais /wp-json/ ni chemin relatif)
     // ==========================================
     logError('🔍 CONSTRUCTION URL:', { path, pathType: typeof path });
-    const routingKeys = ['...path', 'path'];
 
     if (!path) {
       logError('❌ Path manquant');
@@ -221,24 +213,14 @@ export default async function handler(req, res) {
       }, req);
     }
 
-    if (!wp || typeof wp !== 'string' || !wp.startsWith('http')) {
-      logError('❌ WP_BASE_URL invalide:', wp);
-      return sendJson(res, 500, {
-        error: 'Configuration invalide',
-        message: `WP_BASE_URL invalide: ${wp}`,
-        diagnostic: { wp },
-      }, req);
-    }
-
     let cleanUrl;
     try {
-      const baseUrl = `${wp.replace(/\/+$/, '')}/woo-api.php`;
-      cleanUrl = new URL(baseUrl);
+      cleanUrl = new URL(wooApiUrl);
     } catch (urlError) {
       return sendJson(res, 500, {
         error: 'Erreur construction URL',
         message: urlError.message,
-        diagnostic: { wp },
+        diagnostic: { wooApiUrl },
       }, req);
     }
 
@@ -370,16 +352,16 @@ export default async function handler(req, res) {
         bodyPreview: fetchOptions.body ? (typeof fetchOptions.body === 'string' ? fetchOptions.body.substring(0, 100) : String(fetchOptions.body).substring(0, 100)) : 'undefined',
         signalType: fetchOptions.signal ? 'AbortSignal' : 'undefined',
         path: path,
-        wooPath: wooPath,
+        wooApiUrl,
       });
-      
+
       // Validation finale de l'URL avant le fetch
       if (!url || typeof url !== 'string' || !url.startsWith('http')) {
         logError('❌ URL invalide avant fetch:', { url, type: typeof url });
         return sendJson(res, 500, {
           error: 'URL WooCommerce invalide',
           message: `L'URL construite est invalide: ${url}`,
-          diagnostic: { path, wooPath, url },
+          diagnostic: { path, wooApiUrl, url },
         }, req);
       }
       
@@ -537,8 +519,7 @@ export default async function handler(req, res) {
       preview,
       diagnostic: {
         url: maskSecret(url),
-        baseUrl: wp,
-        wooPath,
+        wooApiUrl: wooApiUrl,
         isHtml,
       },
       data: [],
