@@ -183,135 +183,95 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 4. VÉRIFICATION DES VARIABLES D'ENVIRONNEMENT
+    // 4. VÉRIFICATION WP_BASE_URL (woo-api.php = pas de clés API)
     // ==========================================
     const wp = process.env.WP_BASE_URL;
-    const ck = process.env.WC_CONSUMER_KEY;
-    const cs = process.env.WC_CONSUMER_SECRET;
-
-    // Log défensif pour diagnostiquer les variables d'environnement
-    logError('ENV CHECK:', {
-      WP_BASE_URL: wp || 'UNDEFINED',
-      WP_length: wp ? wp.length : 0,
-      WP_type: typeof wp,
-      hasCK: !!ck,
-      hasCS: !!cs,
-    });
-
-    if (!wp || !ck || !cs) {
-      logError('❌ Configuration WooCommerce manquante:', { 
-        wp: wp || 'UNDEFINED', 
-        wpType: typeof wp,
-        ck: !!ck, 
-        cs: !!cs 
-      });
+    logError('ENV CHECK:', { WP_BASE_URL: wp ? 'présent' : 'UNDEFINED' });
+    if (!wp || typeof wp !== 'string' || !wp.startsWith('http')) {
+      logError('❌ WP_BASE_URL manquant ou invalide');
       return sendJson(res, 500, {
-        error: 'Configuration WooCommerce manquante',
-        message: 'Les variables d\'environnement WooCommerce ne sont pas configurées',
-        diagnostic: {
-          WP_BASE_URL: wp ? 'présent' : 'MANQUANT',
-          WP_BASE_URL_type: typeof wp,
-          WC_CONSUMER_KEY: ck ? 'présent' : 'MANQUANT',
-          WC_CONSUMER_SECRET: cs ? 'présent' : 'MANQUANT',
-        },
-      });
+        error: 'Configuration manquante',
+        message: 'WP_BASE_URL doit être défini (ex: https://wp.impexo.fr)',
+        diagnostic: { WP_BASE_URL: wp ? 'invalide' : 'MANQUANT' },
+      }, req);
     }
 
     // ==========================================
-    // 5. CONSTRUCTION DE L'URL WOOCOMMERCE
+    // 5. CONSTRUCTION DE L'URL — endpoint custom woo-api.php (plus de store-proxy ni wp-json)
     // ==========================================
-    // Déterminer le namespace WooCommerce selon le chemin
-    // wc/store/v1 pour l'API Store Cart, wc/v3 pour l'API REST classique
-    logError('🔍 CONSTRUCTION URL:', { path, pathType: typeof path, pathLength: path ? path.length : 0 });
-    
-    let wooPath = '';
-    let pathStoreEndpoint = null; // pour proxy PHP → ?endpoint=...
-    let pathStoreApi = null;      // 'v3' pour API REST classique via proxy PHP
+    logError('🔍 CONSTRUCTION URL:', { path, pathType: typeof path });
+    const routingKeys = ['...path', 'path'];
+
     if (!path) {
-      logError('❌ Path est vide ou undefined lors de la construction de l\'URL!');
+      logError('❌ Path manquant');
       return sendJson(res, 400, {
         error: 'Chemin WooCommerce manquant',
-        message: 'Le chemin de l\'API WooCommerce est manquant lors de la construction de l\'URL',
-        diagnostic: {
-          url: req.url,
-          query: req.query,
-        },
+        message: 'Path manquant dans la requête',
+        diagnostic: { url: req.url, query: req.query },
         data: [],
       }, req);
     }
-    
-    if (path.startsWith('store/v1/')) {
-      // Store API : rediriger vers le proxy PHP (appel direct REST, zéro requête HTTP interne)
-      const storeEndpoint = path.replace(/^store\/v1\//, '');
-      wooPath = `/store-proxy.php`;
-      pathStoreEndpoint = storeEndpoint;
-      logError('✅ Store API → proxy PHP (endpoint=', storeEndpoint, '):', wooPath);
-    } else {
-      // API REST classique (wc/v3) → aussi via proxy PHP pour éviter Imunify360 sur /wp-json/
-      wooPath = `/store-proxy.php`;
-      pathStoreEndpoint = path; // ex: products, products/123/variations
-      pathStoreApi = 'v3';
-      logError('✅ API REST classique (wc/v3) → proxy PHP (api=v3, endpoint=', path, ')');
+
+    // Panier = local, plus d'appel Store API
+    if (path.startsWith('store/')) {
+      return sendJson(res, 410, {
+        error: 'Store API désactivée',
+        message: 'Le panier est géré côté client (localStorage). Utilisez le checkout custom.',
+        data: [],
+      }, req);
     }
 
-    // Construction de l'URL proprement avec URL et URLSearchParams
-    // Exclure explicitement les clés de routing Vercel pour éviter la pollution de l'URL WordPress
-    const routingKeys = ['...path', 'path']; // Exclure les clés de routing Vercel
-    
-    // Validation défensive : s'assurer que wp est valide avant de construire l'URL
     if (!wp || typeof wp !== 'string' || !wp.startsWith('http')) {
-      logError('❌ WP_BASE_URL invalide avant construction URL:', {
-        wp,
-        wpType: typeof wp,
-        wpStartsWithHttp: wp ? wp.startsWith('http') : false,
-      });
+      logError('❌ WP_BASE_URL invalide:', wp);
       return sendJson(res, 500, {
-        error: 'Configuration WooCommerce invalide',
-        message: `WP_BASE_URL est invalide: ${wp}`,
-        diagnostic: { wp, wpType: typeof wp },
-      });
+        error: 'Configuration invalide',
+        message: `WP_BASE_URL invalide: ${wp}`,
+        diagnostic: { wp },
+      }, req);
     }
-    
-    // Construire l'URL de base sans query params
+
     let cleanUrl;
     try {
-      const baseUrl = `${wp}${wooPath}`;
-      logError('🔍 Construction URL avec baseUrl:', baseUrl.substring(0, 100));
+      const baseUrl = `${wp.replace(/\/+$/, '')}/woo-api.php`;
       cleanUrl = new URL(baseUrl);
-      logError('✅ URL CONSTRUITE:', cleanUrl.toString());
     } catch (urlError) {
-      logError('❌ Erreur lors de la construction de l\'URL:', {
-        error: urlError.message,
-        wp,
-        wooPath,
-        combined: `${wp}${wooPath}`,
-      });
       return sendJson(res, 500, {
-        error: 'Erreur lors de la construction de l\'URL WooCommerce',
+        error: 'Erreur construction URL',
         message: urlError.message,
-        diagnostic: { wp, wooPath },
-      });
+        diagnostic: { wp },
+      }, req);
     }
-    
-    // Proxy PHP : endpoint et éventuellement api=v3
-    if (pathStoreEndpoint) {
-      cleanUrl.searchParams.set('endpoint', pathStoreEndpoint);
+
+    // Mapping path + query → action woo-api.php
+    const variationsMatch = path.match(/^products\/(\d+)\/variations$/);
+    const hasSlug = req.query.slug !== undefined && req.query.slug !== '';
+
+    if (variationsMatch) {
+      cleanUrl.searchParams.set('action', 'variations');
+      cleanUrl.searchParams.set('product_id', variationsMatch[1]);
+      cleanUrl.searchParams.set('per_page', String(req.query.per_page || 100));
+      cleanUrl.searchParams.set('status', String(req.query.status || 'publish'));
+    } else if (path === 'products' && hasSlug) {
+      cleanUrl.searchParams.set('action', 'product-by-slug');
+      cleanUrl.searchParams.set('slug', String(req.query.slug));
+      cleanUrl.searchParams.set('status', String(req.query.status || 'publish'));
+    } else if (path === 'products' || path.startsWith('products')) {
+      cleanUrl.searchParams.set('action', 'products');
+      cleanUrl.searchParams.set('per_page', String(req.query.per_page || 24));
+      cleanUrl.searchParams.set('page', String(req.query.page || 1));
+      cleanUrl.searchParams.set('orderby', String(req.query.orderby || 'date'));
+      cleanUrl.searchParams.set('order', String(req.query.order || 'desc'));
+      cleanUrl.searchParams.set('status', String(req.query.status || 'publish'));
+      if (req.query.search) cleanUrl.searchParams.set('search', String(req.query.search));
+      if (req.query.featured === 'true' || req.query.featured === true) cleanUrl.searchParams.set('featured', 'true');
+    } else {
+      return sendJson(res, 400, {
+        error: 'Action non supportée',
+        message: `Path non géré: ${path}. Endpoint custom woo-api.php : products, product-by-slug, variations.`,
+        data: [],
+      }, req);
     }
-    if (pathStoreApi === 'v3') {
-      cleanUrl.searchParams.set('api', 'v3');
-    }
-    
-    // Ajouter uniquement les query params valides (exclure les paramètres de routing)
-    Object.entries(req.query).forEach(([key, value]) => {
-      if (!routingKeys.includes(key) && value !== undefined && value !== '') {
-        if (Array.isArray(value)) {
-          value.forEach(v => cleanUrl.searchParams.append(key, String(v)));
-        } else {
-          cleanUrl.searchParams.set(key, String(value));
-        }
-      }
-    });
-    
+
     const url = cleanUrl.toString();
     
     logError('🔍 URL NETTOYÉE:', maskSecret(url));
@@ -330,80 +290,15 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 6. PRÉPARATION DE LA REQUÊTE
+    // 6. PRÉPARATION DE LA REQUÊTE (woo-api.php = GET seul, pas d'auth)
     // ==========================================
-    // L'API Store Cart (wc/store/v1) ne nécessite pas d'authentification
-    // L'API REST classique (wc/v3) nécessite l'authentification
-    const isStoreCart = path.startsWith('store/v1/');
-    
     const headers = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      'User-Agent': 'WordPress/6.4; https://www.impexo.fr',
     };
-    
-    // Ajouter l'authentification seulement pour l'API REST classique
-    if (!isStoreCart) {
-      const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64');
-      headers.Authorization = auth;
-      log('Authentification Basic Auth ajoutée pour l\'API REST classique');
-    } else {
-      log('Pas d\'authentification nécessaire pour l\'API Store Cart');
-    }
-
-    // CRITIQUE : Transmettre les cookies pour l'API Store Cart
-    // Le cookie woocommerce_session identifie le panier
-    // Vérifier les deux cas possibles (minuscule et majuscule)
-    const cookieHeader = req.headers.cookie || req.headers['Cookie'] || req.headers['cookie'];
-    if (isStoreCart && cookieHeader) {
-      headers.Cookie = cookieHeader;
-      log('Cookies transmis pour l\'API Store Cart:', cookieHeader.substring(0, 50) + '...');
-    } else if (isStoreCart) {
-      log('⚠️ Aucun cookie trouvé pour l\'API Store Cart - un nouveau panier sera créé');
-    }
-
-    // CRITIQUE : Transmettre le header Nonce pour les opérations d'écriture Store Cart
-    // Le nonce est requis pour POST/PUT/DELETE sur l'API Store Cart
-    // Vérifier toutes les variantes de casse possibles (Node.js/Vercel normalise en minuscules)
-    const nonceHeader = req.headers.nonce 
-      || req.headers['Nonce'] 
-      || req.headers['nonce']
-      || req.headers['NONCE'];
-    
-    if (isStoreCart && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
-      if (nonceHeader) {
-        // IMPORTANT : WooCommerce attend le header avec la casse exacte "Nonce"
-        headers.Nonce = String(nonceHeader);
-        log('✅ Nonce transmis pour l\'API Store Cart:', String(nonceHeader).substring(0, 10) + '...');
-      } else {
-        logError('❌ Aucun nonce fourni pour l\'opération d\'écriture Store Cart - risque de 403');
-        logError('   Headers reçus:', Object.keys(req.headers).filter(h => h.toLowerCase().includes('nonce')));
-      }
-    }
-
-    // CRITIQUE : Transmettre le Cart-Token du client vers WordPress
-    // Le Cart-Token JWT identifie la session panier et doit être transmis pour maintenir la session
-    const cartToken = req.headers['cart-token'] || req.headers['Cart-Token'];
-    if (isStoreCart && cartToken) {
-      headers['Cart-Token'] = String(cartToken);
-      log('✅ Cart-Token transmis pour l\'API Store Cart:', String(cartToken).substring(0, 20) + '...');
-    }
-
-    // CRITIQUE : Désactiver le cache pour les requêtes Store Cart
-    // Le nonce doit toujours être frais, ne pas utiliser de cache
-    if (isStoreCart) {
-      headers['Cache-Control'] = 'no-cache, no-store';
-      headers['Pragma'] = 'no-cache';
-    }
-
-    // User-Agent WordPress-like pour éviter les blocages ModSecurity
-    // ModSecurity peut bloquer les requêtes avec des User-Agents suspects
-    headers['User-Agent'] = 'WordPress/6.4; https://www.impexo.fr';
-    
-    // Forward de quelques headers clients non-sensibles (sauf User-Agent qui est déjà défini)
-    ['accept-language'].forEach(h => {
-      const v = req.headers[h];
-      if (v && typeof v === 'string') headers[h] = v;
-    });
+    const acceptLang = req.headers['accept-language'];
+    if (acceptLang && typeof acceptLang === 'string') headers['accept-language'] = acceptLang;
 
     // ==========================================
     // 7. TIMEOUT VIA AbortController
@@ -554,13 +449,7 @@ export default async function handler(req, res) {
     // 9. TRAITEMENT DE LA RÉPONSE
     // ==========================================
 
-    // CRITIQUE : Désactiver le cache pour les réponses Store Cart
-    // Le nonce doit toujours être frais, ne pas utiliser de cache
-    if (isStoreCart) {
-      res.setHeader('Cache-Control', 'no-store, no-cache');
-    }
-
-    // Copie des headers utiles de WooCommerce
+    // Copie des headers utiles (woo-api.php = produits/variations uniquement)
     // CORRECTION : Ajouter 'Nonce' et 'Cart-Token' à la liste des headers copiés
     ['cache-control', 'x-total', 'x-total-pages', 'Nonce', 'Cart-Token'].forEach(h => {
       const v = wooResponse.headers.get(h);
@@ -604,8 +493,8 @@ export default async function handler(req, res) {
         });
       }
 
-      // Mettre en cache les GET produits/variations (200) pour limiter les 429
-      if (req.method === 'GET' && !path.startsWith('store/') && wooResponse.status === 200) {
+      // Mettre en cache les GET (200)
+      if (req.method === 'GET' && wooResponse.status === 200) {
         setCachedResponse(url, {
           status: wooResponse.status,
           contentType: 'application/json',
