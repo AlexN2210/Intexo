@@ -184,7 +184,8 @@ export default async function handler(req, res) {
     logError('🔍 CONSTRUCTION URL:', { path, pathType: typeof path, pathLength: path ? path.length : 0 });
     
     let wooPath = '';
-    let pathStoreEndpoint = null; // pour store/v1/ → ?endpoint=...
+    let pathStoreEndpoint = null; // pour proxy PHP → ?endpoint=...
+    let pathStoreApi = null;      // 'v3' pour API REST classique via proxy PHP
     if (!path) {
       logError('❌ Path est vide ou undefined lors de la construction de l\'URL!');
       return sendJson(res, 400, {
@@ -200,17 +201,16 @@ export default async function handler(req, res) {
     
     if (path.startsWith('store/v1/')) {
       // Store API : rediriger vers le proxy PHP (appel direct REST, zéro requête HTTP interne)
-      // Évite Imunify360 en n'appelant pas /wp-json/ en HTTP
       const storeEndpoint = path.replace(/^store\/v1\//, '');
       wooPath = `/store-proxy.php`;
+      pathStoreEndpoint = storeEndpoint;
       logError('✅ Store API → proxy PHP (endpoint=', storeEndpoint, '):', wooPath);
-      // On ajoutera ?endpoint=... dans les query params ci-dessous
-      pathStoreEndpoint = storeEndpoint; // pour l'ajout en query
     } else {
-      pathStoreEndpoint = null;
-      // API REST classique (wc/v3) - nécessite l'authentification
-      wooPath = `/wp-json/wc/v3/${path}`;
-      logError('✅ Utilisation de l\'API REST classique (wc/v3):', wooPath);
+      // API REST classique (wc/v3) → aussi via proxy PHP pour éviter Imunify360 sur /wp-json/
+      wooPath = `/store-proxy.php`;
+      pathStoreEndpoint = path; // ex: products, products/123/variations
+      pathStoreApi = 'v3';
+      logError('✅ API REST classique (wc/v3) → proxy PHP (api=v3, endpoint=', path, ')');
     }
 
     // Construction de l'URL proprement avec URL et URLSearchParams
@@ -252,9 +252,12 @@ export default async function handler(req, res) {
       });
     }
     
-    // Pour Store API : ajouter le paramètre endpoint (proxy PHP)
+    // Proxy PHP : endpoint et éventuellement api=v3
     if (pathStoreEndpoint) {
       cleanUrl.searchParams.set('endpoint', pathStoreEndpoint);
+    }
+    if (pathStoreApi === 'v3') {
+      cleanUrl.searchParams.set('api', 'v3');
     }
     
     // Ajouter uniquement les query params valides (exclure les paramètres de routing)

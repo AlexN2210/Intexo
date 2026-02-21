@@ -1,9 +1,11 @@
 <?php
 /**
- * Mini-proxy Store API WooCommerce - Version optimisée
- * Appel direct via rest_get_server()->dispatch() - ZÉRO requête HTTP interne
+ * Mini-proxy WooCommerce - Store API (wc/store/v1) + REST API (wc/v3)
+ * Store API : rest_get_server()->dispatch() - ZÉRO requête HTTP interne
+ * v3 : wp_remote_request vers wp-json (une requête interne, même serveur)
  *
- * À placer : /wp-content/api/store-proxy.php
+ * À placer à la racine WordPress (à côté de wp-load.php)
+ * Clés API v3 : définir WC_PROXY_CK et WC_PROXY_CS dans wp-config.php
  */
 
 // CORS
@@ -12,7 +14,7 @@ $allowed = ['https://www.impexo.fr', 'https://impexo.fr', 'http://localhost:5173
 header('Access-Control-Allow-Origin: ' . (in_array($origin, $allowed, true) ? $origin : 'https://www.impexo.fr'));
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Accept, Nonce, Cart-Token');
+header('Access-Control-Allow-Headers: Content-Type, Accept, Nonce, Cart-Token, Authorization');
 header('Access-Control-Expose-Headers: Nonce, Cart-Token, Set-Cookie');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache');
@@ -28,22 +30,52 @@ if (!file_exists($wp_load)) {
 }
 require_once $wp_load;
 
-// Endpoint demandé
+$api = isset($_GET['api']) ? $_GET['api'] : 'store/v1';
 $endpoint = trim($_GET['endpoint'] ?? '', '/');
 if ($endpoint === '') {
     http_response_code(400);
-    echo json_encode(['error' => 'Missing ?endpoint=cart']);
+    echo json_encode(['error' => 'Missing ?endpoint=...']);
     exit;
 }
 
-// Construire la requête REST interne (aucune requête HTTP)
-$route = '/wc/store/v1/' . $endpoint;
 $method = $_SERVER['REQUEST_METHOD'];
 $body_raw = file_get_contents('php://input');
 
+// Query params à transmettre (hors endpoint et api)
+$query_params = $_GET;
+unset($query_params['endpoint'], $query_params['api']);
+$query_string = !empty($query_params) ? '?' . http_build_query($query_params) : '';
+
+if ($api === 'v3') {
+    // API REST classique (wc/v3) avec Basic Auth - une requête interne
+    $url = get_site_url(null, 'wp-json/wc/v3/' . $endpoint . $query_string, 'https');
+    $headers = [
+        'Content-Type'  => 'application/json',
+        'Accept'        => 'application/json',
+    ];
+    $ck = defined('WC_PROXY_CK') ? WC_PROXY_CK : '';
+    $cs = defined('WC_PROXY_CS') ? WC_PROXY_CS : '';
+    if ($ck !== '' && $cs !== '') {
+        $headers['Authorization'] = 'Basic ' . base64_encode($ck . ':' . $cs);
+    }
+    $args = [
+        'method'    => $method,
+        'headers'   => $headers,
+        'body'      => $body_raw,
+        'timeout'   => 15,
+    ];
+    $response = wp_remote_request($url, $args);
+    $status = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+    http_response_code((int) $status);
+    echo $body;
+    exit;
+}
+
+// Store API (défaut) : dispatch direct, zéro requête HTTP
+$route = '/wc/store/v1/' . $endpoint;
 $request = new WP_REST_Request($method, $route);
 
-// Headers entrants → paramètres REST
 if (!empty($_SERVER['HTTP_NONCE'])) {
     $request->set_header('Nonce', $_SERVER['HTTP_NONCE']);
 }
@@ -54,7 +86,6 @@ if (!empty($_SERVER['HTTP_COOKIE'])) {
     $request->set_header('Cookie', $_SERVER['HTTP_COOKIE']);
 }
 
-// Body JSON
 if (!empty($body_raw)) {
     $body_data = json_decode($body_raw, true);
     if (is_array($body_data)) {
@@ -62,21 +93,15 @@ if (!empty($body_raw)) {
         $request->set_body($body_raw);
     }
 }
-
-// Query params (ex: ?endpoint=cart&per_page=10 → per_page transmis)
-$query_params = $_GET;
-unset($query_params['endpoint']);
 if (!empty($query_params)) {
     $request->set_query_params($query_params);
 }
 
-// Exécuter via le serveur REST WordPress - AUCUNE requête HTTP
 $server = rest_get_server();
 $response = $server->dispatch($request);
 $data = $server->response_to_data($response, false);
 $status = $response->get_status();
 
-// Transmettre les headers de réponse (Nonce, Cart-Token, Set-Cookie pour la session)
 $res_headers = $response->get_headers();
 if (!empty($res_headers['Nonce'])) {
     header('Nonce: ' . $res_headers['Nonce']);
@@ -84,7 +109,6 @@ if (!empty($res_headers['Nonce'])) {
 if (!empty($res_headers['Cart-Token'])) {
     header('Cart-Token: ' . $res_headers['Cart-Token']);
 }
-// Set-Cookie : get_headers() sur WP_REST_Response ne retourne pas les cookies PHP natifs
 foreach (headers_list() as $h) {
     if (stripos($h, 'Set-Cookie:') === 0) {
         header($h, false);
