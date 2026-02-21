@@ -38,11 +38,14 @@ type AddToCartInput = {
   quantity?: number;
 };
 
+const CART_REFRESH_DEBOUNCE_MS = 30000; // 30 s - rate limit hébergeur, pas de whitelist possible
+
 type CartState = {
   items: CartItem[];
   packOfferId: "pack2" | "pack3" | null;
   isLoading: boolean;
   error: string | null;
+  _lastRefreshAt: number;
   setPackOfferId: (offerId: CartState["packOfferId"]) => void;
   addItem: (input: AddToCartInput) => Promise<void>;
   removeItem: (key: string) => Promise<void>;
@@ -90,16 +93,21 @@ export const useCartStore = create<CartState>()((set, get) => ({
   packOfferId: null,
   isLoading: false,
   error: null,
+  _lastRefreshAt: 0,
 
   setPackOfferId: (offerId) => set({ packOfferId: offerId }),
 
-  // Rafraîchir le panier depuis WooCommerce
+  // Rafraîchir le panier depuis WooCommerce (debounce pour limiter les 429)
   refresh: async () => {
+    const now = Date.now();
+    if (now - get()._lastRefreshAt < CART_REFRESH_DEBOUNCE_MS) {
+      return; // Éviter trop d'appels rapprochés vers wp.impexo.fr
+    }
     set({ isLoading: true, error: null });
     try {
       const cart = await getWooCart();
       const items = cart.items.map(wooCartItemToCartItem);
-      set({ items, isLoading: false });
+      set({ items, isLoading: false, _lastRefreshAt: Date.now() });
     } catch (error) {
       console.error("[CartStore] Erreur lors du rafraîchissement du panier:", error);
       set({

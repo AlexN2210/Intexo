@@ -7,11 +7,14 @@ import { useEffect } from "react";
 export function Layout() {
   const refresh = useCartStore((s) => s.refresh);
 
-  // Charger le panier au démarrage de l'application
+  // Charger le panier après un court délai pour éviter le burst cart+products (rate limit)
   useEffect(() => {
-    refresh().catch((error) => {
-      console.error("[Layout] Erreur lors du chargement initial du panier:", error);
-    });
+    const t = setTimeout(() => {
+      refresh().catch((error) => {
+        console.error("[Layout] Erreur lors du chargement initial du panier:", error);
+      });
+    }, 500);
+    return () => clearTimeout(t);
   }, [refresh]);
 
   return (

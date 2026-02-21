@@ -23,6 +23,37 @@ const DEBUG = process.env.DEBUG === 'true';
 const log = (...args) => DEBUG && console.log('[Proxy WooCommerce]', ...args);
 const logError = (...args) => console.error('[Proxy WooCommerce]', ...args);
 
+// ==========================================
+// CACHE GET (produits / variations) - réduit les 429 Imunify360
+// Ne pas cacher Store Cart (panier dépend des cookies)
+// ==========================================
+const GET_CACHE_TTL_MS = 3 * 60 * 1000; // 3 min (pas de whitelist possible côté hébergeur)
+const GET_CACHE_MAX = 200;
+const getProductCache = new Map();
+
+function getCachedResponse(url) {
+  const entry = getProductCache.get(url);
+  if (!entry || entry.expiresAt < Date.now()) {
+    if (entry) getProductCache.delete(url);
+    return null;
+  }
+  return entry;
+}
+
+function setCachedResponse(url, entry) {
+  if (getProductCache.size >= GET_CACHE_MAX) {
+    const now = Date.now();
+    for (const [k, v] of getProductCache) {
+      if (v.expiresAt < now) getProductCache.delete(k);
+    }
+    if (getProductCache.size >= GET_CACHE_MAX) {
+      const first = getProductCache.keys().next().value;
+      if (first) getProductCache.delete(first);
+    }
+  }
+  getProductCache.set(url, { ...entry, expiresAt: Date.now() + GET_CACHE_TTL_MS });
+}
+
 export default async function handler(req, res) {
   // Log RAW IMMÉDIATEMENT, avant tout traitement - DIAGNOSTIC DÉFINITIF
   console.error('[Proxy WooCommerce] 🚀 HANDLER DÉMARRÉ:', {
@@ -276,6 +307,17 @@ export default async function handler(req, res) {
     logError('🔍 URL NETTOYÉE:', maskSecret(url));
     logError('🔍 URL AVANT MASQUAGE:', url); // Pour debug complet
     log('URL WooCommerce:', maskSecret(url));
+
+    // Cache GET produits/variations (pas Store Cart) pour limiter les 429
+    if (req.method === 'GET' && !path.startsWith('store/')) {
+      const cached = getCachedResponse(url);
+      if (cached) {
+        log('Cache hit (GET):', maskSecret(url).substring(0, 80));
+        setCorsHeaders(res, req);
+        res.setHeader('Content-Type', cached.contentType || 'application/json');
+        return res.status(cached.status).json(cached.data);
+      }
+    }
 
     // ==========================================
     // 6. PRÉPARATION DE LA REQUÊTE
@@ -580,6 +622,15 @@ export default async function handler(req, res) {
           error: data.message || data.error || 'WooCommerce API error',
           code: data.code || 'unknown',
           data: [],
+        });
+      }
+
+      // Mettre en cache les GET produits/variations (200) pour limiter les 429
+      if (req.method === 'GET' && !path.startsWith('store/') && wooResponse.status === 200) {
+        setCachedResponse(url, {
+          status: wooResponse.status,
+          contentType: 'application/json',
+          data,
         });
       }
 

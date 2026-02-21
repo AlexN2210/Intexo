@@ -10,8 +10,8 @@ export function useProductsQuery(params?: { search?: string; featured?: boolean;
       return Array.isArray(result) ? result : [];
     },
     retry: 0, // Plus de retry (aggrave le 429)
-    staleTime: 1000 * 60 * 5, // Cache 5 minutes (données considérées comme fraîches pendant 5 min)
-    gcTime: 1000 * 60 * 15, // Garde en mémoire 15 minutes
+    staleTime: 1000 * 60 * 10, // 10 min (limiter requêtes, rate limit hébergeur)
+    gcTime: 1000 * 60 * 30, // 30 min
   });
 }
 
@@ -20,9 +20,9 @@ export function useProductBySlugQuery(slug: string | undefined) {
     queryKey: ["woo", "product", "slug", slug],
     enabled: Boolean(slug),
     queryFn: () => getProductBySlug(slug!),
-    retry: 0, // Plus de retry (aggrave le 429)
-    staleTime: 1000 * 60 * 5, // Cache 5 minutes (données considérées comme fraîches pendant 5 min)
-    gcTime: 1000 * 60 * 15, // Garde en mémoire 15 minutes
+    retry: 0,
+    staleTime: 1000 * 60 * 10, // 10 min
+    gcTime: 1000 * 60 * 30, // 30 min
   });
 }
 
@@ -32,12 +32,11 @@ export function useProductVariationsQuery(productId: number | undefined, enabled
     enabled: Boolean(productId) && (enabled ?? true),
     queryFn: async () => {
       const result = await getProductVariations(productId!);
-      // Garantir qu'on retourne toujours un tableau
       return Array.isArray(result) ? result : [];
     },
-    retry: 0, // Plus de retry (aggrave le 429)
-    staleTime: 1000 * 60 * 10, // Cache 10 minutes (données considérées comme fraîches pendant 10 min)
-    gcTime: 1000 * 60 * 30, // Garde en mémoire 30 minutes
+    retry: 0,
+    staleTime: 1000 * 60 * 15, // 15 min
+    gcTime: 1000 * 60 * 45, // 45 min
   });
 }
 
