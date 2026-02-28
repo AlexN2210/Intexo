@@ -205,13 +205,60 @@ export default async function handler(req, res) {
       }, req);
     }
 
-    // Panier = local, plus d'appel Store API
+    // Store API (cart/items, cart/add-item) → proxy WordPress wc-store-proxy.php
     if (path.startsWith('store/')) {
-      return sendJson(res, 410, {
-        error: 'Store API désactivée',
-        message: 'Le panier est géré côté client (localStorage). Utilisez le checkout custom.',
-        data: [],
-      }, req);
+      const storeEndpoint = path.replace(/^store\/v1\/?/i, '');
+      if (!storeEndpoint) {
+        return sendJson(res, 400, {
+          error: 'Store API : endpoint manquant',
+          message: 'Ex: store/v1/cart/items ou store/v1/cart/add-item',
+          data: [],
+        }, req);
+      }
+      const storeProxyUrl = `${wooApiOrigin}/wc-store-proxy.php?endpoint=${encodeURIComponent(storeEndpoint)}`;
+      const storeHeaders = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      };
+      if (req.headers.cookie) storeHeaders['Cookie'] = req.headers.cookie;
+      if (req.headers.nonce) storeHeaders['Nonce'] = req.headers.nonce;
+      if (req.headers['cart-token']) storeHeaders['Cart-Token'] = req.headers['cart-token'];
+      const hasBody =
+        req.body &&
+        (typeof req.body === 'string' ? req.body.length > 0 : Object.keys(req.body).length > 0);
+      const storeOptions = {
+        method: req.method,
+        headers: storeHeaders,
+      };
+      if ((req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') && hasBody) {
+        storeOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      }
+      try {
+        const storeRes = await runWpFetch(() => fetch(storeProxyUrl, storeOptions));
+        ['Nonce', 'Cart-Token'].forEach(h => {
+          const v = storeRes.headers.get(h);
+          if (v) res.setHeader(h, v);
+        });
+        const setCookies = [];
+        storeRes.headers.forEach((value, key) => {
+          if (key.toLowerCase() === 'set-cookie') setCookies.push(value);
+        });
+        if (setCookies.length > 0) res.setHeader('Set-Cookie', setCookies);
+        const ct = storeRes.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const data = await storeRes.json().catch(() => ({}));
+          return res.status(storeRes.status).json(data);
+        }
+        const text = await storeRes.text();
+        return res.status(storeRes.status).setHeader('Content-Type', ct || 'text/plain').send(text);
+      } catch (storeErr) {
+        logError('Store API proxy error:', storeErr);
+        return sendJson(res, 502, {
+          error: 'Erreur proxy Store API',
+          message: storeErr?.message || 'wc-store-proxy.php injoignable',
+          data: [],
+        }, req);
+      }
     }
 
     let cleanUrl;

@@ -43,11 +43,18 @@ export default function Cart() {
   };
 
   const checkout = async () => {
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      toast({
+        title: "Panier vide",
+        description: "Votre panier est vide",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setCheckoutLoading(true);
     try {
-      // 1. Vider le panier WooCommerce existant
+      // 1. Vider le panier WooCommerce existant (proxy Vercel → wc-store-proxy.php)
       await fetch("/api/woocommerce/store/v1/cart/items", {
         method: "DELETE",
         credentials: "include",
@@ -73,7 +80,7 @@ export default function Cart() {
       console.error("[Cart] Erreur checkout:", error);
       toast({
         title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de créer la commande",
+        description: error instanceof Error ? error.message : "Impossible de préparer le panier",
         variant: "destructive",
       });
       setCheckoutLoading(false);
