@@ -40,7 +40,8 @@ export default function Shop() {
   // on arrive avec ?q=xxx et la requête doit utiliser xxx dès le premier rendu (pas seulement après useEffect).
   const searchForApi = initialQ || search;
   const q = useProductsQuery({ search: searchForApi || undefined, per_page: 48, orderby: "date" });
-  const products = Array.isArray(q.data) ? q.data : [];
+  const rawProducts = Array.isArray(q.data) ? q.data : [];
+  const products = rawProducts.filter((p): p is WooProduct => p != null && typeof p === "object");
   const hasError = Boolean(q.isError || (q.data === undefined && !q.isLoading && q.isFetched));
 
   const inferredAttrNames = useMemo(() => {
@@ -71,7 +72,8 @@ export default function Shop() {
   return (
     <div className="bg-background min-h-[60vh]">
       <Container className="py-10 sm:py-12">
-        <FadeIn>
+        {/* Pas d'animation opacity ici : contenu toujours visible au chargement (évite page blanche) */}
+        <div>
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">BOUTIQUE</div>
@@ -91,7 +93,7 @@ export default function Shop() {
               />
             </div>
           </div>
-        </FadeIn>
+        </div>
 
         <FadeIn delay={0.05} className="mt-6 grid gap-3 sm:grid-cols-3">
           <Select value={model} onValueChange={setModel}>

@@ -45,8 +45,9 @@ const App = () => (
           <Routes>
             <Route element={<Layout />}>
               <Route path="/" element={<Index />} />
-              <Route path="/boutique" element={<ShopRoute />} />
+              {/* Route la plus spécifique en premier pour que /boutique/collection/xxx soit bien pris en charge */}
               <Route path="/boutique/collection/:query" element={<ShopRoute />} />
+              <Route path="/boutique" element={<ShopRoute />} />
               <Route path="/produit/:slug" element={<Product />} />
               <Route path="/panier" element={<Cart />} />
               <Route path="/contact" element={<Contact />} />

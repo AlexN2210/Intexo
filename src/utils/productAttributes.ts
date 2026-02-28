@@ -16,7 +16,8 @@ function normalizeValue(input?: string) {
     .replace(/[\u0300-\u036f]/g, ""); // retire les accents
 }
 
-export function findAttribute(product: WooProduct, kind: AttrKind): WooAttribute | undefined {
+export function findAttribute(product: WooProduct | null | undefined, kind: AttrKind): WooAttribute | undefined {
+  if (!product || typeof product !== "object") return undefined;
   const rx = kindMatchers[kind];
   return product.attributes?.find((a) => rx.test(a.name) && a.options?.length);
 }
@@ -31,7 +32,8 @@ export function uniqueSorted(values: string[]): string[] {
 }
 
 export function collectOptions(products: WooProduct[], kind: AttrKind): string[] {
-  return uniqueSorted(products.flatMap((p) => getAttributeOptions(p, kind)));
+  const list = Array.isArray(products) ? products.filter(Boolean) : [];
+  return uniqueSorted(list.flatMap((p) => getAttributeOptions(p, kind)));
 }
 
 export function findMatchingVariation(
