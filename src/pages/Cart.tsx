@@ -53,16 +53,19 @@ export default function Cart() {
     }
 
     setCheckoutLoading(true);
+    let storeApiOk = false;
     try {
-      // 1. Vider le panier WooCommerce existant (proxy Vercel → wc-store-proxy.php)
-      await fetch("/api/woocommerce/store/v1/cart/items", {
+      // 1. Tenter Store API (nécessite WooCommerce Blocks sur WordPress)
+      const delRes = await fetch("/api/woocommerce/store/v1/cart/items", {
         method: "DELETE",
         credentials: "include",
       });
+      if (!delRes.ok) {
+        throw new Error(`Store API: ${delRes.status}`);
+      }
 
-      // 2. Ajouter chaque article au panier WooCommerce
       for (const item of items) {
-        await fetch("/api/woocommerce/store/v1/cart/add-item", {
+        const addRes = await fetch("/api/woocommerce/store/v1/cart/add-item", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -72,18 +75,26 @@ export default function Cart() {
             ...(item.variationId ? { variation_id: item.variationId } : {}),
           }),
         });
+        if (!addRes.ok) throw new Error(`Add item: ${addRes.status}`);
       }
-
-      // 3. Rediriger vers le checkout WordPress
+      storeApiOk = true;
       window.location.href = "https://wp.impexo.fr/commander/";
-    } catch (error) {
-      console.error("[Cart] Erreur checkout:", error);
-      toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de préparer le panier",
-        variant: "destructive",
-      });
+      return;
+    } catch (_) {
+      storeApiOk = false;
+    } finally {
       setCheckoutLoading(false);
+    }
+
+    // 2. Fallback : panier dans l'URL (si Store API 404 / WooCommerce Blocks absent)
+    if (!storeApiOk) {
+      const cartPayload = items.map((item) => ({
+        product_id: item.productId,
+        variation_id: item.variationId ?? 0,
+        quantity: item.quantity,
+      }));
+      const cartParam = btoa(encodeURIComponent(JSON.stringify(cartPayload)));
+      window.location.href = `https://wp.impexo.fr/commander/?cart=${encodeURIComponent(cartParam)}`;
     }
   };
 
