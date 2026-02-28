@@ -1,6 +1,7 @@
 import { FadeIn } from "@/components/animations/FadeIn";
 import { Container } from "@/components/layout/Container";
 import { ProductCard } from "@/components/products/ProductCard";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,7 +9,7 @@ import { useProductsQuery } from "@/hooks/useWooProducts";
 import type { WooProduct } from "@/types/woocommerce";
 import { collectOptions, findAttribute } from "@/utils/productAttributes";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 function hasOption(product: WooProduct, attrName: string, option: string) {
   const attr = product.attributes?.find((a) => a.name === attrName);
@@ -26,16 +27,17 @@ export default function Shop() {
   const [material, setMaterial] = useState<string>("all");
 
   useEffect(() => {
-    // Si on arrive depuis une section (Collections) qui change le query param,
-    // on synchronise le champ de recherche.
+    // Synchroniser le champ recherche avec l'URL (ex: clic sur une collection → /boutique?q=xxx)
     setSearch(initialQ);
-    // Et on évite de garder d'anciens filtres qui pourraient vider la liste.
     setModel("all");
     setColor("all");
     setMaterial("all");
   }, [initialQ]);
 
-  const q = useProductsQuery({ search: search || undefined, per_page: 48, orderby: "date" });
+  // Utiliser l'URL (?q=) comme source de vérité pour la requête : au clic sur une catégorie/collection
+  // on arrive avec ?q=xxx et la requête doit utiliser xxx dès le premier rendu (pas seulement après useEffect).
+  const searchForApi = initialQ || search;
+  const q = useProductsQuery({ search: searchForApi || undefined, per_page: 48, orderby: "date" });
   const products = Array.isArray(q.data) ? q.data : [];
   const hasError = Boolean(q.isError || (q.data === undefined && !q.isLoading && q.isFetched));
 
@@ -78,7 +80,7 @@ export default function Shop() {
             </div>
             <div className="w-full max-w-xl">
               <Input
-                value={search}
+                value={search || initialQ}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher une coque…"
                 className="h-11 rounded-full bg-muted/40"
@@ -156,8 +158,17 @@ export default function Shop() {
               </>
             ) : (
               <>
-                <div className="text-sm font-medium tracking-tight">Aucun produit ne correspond.</div>
-                <div className="mt-2 text-sm text-muted-foreground">Essaie d'élargir tes filtres.</div>
+                <div className="text-sm font-medium tracking-tight">
+                  {searchForApi ? "Aucun produit ne correspond à cette recherche." : "Aucun produit ne correspond."}
+                </div>
+                <div className="mt-2 text-sm text-muted-foreground">
+                  {searchForApi ? "Essaie un autre mot-clé ou affiche toute la boutique." : "Essaie d'élargir tes filtres."}
+                </div>
+                <div className="mt-6">
+                  <Button asChild variant="outline" className="rounded-full">
+                    <Link to="/boutique">Voir toute la boutique</Link>
+                  </Button>
+                </div>
               </>
             )}
           </div>
