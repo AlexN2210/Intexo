@@ -42,7 +42,10 @@ export default function Cart() {
     toast({ title: "Panier vidé", description: "Tous les articles ont été retirés du panier" });
   };
 
-  const checkout = async () => {
+  // Page WordPress "Panier" : on arrive avec ?cart=, le script PHP remplit le panier puis l’utilisateur va sur "Validation de la commande"
+  const CHECKOUT_PAGE_URL = "https://wp.impexo.fr/panier/";
+
+  const checkout = () => {
     if (items.length === 0) {
       toast({
         title: "Panier vide",
@@ -53,49 +56,14 @@ export default function Cart() {
     }
 
     setCheckoutLoading(true);
-    let storeApiOk = false;
-    try {
-      // 1. Tenter Store API (nécessite WooCommerce Blocks sur WordPress)
-      const delRes = await fetch("/api/woocommerce/store/v1/cart/items", {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!delRes.ok) {
-        throw new Error(`Store API: ${delRes.status}`);
-      }
-
-      for (const item of items) {
-        const addRes = await fetch("/api/woocommerce/store/v1/cart/add-item", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            id: item.productId,
-            quantity: item.quantity,
-            ...(item.variationId ? { variation_id: item.variationId } : {}),
-          }),
-        });
-        if (!addRes.ok) throw new Error(`Add item: ${addRes.status}`);
-      }
-      storeApiOk = true;
-      window.location.href = "https://wp.impexo.fr/commander/";
-      return;
-    } catch (_) {
-      storeApiOk = false;
-    } finally {
-      setCheckoutLoading(false);
-    }
-
-    // 2. Fallback : panier dans l'URL (si Store API 404 / WooCommerce Blocks absent)
-    if (!storeApiOk) {
-      const cartPayload = items.map((item) => ({
-        product_id: item.productId,
-        variation_id: item.variationId ?? 0,
-        quantity: item.quantity,
-      }));
-      const cartParam = btoa(encodeURIComponent(JSON.stringify(cartPayload)));
-      window.location.href = `https://wp.impexo.fr/commander/?cart=${encodeURIComponent(cartParam)}`;
-    }
+    // Redirection directe avec panier encodé dans l'URL (WordPress doit traiter ?cart= via le script fourni)
+    const cartPayload = items.map((item) => ({
+      product_id: item.productId,
+      variation_id: item.variationId ?? 0,
+      quantity: item.quantity,
+    }));
+    const cartParam = btoa(encodeURIComponent(JSON.stringify(cartPayload)));
+    window.location.href = `${CHECKOUT_PAGE_URL}?cart=${encodeURIComponent(cartParam)}`;
   };
 
   return (
