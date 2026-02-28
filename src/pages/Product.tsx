@@ -23,11 +23,22 @@ const norm = (s?: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
+/**
+ * Récupère l’option d’un attribut par son libellé ou slug.
+ * WooCommerce peut renvoyer "Modèle"/"Couleur" ou "pa_modele"/"pa_couleur".
+ */
 const getAttr = (
   attrs: Array<{ name: string; option: string }> | undefined,
   name: string,
-): string | null =>
-  attrs?.find((a) => norm(a.name) === norm(name))?.option ?? null;
+): string | null => {
+  if (!attrs?.length) return null;
+  const nameNorm = norm(name);
+  const a = attrs.find((x) => {
+    const key = norm(x.name).replace(/^attribute_/, "").replace(/^pa_/, "");
+    return key === nameNorm || norm(x.name) === nameNorm;
+  });
+  return a?.option ?? null;
+};
 
 // ─── composant ───────────────────────────────────────────────────────────────
 

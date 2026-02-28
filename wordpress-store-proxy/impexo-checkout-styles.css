@@ -1,0 +1,174 @@
+/**
+ * Styles pour les pages Panier et Validation de la commande (wp.impexo.fr)
+ * À ajouter dans WordPress : Apparence → Personnaliser → CSS additionnel
+ * Ou enregistrer en tant que fichier et l’inclure dans functions.php du thème.
+ */
+
+/* ----- Page Panier & Checkout ----- */
+.woocommerce-cart .woocommerce,
+.woocommerce-checkout .woocommerce {
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 2rem 1rem;
+}
+
+/* Titres */
+.woocommerce-cart .entry-title,
+.woocommerce-checkout .entry-title,
+.woocommerce h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 1.5rem;
+}
+
+/* Tableau du panier */
+.woocommerce-cart-form .shop_table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.woocommerce-cart-form .shop_table th,
+.woocommerce-cart-form .shop_table td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #eee;
+}
+
+.woocommerce-cart-form .shop_table thead th {
+  background: #1a1a1a;
+  color: #fff;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+.woocommerce-cart-form .shop_table tbody tr:hover {
+  background: #fafafa;
+}
+
+/* Produit dans le panier */
+.woocommerce-cart-form .product-name a {
+  color: #1a1a1a;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.woocommerce-cart-form .product-name a:hover {
+  text-decoration: underline;
+}
+
+/* Champs quantité */
+.woocommerce-cart-form .input-text.qty {
+  width: 4rem;
+  padding: 0.5rem;
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+/* Boutons */
+.woocommerce .button,
+.woocommerce-cart .button,
+.woocommerce-checkout .button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.woocommerce .button:hover,
+.woocommerce-cart .button:hover,
+.woocommerce-checkout .button:hover {
+  transform: translateY(-1px);
+}
+
+.woocommerce-cart .cart_totals .checkout-button,
+.woocommerce-checkout #place_order {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  font-size: 1rem;
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+}
+
+.woocommerce-cart .cart_totals .checkout-button:hover,
+.woocommerce-checkout #place_order:hover {
+  background: #333;
+  border-color: #333;
+}
+
+/* Bloc total / récap */
+.woocommerce-cart .cart_totals,
+.woocommerce-checkout .woocommerce-checkout-review-order {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+.woocommerce-cart .cart_totals h2,
+.woocommerce-checkout .woocommerce-billing-fields h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.woocommerce-cart .cart_totals .order-total th,
+.woocommerce-cart .cart_totals .order-total td {
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding-top: 1rem;
+}
+
+/* Formulaire checkout */
+.woocommerce-checkout .form-row input,
+.woocommerce-checkout .form-row select,
+.woocommerce-checkout .form-row textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.woocommerce-checkout .form-row input:focus,
+.woocommerce-checkout .form-row select:focus,
+.woocommerce-checkout .form-row textarea:focus {
+  border-color: #1a1a1a;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(26,26,26,0.1);
+}
+
+.woocommerce-checkout .woocommerce-billing-fields__field-wrapper,
+.woocommerce-checkout .woocommerce-shipping-fields__field-wrapper {
+  display: grid;
+  gap: 1rem;
+}
+
+/* Message panier vide */
+.woocommerce-info,
+.woocommerce-message {
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.woocommerce-info {
+  background: #f0f7ff;
+  border-left: 4px solid #2271b1;
+}
+
+.woocommerce-message {
+  background: #f0f6f0;
+  border-left: 4px solid #00a32a;
+}

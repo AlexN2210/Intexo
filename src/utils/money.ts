@@ -1,14 +1,16 @@
+/**
+ * Parse un prix en euros (nombre).
+ * - Chaîne ou nombre de l'API produits WooCommerce = déjà en euros (ex. "29.00").
+ * - Nombre en centimes (Store API) : passer après division par 100 côté appelant si besoin.
+ * On ne divise plus par 100 ici pour que l’affichage produit et panier soit correct.
+ */
 export function parsePrice(price: string | number | null | undefined): number {
   if (typeof price === "number") {
-    // L'API WooCommerce Store Cart retourne les prix en centimes
-    // Diviser par 100 pour convertir en euros
-    return Number.isFinite(price) ? price / 100 : 0;
+    return Number.isFinite(price) ? price : 0;
   }
   if (!price) return 0;
   const n = Number(String(price).replace(",", "."));
-  // L'API WooCommerce Store Cart retourne les prix en centimes
-  // Diviser par 100 pour convertir en euros
-  return Number.isFinite(n) ? n / 100 : 0;
+  return Number.isFinite(n) ? n : 0;
 }
 
 const eur = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
