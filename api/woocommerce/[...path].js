@@ -434,7 +434,8 @@ export default async function handler(req, res) {
       });
       
       // Une seule requête à la fois vers wp.impexo.fr pour rester sous le rate limit
-      wooResponse = await runWpFetch(() => fetch(fetchTargetUrl, fetchOptions));
+      // Passer un objet URL pour éviter la dépréciation Node url.parse() (WHATWG URL API)
+      wooResponse = await runWpFetch(() => fetch(new URL(fetchTargetUrl), fetchOptions));
     } catch (fetchError) {
       clearTimeout(timeoutId);
       // Log détaillé du cause pour diagnostiquer le problème réseau
