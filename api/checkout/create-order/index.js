@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
   try {
     // Backend WordPress (wp.impexo.fr). Ne pas utiliser www.impexo.fr = front Vercel → boucle.
-const wpBase = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
+    const wpBase = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
     const wpUrl = `${wpBase}/wp-json/custom-checkout/v1/create-order`;
 
     const response = await fetch(wpUrl, {
