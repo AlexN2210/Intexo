@@ -12,7 +12,7 @@ import { formatEUR, parsePrice } from "@/utils/money";
 import { getAttributeOptions } from "@/utils/productAttributes";
 import { Minus, Plus, Shield, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -364,7 +364,7 @@ export default function Product() {
   return (
     <div className="bg-background">
       <Container className="py-10 sm:py-12">
-        {q.isLoading || (slug && rawProduct && !product) ? (
+        {q.isLoading ? (
           <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
             <Skeleton className="aspect-square w-full rounded-3xl" />
             <div className="space-y-4">
@@ -378,7 +378,12 @@ export default function Product() {
           <div className="rounded-3xl border bg-card p-10 text-center">
             <div className="text-sm font-medium tracking-tight">Produit introuvable.</div>
             <div className="mt-2 text-sm text-muted-foreground">
-              Vérifie le lien ou retourne à la boutique.
+              Ce produit n’existe pas ou le lien est incorrect. Vérifie l’URL ou retourne à la boutique.
+            </div>
+            <div className="mt-6">
+              <Button asChild variant="outline" className="rounded-full">
+                <Link to="/boutique">Voir la boutique</Link>
+              </Button>
             </div>
           </div>
         ) : (
