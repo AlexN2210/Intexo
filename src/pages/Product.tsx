@@ -58,13 +58,10 @@ export default function Product() {
   const rawProduct = q.data ?? null;
 
   /**
-   * N'utiliser le produit que si son slug correspond à l'URL (évite d'ajouter
-   * un produit en cache d'un autre slug, qui causait "toujours le même produit").
+   * Utiliser le produit renvoyé par l'API : la requête est indexée par slug (queryKey inclut slug),
+   * donc rawProduct correspond à l'URL. On affiche le produit dès que l'API en renvoie un.
    */
-  const product =
-    rawProduct && slug && norm(rawProduct.slug) === norm(slug)
-      ? rawProduct
-      : null;
+  const product = rawProduct && slug ? rawProduct : null;
 
   // Réinitialiser modèle/couleur quand on change de produit (slug ou product.id)
   useEffect(() => {
