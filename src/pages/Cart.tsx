@@ -11,6 +11,7 @@ import {
 } from "@/store/cartStore";
 import { formatEUR } from "@/utils/money";
 import { Minus, Plus, Trash2, Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 export default function Cart() {
@@ -21,6 +22,11 @@ export default function Cart() {
   const clear = useCartStore((s) => s.clear);
   const isLoading = useCartStore((s) => s.isLoading);
   const setCheckoutLoading = useCartStore((s) => s.setCheckoutLoading);
+
+  // Débloquer le panier au montage (au cas où isLoading serait resté true après une redirection ou retour arrière)
+  useEffect(() => {
+    setCheckoutLoading(false);
+  }, [setCheckoutLoading]);
   const packOfferId = useCartStore((s) => s.packOfferId);
   const setPackOfferId = useCartStore((s) => s.setPackOfferId);
   const subtotal = selectCartSubtotal(items);
@@ -55,8 +61,8 @@ export default function Cart() {
       return;
     }
 
-    setCheckoutLoading(true);
-    // Redirection directe avec panier encodé dans l'URL (WordPress doit traiter ?cart= via le script fourni)
+    // Redirection directe vers WordPress (pas d'appel API ici → on ne met pas isLoading pour éviter
+    // que le panier reste bloqué si l'utilisateur revient ou si la redirection échoue)
     const cartPayload = items.map((item) => ({
       product_id: item.productId,
       variation_id: item.variationId ?? 0,
