@@ -4,13 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
-  getCartPayloadForCheckout,
   selectCartCount,
   selectCartDiscount,
   selectCartSubtotal,
   useCartStore,
 } from "@/store/cartStore";
-import { createOrderFromCart } from "@/services/checkout";
 import { formatEUR } from "@/utils/money";
 import { Minus, Plus, Trash2, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -45,47 +43,32 @@ export default function Cart() {
   };
 
   const checkout = async () => {
-    if (items.length === 0) {
-      toast({
-        title: "Panier vide",
-        description: "Votre panier est vide",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (items.length === 0) return;
 
     setCheckoutLoading(true);
     try {
-      const payload = {
-        items: getCartPayloadForCheckout(items),
-        customer: {
-          billing: {
-            first_name: "",
-            last_name: "",
-            address_1: "",
-            city: "",
-            postcode: "",
-            country: "FR",
-            email: "",
-          },
-        },
-        payment_method: "stripe",
-      };
+      // 1. Vider le panier WooCommerce existant
+      await fetch("/api/woocommerce/store/v1/cart/items", {
+        method: "DELETE",
+        credentials: "include",
+      });
 
-      const order = await createOrderFromCart(payload);
-
-      if (order.payment_url) {
-        toast({
-          title: "Redirection",
-          description: "Vous allez être redirigé vers le paiement sécurisé",
-        });
-        window.location.href = order.payment_url;
-      } else {
-        toast({
-          title: "Commande créée",
-          description: `Commande #${order.order_id} créée avec succès`,
+      // 2. Ajouter chaque article au panier WooCommerce
+      for (const item of items) {
+        await fetch("/api/woocommerce/store/v1/cart/add-item", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            id: item.productId,
+            quantity: item.quantity,
+            ...(item.variationId ? { variation_id: item.variationId } : {}),
+          }),
         });
       }
+
+      // 3. Rediriger vers le checkout WordPress
+      window.location.href = "https://wp.impexo.fr/commander/";
     } catch (error) {
       console.error("[Cart] Erreur checkout:", error);
       toast({
@@ -93,7 +76,6 @@ export default function Cart() {
         description: error instanceof Error ? error.message : "Impossible de créer la commande",
         variant: "destructive",
       });
-    } finally {
       setCheckoutLoading(false);
     }
   };
