@@ -1,6 +1,5 @@
 import { NavLink } from "@/components/NavLink";
 import { Container } from "@/components/layout/Container";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -124,25 +123,20 @@ export function Header() {
           <Button
             asChild
             variant="ghost"
-            className={cn("relative rounded-full", transparent ? "text-white hover:bg-white/10 hover:text-white" : "")}
+            className={cn("relative overflow-visible rounded-full", transparent ? "text-white hover:bg-white/10 hover:text-white" : "")}
           >
-            <Link to="/panier" aria-label="Aller au panier">
+            <Link to="/panier" aria-label="Aller au panier" className="relative inline-flex overflow-visible">
               <ShoppingBag className="h-4 w-4" />
               <span className="sr-only">Panier</span>
               <span
                 className={cn(
-                  "pointer-events-none absolute -right-1 -top-1",
+                  "pointer-events-none absolute -right-0.5 -top-0.5 flex h-6 min-w-6 items-center justify-center rounded-full px-1",
+                  "text-[11px] font-semibold leading-none",
                   cartCount > 0 ? "opacity-100" : "opacity-0",
+                  transparent ? "bg-white text-black" : "bg-foreground text-background",
                 )}
               >
-                <Badge
-                  className={cn(
-                    "h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]",
-                    transparent ? "bg-white text-black" : "bg-foreground text-background",
-                  )}
-                >
-                  {cartCount}
-                </Badge>
+                {cartCount}
               </span>
             </Link>
           </Button>
