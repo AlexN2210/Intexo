@@ -9,7 +9,7 @@ import { useProductsQuery } from "@/hooks/useWooProducts";
 import type { WooProduct } from "@/types/woocommerce";
 import { collectOptions, findAttribute } from "@/utils/productAttributes";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 function hasOption(product: WooProduct, attrName: string, option: string) {
   const attr = product.attributes?.find((a) => a.name === attrName);
@@ -19,7 +19,9 @@ function hasOption(product: WooProduct, attrName: string, option: string) {
 
 export default function Shop() {
   const [searchParams] = useSearchParams();
-  const initialQ = searchParams.get("q") ?? "";
+  const { query: queryFromPath } = useParams<{ query?: string }>();
+  // Lecture depuis l'URL : ?q= (lien direct) ou /boutique/collection/xxx (clic sur une collection)
+  const initialQ = searchParams.get("q") ?? queryFromPath ?? "";
 
   const [search, setSearch] = useState(initialQ);
   const [model, setModel] = useState<string>("all");
@@ -67,13 +69,15 @@ export default function Shop() {
   }, [products, model, color, material, inferredAttrNames]);
 
   return (
-    <div className="bg-background">
+    <div className="bg-background min-h-[60vh]">
       <Container className="py-10 sm:py-12">
         <FadeIn>
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">BOUTIQUE</div>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Coques premium</h1>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+                {searchForApi ? `Recherche : ${searchForApi}` : "Coques premium"}
+              </h1>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 Grands espaces, détails fins, design minimaliste. Filtre par modèle, couleur et matériau.
               </p>
@@ -148,7 +152,7 @@ export default function Shop() {
         </div>
 
         {!q.isLoading && filtered.length === 0 ? (
-          <div className="mt-10 rounded-3xl border bg-card p-10 text-center">
+          <div className="mt-10 min-h-[280px] rounded-3xl border bg-card p-10 text-center flex flex-col items-center justify-center">
             {hasError ? (
               <>
                 <div className="text-sm font-medium tracking-tight">Impossible de charger les produits.</div>

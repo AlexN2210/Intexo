@@ -104,7 +104,7 @@ const Index = () => {
             {impexoCollections.map((c) => (
               <FadeIn key={c.id} className="h-full">
                 <Link
-                  to={`/boutique?q=${encodeURIComponent(c.query)}`}
+                  to={`/boutique/collection/${encodeURIComponent(c.query)}`}
                   className="group relative block h-full overflow-hidden rounded-3xl border impexo-surface impexo-sheen transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_30px_80px_-55px_rgba(0,0,0,0.55)]"
                 >
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(0,0,0,0.10),transparent_55%)] opacity-70" />
