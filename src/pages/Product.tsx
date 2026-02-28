@@ -55,7 +55,22 @@ export default function Product() {
   // ── données produit ──────────────────────────────────────────────────────
 
   const q = useProductBySlugQuery(slug);
-  const product = q.data ?? null;
+  const rawProduct = q.data ?? null;
+
+  /**
+   * N'utiliser le produit que si son slug correspond à l'URL (évite d'ajouter
+   * un produit en cache d'un autre slug, qui causait "toujours le même produit").
+   */
+  const product =
+    rawProduct && slug && norm(rawProduct.slug) === norm(slug)
+      ? rawProduct
+      : null;
+
+  // Réinitialiser modèle/couleur quand on change de produit (slug ou product.id)
+  useEffect(() => {
+    setModel("");
+    setColor("");
+  }, [slug, product?.id]);
 
   const hasVariations = Boolean(
     product && product.type === "variable" && product.variations?.length,
@@ -349,7 +364,7 @@ export default function Product() {
   return (
     <div className="bg-background">
       <Container className="py-10 sm:py-12">
-        {q.isLoading ? (
+        {q.isLoading || (slug && rawProduct && !product) ? (
           <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
             <Skeleton className="aspect-square w-full rounded-3xl" />
             <div className="space-y-4">
