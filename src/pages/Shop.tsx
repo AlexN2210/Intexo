@@ -37,6 +37,7 @@ export default function Shop() {
 
   const q = useProductsQuery({ search: search || undefined, per_page: 48, orderby: "date" });
   const products = Array.isArray(q.data) ? q.data : [];
+  const hasError = Boolean(q.isError || (q.data === undefined && !q.isLoading && q.isFetched));
 
   const inferredAttrNames = useMemo(() => {
     const sample = products[0];
@@ -146,12 +147,22 @@ export default function Shop() {
 
         {!q.isLoading && filtered.length === 0 ? (
           <div className="mt-10 rounded-3xl border bg-card p-10 text-center">
-            <div className="text-sm font-medium tracking-tight">Aucun produit ne correspond.</div>
-            <div className="mt-2 text-sm text-muted-foreground">Essaie d’élargir tes filtres.</div>
+            {hasError ? (
+              <>
+                <div className="text-sm font-medium tracking-tight">Impossible de charger les produits.</div>
+                <div className="mt-2 text-sm text-muted-foreground">
+                  Vérifie ta connexion ou réessaie plus tard. En local, le proxy Vite envoie /api vers la prod.
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-sm font-medium tracking-tight">Aucun produit ne correspond.</div>
+                <div className="mt-2 text-sm text-muted-foreground">Essaie d'élargir tes filtres.</div>
+              </>
+            )}
           </div>
         ) : null}
       </Container>
     </div>
   );
 }
-
