@@ -1,174 +1,433 @@
 /**
- * Styles pour les pages Panier et Validation de la commande (wp.impexo.fr)
+ * Styles Panier & Checkout WordPress — identiques au site Impexo (www.impexo.fr)
  * À ajouter dans WordPress : Apparence → Personnaliser → CSS additionnel
- * Ou enregistrer en tant que fichier et l’inclure dans functions.php du thème.
+ * ou inclure via functions.php du thème.
+ *
+ * Palette Impexo : noir #000, blanc #fff, gris #F5F5F7, bordure #E5E5E7
  */
 
-/* ----- Page Panier & Checkout ----- */
+/* ========== Variables (alignées sur le site) ========== */
+:root {
+  --impexo-black: #000000;
+  --impexo-white: #ffffff;
+  --impexo-gray-50: #f5f5f7;
+  --impexo-gray-100: #e5e5e7;
+  --impexo-muted: #595959;
+  --impexo-radius: 1rem;
+  --impexo-radius-lg: 1.5rem;
+  --impexo-font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ========== Page entière (hors site = panier + checkout WP) ========== */
+body.woocommerce-cart,
+body.woocommerce-checkout {
+  font-family: var(--impexo-font) !important;
+  background: var(--impexo-white) !important;
+  background-image:
+    radial-gradient(1100px 650px at 72% -12%, rgba(0,0,0,0.07), transparent 62%),
+    radial-gradient(900px 520px at -12% 24%, rgba(0,0,0,0.05), transparent 58%),
+    radial-gradient(700px 380px at 50% 110%, rgba(0,0,0,0.04), transparent 55%),
+    linear-gradient(180deg, var(--impexo-white) 0%, var(--impexo-gray-50) 100%) !important;
+  color: var(--impexo-black) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== Masquer l’en-tête WordPress (on affiche le logo Impexo plus bas) ========== */
+body.woocommerce-cart #masthead,
+body.woocommerce-cart .site-header,
+body.woocommerce-cart header[role="banner"],
+body.woocommerce-checkout #masthead,
+body.woocommerce-checkout .site-header,
+body.woocommerce-checkout header[role="banner"] {
+  display: none !important;
+}
+
+/* ========== Logo Impexo en haut de la page ========== */
+/* Pour un logo cliquable (retour au site), ajoutez en tête de la page Panier
+   un bloc HTML personnalisé : <a href="https://www.impexo.fr" style="display:block;height:64px;margin-bottom:1.5rem;background:url(https://www.impexo.fr/favicon.svg) left center no-repeat;background-size:140px auto;" aria-label="Retour sur Impexo"></a> */
+body.woocommerce-cart .entry-content::before,
+body.woocommerce-checkout .entry-content::before {
+  content: "" !important;
+  display: block !important;
+  height: 64px !important;
+  margin-bottom: 1.5rem !important;
+  background: url("https://www.impexo.fr/favicon.svg") left center no-repeat !important;
+  background-size: 140px auto !important;
+}
+body.woocommerce-cart .site-content::before,
+body.woocommerce-checkout .site-content::before {
+  content: "" !important;
+  display: block !important;
+  height: 64px !important;
+  margin-bottom: 1.5rem !important;
+  background: url("https://www.impexo.fr/favicon.svg") left center no-repeat !important;
+  background-size: 140px auto !important;
+}
+
+/* ========== Retirer tout le pied de page WordPress ========== */
+body.woocommerce-cart footer,
+body.woocommerce-cart .site-footer,
+body.woocommerce-cart #colophon,
+body.woocommerce-cart [role="contentinfo"],
+body.woocommerce-cart .footer-widgets,
+body.woocommerce-cart .footer-nav,
+body.woocommerce-cart #footer,
+body.woocommerce-checkout footer,
+body.woocommerce-checkout .site-footer,
+body.woocommerce-checkout #colophon,
+body.woocommerce-checkout [role="contentinfo"],
+body.woocommerce-checkout .footer-widgets,
+body.woocommerce-checkout .footer-nav,
+body.woocommerce-checkout #footer {
+  display: none !important;
+}
+
+/* Conteneur principal (comme le site : max-w-7xl) */
 .woocommerce-cart .woocommerce,
 .woocommerce-checkout .woocommerce {
-  max-width: 900px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 2rem 1rem;
+  max-width: 1280px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 2.5rem 1rem 4rem !important;
+}
+@media (min-width: 640px) {
+  .woocommerce-cart .woocommerce,
+  .woocommerce-checkout .woocommerce {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+}
+@media (min-width: 1024px) {
+  .woocommerce-cart .woocommerce,
+  .woocommerce-checkout .woocommerce {
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+  }
 }
 
-/* Titres */
+/* ----- En-tête de section (style Impexo : petit label + titre) ----- */
 .woocommerce-cart .entry-title,
-.woocommerce-checkout .entry-title,
-.woocommerce h2 {
-  font-size: 1.75rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  margin-bottom: 1.5rem;
+.woocommerce-checkout .entry-title {
+  font-size: 1.875rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  margin-bottom: 0.5rem !important;
+}
+.woocommerce-cart .entry-content > .woocommerce::before,
+.woocommerce-checkout .entry-content > .woocommerce::before {
+  content: "PANIER";
+  display: block;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.2em !important;
+  color: var(--impexo-muted) !important;
+  margin-bottom: 0.75rem !important;
+}
+.woocommerce-checkout .entry-content > .woocommerce::before {
+  content: "VALIDATION";
 }
 
-/* Tableau du panier */
+.woocommerce h2,
+.woocommerce h3 {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  margin-bottom: 1rem !important;
+  color: var(--impexo-black) !important;
+}
+
+/* ----- Tableau panier (carte style Impexo) ----- */
 .woocommerce-cart-form .shop_table {
-  width: 100%;
-  border-collapse: collapse;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border-radius: var(--impexo-radius-lg) !important;
+  overflow: hidden !important;
+  background: var(--impexo-white) !important;
+  border: 1px solid var(--impexo-gray-100) !important;
+  box-shadow: 0 22px 50px -35px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.7) inset !important;
 }
 
 .woocommerce-cart-form .shop_table th,
 .woocommerce-cart-form .shop_table td {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #eee;
+  padding: 1rem 1.25rem !important;
+  border-bottom: 1px solid var(--impexo-gray-100) !important;
 }
 
 .woocommerce-cart-form .shop_table thead th {
-  background: #1a1a1a;
-  color: #fff;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  background: var(--impexo-black) !important;
+  color: var(--impexo-white) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  font-size: 0.6875rem !important;
+  letter-spacing: 0.18em !important;
+}
+
+.woocommerce-cart-form .shop_table tbody tr:last-child td {
+  border-bottom: none !important;
 }
 
 .woocommerce-cart-form .shop_table tbody tr:hover {
-  background: #fafafa;
+  background: var(--impexo-gray-50) !important;
 }
 
-/* Produit dans le panier */
 .woocommerce-cart-form .product-name a {
-  color: #1a1a1a;
-  text-decoration: none;
-  font-weight: 500;
+  color: var(--impexo-black) !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
 }
 
 .woocommerce-cart-form .product-name a:hover {
-  text-decoration: underline;
+  text-decoration: underline !important;
 }
 
-/* Champs quantité */
+/* Quantité */
 .woocommerce-cart-form .input-text.qty {
-  width: 4rem;
-  padding: 0.5rem;
-  text-align: center;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
+  width: 4rem !important;
+  padding: 0.5rem 0.75rem !important;
+  text-align: center !important;
+  border: 1px solid var(--impexo-gray-100) !important;
+  border-radius: var(--impexo-radius) !important;
+  font-size: 1rem !important;
+  font-family: inherit !important;
+  background: var(--impexo-white) !important;
 }
 
-/* Boutons */
+.woocommerce-cart-form .input-text.qty:focus {
+  outline: none !important;
+  border-color: var(--impexo-black) !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.08) !important;
+}
+
+/* ----- Boutons (style Impexo : rounded-full, noir) ----- */
 .woocommerce .button,
 .woocommerce-cart .button,
 .woocommerce-checkout .button {
-  padding: 0.75rem 1.5rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0.02em;
-  transition: background 0.2s, transform 0.15s;
+  padding: 0.75rem 1.5rem !important;
+  border-radius: 9999px !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  font-family: var(--impexo-font) !important;
+  transition: background 0.2s, transform 0.15s !important;
+  border: none !important;
 }
 
 .woocommerce .button:hover,
 .woocommerce-cart .button:hover,
 .woocommerce-checkout .button:hover {
-  transform: translateY(-1px);
+  transform: translateY(-1px) !important;
 }
 
+/* Bouton principal (panier → checkout, place order) */
 .woocommerce-cart .cart_totals .checkout-button,
 .woocommerce-checkout #place_order {
-  width: 100%;
-  padding: 1rem 1.5rem;
-  font-size: 1rem;
-  background: #1a1a1a;
-  border-color: #1a1a1a;
+  width: 100% !important;
+  padding: 1rem 1.5rem !important;
+  height: 3rem !important;
+  font-size: 1rem !important;
+  background: var(--impexo-black) !important;
+  color: var(--impexo-white) !important;
+  border: none !important;
 }
 
 .woocommerce-cart .cart_totals .checkout-button:hover,
 .woocommerce-checkout #place_order:hover {
-  background: #333;
-  border-color: #333;
+  background: #333 !important;
+  color: var(--impexo-white) !important;
 }
 
-/* Bloc total / récap */
+/* Bouton secondaire (retour boutique, mettre à jour) */
+.woocommerce-cart .button.alt:not(.checkout-button),
+.woocommerce .button.alt {
+  background: var(--impexo-white) !important;
+  color: var(--impexo-black) !important;
+  border: 1px solid var(--impexo-gray-100) !important;
+}
+
+.woocommerce-cart .button.alt:hover,
+.woocommerce .button.alt:hover {
+  background: var(--impexo-gray-50) !important;
+}
+
+/* ----- Bloc Total / Récap (carte style Impexo) ----- */
 .woocommerce-cart .cart_totals,
-.woocommerce-checkout .woocommerce-checkout-review-order {
-  background: #fafafa;
-  border: 1px solid #eee;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-top: 2rem;
+.woocommerce-checkout .woocommerce-checkout-review-order-table-wrapper {
+  background: var(--impexo-white) !important;
+  border: 1px solid var(--impexo-gray-100) !important;
+  border-radius: var(--impexo-radius-lg) !important;
+  padding: 1.5rem !important;
+  margin-top: 2rem !important;
+  box-shadow: 0 22px 50px -35px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.6) inset !important;
+}
+
+.woocommerce-checkout #order_review_heading {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  margin-bottom: 1rem !important;
 }
 
 .woocommerce-cart .cart_totals h2,
-.woocommerce-checkout .woocommerce-billing-fields h3 {
-  font-size: 1.1rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #eee;
+.woocommerce-checkout .woocommerce-billing-fields h3,
+.woocommerce-checkout .woocommerce-additional-fields h3 {
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.18em !important;
+  color: var(--impexo-muted) !important;
+  margin-bottom: 1rem !important;
+  padding-bottom: 0.5rem !important;
+  border-bottom: 1px solid var(--impexo-gray-100) !important;
+}
+
+.woocommerce-cart .cart_totals table,
+.woocommerce-checkout .woocommerce-checkout-review-order-table {
+  margin-bottom: 0 !important;
 }
 
 .woocommerce-cart .cart_totals .order-total th,
 .woocommerce-cart .cart_totals .order-total td {
-  font-size: 1.15rem;
-  font-weight: 700;
-  padding-top: 1rem;
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  padding-top: 1rem !important;
+  border-top: 1px solid var(--impexo-gray-100) !important;
 }
 
-/* Formulaire checkout */
+.woocommerce-cart .cart_totals th,
+.woocommerce-checkout .woocommerce-checkout-review-order-table th {
+  color: var(--impexo-muted) !important;
+  font-weight: 500 !important;
+}
+
+/* ----- Formulaire checkout (champs style Impexo) ----- */
 .woocommerce-checkout .form-row input,
 .woocommerce-checkout .form-row select,
 .woocommerce-checkout .form-row textarea {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
+  width: 100% !important;
+  padding: 0.75rem 1rem !important;
+  border: 1px solid var(--impexo-gray-100) !important;
+  border-radius: 9999px !important;
+  font-size: 1rem !important;
+  font-family: var(--impexo-font) !important;
+  background: var(--impexo-white) !important;
+  color: var(--impexo-black) !important;
+}
+
+.woocommerce-checkout .form-row textarea {
+  border-radius: var(--impexo-radius) !important;
+  min-height: 100px !important;
 }
 
 .woocommerce-checkout .form-row input:focus,
 .woocommerce-checkout .form-row select:focus,
 .woocommerce-checkout .form-row textarea:focus {
-  border-color: #1a1a1a;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(26,26,26,0.1);
+  border-color: var(--impexo-black) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.08) !important;
 }
 
 .woocommerce-checkout .woocommerce-billing-fields__field-wrapper,
 .woocommerce-checkout .woocommerce-shipping-fields__field-wrapper {
-  display: grid;
-  gap: 1rem;
+  display: grid !important;
+  gap: 1rem !important;
 }
 
-/* Message panier vide */
+.woocommerce-checkout .form-row label {
+  font-weight: 500 !important;
+  color: var(--impexo-black) !important;
+}
+
+/* ----- Tableau récap commande (checkout) ----- */
+.woocommerce-checkout .woocommerce-checkout-review-order-table {
+  border-radius: var(--impexo-radius) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--impexo-gray-100) !important;
+}
+
+.woocommerce-checkout .woocommerce-checkout-review-order-table th,
+.woocommerce-checkout .woocommerce-checkout-review-order-table td {
+  padding: 0.75rem 1rem !important;
+  border-color: var(--impexo-gray-100) !important;
+}
+
+.woocommerce-checkout .woocommerce-checkout-review-order-table .order-total th,
+.woocommerce-checkout .woocommerce-checkout-review-order-table .order-total td {
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  padding-top: 1rem !important;
+}
+
+/* ----- Messages (info, succès) ----- */
 .woocommerce-info,
-.woocommerce-message {
-  padding: 1rem 1.25rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
+.woocommerce-message,
+.woocommerce-error {
+  padding: 1rem 1.25rem !important;
+  border-radius: var(--impexo-radius) !important;
+  margin-bottom: 1rem !important;
+  font-family: var(--impexo-font) !important;
+  border: 1px solid !important;
 }
 
 .woocommerce-info {
-  background: #f0f7ff;
-  border-left: 4px solid #2271b1;
+  background: var(--impexo-gray-50) !important;
+  border-color: var(--impexo-gray-100) !important;
+  color: var(--impexo-black) !important;
 }
 
 .woocommerce-message {
-  background: #f0f6f0;
-  border-left: 4px solid #00a32a;
+  background: var(--impexo-gray-50) !important;
+  border-color: var(--impexo-gray-100) !important;
+  color: var(--impexo-black) !important;
+}
+
+.woocommerce-error {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #991b1b !important;
+}
+
+/* ----- Liens ----- */
+.woocommerce-cart a:not(.button),
+.woocommerce-checkout a:not(.button) {
+  color: var(--impexo-black) !important;
+  text-decoration: none !important;
+}
+
+.woocommerce-cart a:not(.button):hover,
+.woocommerce-checkout a:not(.button):hover {
+  text-decoration: underline !important;
+}
+
+/* ----- Masquer éléments WordPress par défaut si besoin ----- */
+.woocommerce-cart .woocommerce-cart-form + .cart_totals {
+  margin-top: 2rem !important;
+}
+
+/* Responsive : stack sur mobile */
+@media (max-width: 768px) {
+  .woocommerce-cart .woocommerce,
+  .woocommerce-checkout .woocommerce {
+    padding-top: 1.5rem !important;
+  }
+  .woocommerce-cart-form .shop_table thead {
+    display: none !important;
+  }
+  .woocommerce-cart-form .shop_table tbody tr {
+    display: block !important;
+    border-bottom: 1px solid var(--impexo-gray-100) !important;
+    padding: 1rem 0 !important;
+  }
+  .woocommerce-cart-form .shop_table td {
+    display: block !important;
+    padding: 0.25rem 0 !important;
+    border: none !important;
+  }
+  .woocommerce-cart-form .shop_table td::before {
+    content: attr(data-title);
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.05em !important;
+    color: var(--impexo-muted) !important;
+    display: block !important;
+    margin-bottom: 0.25rem !important;
+  }
 }

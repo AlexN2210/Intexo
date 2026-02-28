@@ -12,7 +12,7 @@ import {
 import { formatEUR } from "@/utils/money";
 import { Minus, Plus, Trash2, Loader2 } from "lucide-react";
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Cart() {
   const { toast } = useToast();
@@ -49,7 +49,7 @@ export default function Cart() {
   };
 
   // Page WordPress "Panier" : on arrive avec ?cart=, le script PHP remplit le panier puis l’utilisateur va sur "Validation de la commande"
-  const CHECKOUT_PAGE_URL = "https://wp.impexo.fr/panier/";
+  const navigate = useNavigate();
 
   const checkout = () => {
     if (items.length === 0) {
@@ -60,16 +60,7 @@ export default function Cart() {
       });
       return;
     }
-
-    // Redirection directe vers WordPress (pas d'appel API ici → on ne met pas isLoading pour éviter
-    // que le panier reste bloqué si l'utilisateur revient ou si la redirection échoue)
-    const cartPayload = items.map((item) => ({
-      product_id: item.productId,
-      variation_id: item.variationId ?? 0,
-      quantity: item.quantity,
-    }));
-    const cartParam = btoa(encodeURIComponent(JSON.stringify(cartPayload)));
-    window.location.href = `${CHECKOUT_PAGE_URL}?cart=${encodeURIComponent(cartParam)}`;
+    navigate("/checkout");
   };
 
   return (
