@@ -19,13 +19,25 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Backend WordPress (wp.impexo.fr). Ne pas utiliser www.impexo.fr = front Vercel → boucle.
+    // Backend WordPress (wp.impexo.fr). API WooCommerce REST native.
     const wpBase = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
-    const wpUrl = `${wpBase}/wp-json/custom-checkout/v1/create-order`;
+    const wpUrl = `${wpBase}/wp-json/wc/v3/orders`;
+
+    const ck = process.env.WC_CONSUMER_KEY;
+    const cs = process.env.WC_CONSUMER_SECRET;
+    if (!ck || !cs) {
+      return res.status(500).json({
+        error: "Erreur configuration checkout",
+        details: "WC_CONSUMER_KEY et WC_CONSUMER_SECRET doivent être définis (Vercel).",
+      });
+    }
 
     const response = await fetch(wpUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Basic " + Buffer.from(`${ck}:${cs}`).toString("base64"),
+      },
       body: JSON.stringify(req.body || {}),
     });
 
