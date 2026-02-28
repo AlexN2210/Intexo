@@ -7,14 +7,23 @@ export const config = {
  * Crée la commande WooCommerce + session Stripe et renvoie payment_url.
  * Body attendu: { items, customer: { billing, shipping }, payment_method?, customer_note? }
  */
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.CORS_ORIGIN || "https://www.impexo.fr");
+const ALLOWED_ORIGINS = ["https://www.impexo.fr", "https://impexo.fr"];
+
+function setCors(res, req) {
+  const origin = req.headers?.origin || req.headers?.Origin;
+  const allowOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  res.setHeader("Access-Control-Allow-Origin", allowOrigin);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
   res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Max-Age", "86400");
+}
+
+export default async function handler(req, res) {
+  setCors(res, req);
 
   if (req.method === "OPTIONS") {
-    return res.status(200).end();
+    return res.status(204).end();
   }
 
   if (req.method !== "POST") {
