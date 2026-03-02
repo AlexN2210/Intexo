@@ -3,13 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "functions": {
-    "api/checkout/create-order.js": { "memory": 256, "maxDuration": 15 },
-    "api/woocommerce/[...path].js": { "memory": 512, "maxDuration": 15 }
-  },
-  "routes": [
-    { "src": "/api/checkout/create-order", "dest": "/api/checkout/create-order" },
-    { "src": "/api/woocommerce/(.*)", "dest": "/api/woocommerce/[...path]" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
