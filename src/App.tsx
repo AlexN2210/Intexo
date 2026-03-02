@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout/Layout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useParams } from "react-router-dom";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
 import Product from "./pages/Product";
@@ -21,6 +21,11 @@ function ShopRoute() {
   const isCollection = location.pathname.startsWith("/boutique/collection/");
   const searchKey = isCollection ? location.pathname : (location.pathname === "/boutique" ? location.search || "_" : "_");
   return <Shop key={searchKey} />;
+}
+
+function ProductRoute() {
+  const { slug } = useParams();
+  return <Product key={slug} />;
 }
 
 const queryClient = new QueryClient({
@@ -50,7 +55,7 @@ const App = () => (
               {/* Route la plus spécifique en premier pour que /boutique/collection/xxx soit bien pris en charge */}
               <Route path="/boutique/collection/:query" element={<ShopRoute />} />
               <Route path="/boutique" element={<ShopRoute />} />
-              <Route path="/produit/:slug" element={<Product />} />
+              <Route path="/produit/:slug" element={<ProductRoute />} />
               <Route path="/panier" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/confirmation" element={<Confirmation />} />
