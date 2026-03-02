@@ -5,7 +5,7 @@
 import { next } from "@vercel/functions";
 
 export const config = {
-  matcher: ["/((?!api/checkout/create-order).*)"],
+  matcher: ["/((?!api/checkout/create-order).*)"], // s'applique à tout sauf /api/checkout/create-order
 };
 
 export default function middleware() {
