@@ -1,17 +1,14 @@
-export const config = {
-  runtime: "nodejs",
-};
+export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", process.env.CORS_ORIGIN || "https://www.impexo.fr");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Nonce, Cart-Token");
   res.setHeader("Access-Control-Allow-Credentials", "true");
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // Parser le body manuellement si nécessaire
   let body = req.body;
   if (!body || typeof body === "string") {
     try {
@@ -27,25 +24,35 @@ export default async function handler(req, res) {
     }
   }
 
+  const wp = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
+  const proxyUrl = `${wp}/store-proxy.php`;
+
   try {
-    const wp = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
-    const url = `${wp}/store-proxy.php?endpoint=checkout`;
+    // 1. Récupérer un nonce frais + Cart-Token via GET cart
+    const cartRes = await fetch(`${proxyUrl}?endpoint=cart`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    const nonce = cartRes.headers.get("Nonce") || cartRes.headers.get("nonce") || "";
+    const cartToken = cartRes.headers.get("Cart-Token") || cartRes.headers.get("cart-token") || "";
 
-    const nonce = req.headers["nonce"] || req.headers["Nonce"] || "";
-    const cartToken = req.headers["cart-token"] || req.headers["Cart-Token"] || "";
+    if (!nonce) {
+      return res.status(500).json({ error: "Impossible de récupérer le nonce WooCommerce" });
+    }
 
-    const response = await fetch(url, {
+    // 2. Appeler checkout avec le nonce
+    const checkoutRes = await fetch(`${proxyUrl}?endpoint=checkout`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(nonce && { Nonce: nonce }),
+        Nonce: nonce,
         ...(cartToken && { "Cart-Token": cartToken }),
       },
       body: JSON.stringify(body),
     });
 
-    const data = await response.json().catch(() => ({}));
-    return res.status(response.status).json(data);
+    const data = await checkoutRes.json().catch(() => ({}));
+    return res.status(checkoutRes.status).json(data);
   } catch (error) {
     return res.status(500).json({ error: "Erreur checkout", details: error.message });
   }
