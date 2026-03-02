@@ -41,6 +41,51 @@ if ($endpoint === '') {
 $method = $_SERVER['REQUEST_METHOD'];
 $body_raw = file_get_contents('php://input');
 
+// Endpoint "checkout-full" : tout en une seule exécution PHP (même session)
+if ($endpoint === 'checkout-full') {
+    $input = json_decode($body_raw, true) ?: [];
+    $items = $input['items'] ?? [];
+    $billing = $input['billing_address'] ?? $input['customer']['billing'] ?? [];
+    $shipping = $input['shipping_address'] ?? $input['customer']['shipping'] ?? $billing;
+    $payment_method = $input['payment_method'] ?? 'woocommerce_payments';
+    $customer_note = $input['customer_note'] ?? '';
+
+    $server = rest_get_server();
+
+    // 1. GET cart pour initialiser la session
+    $cart_req = new WP_REST_Request('GET', '/wc/store/v1/cart');
+    $server->dispatch($cart_req);
+
+    // 2. Vider le panier
+    $clear_req = new WP_REST_Request('DELETE', '/wc/store/v1/cart/items');
+    $server->dispatch($clear_req);
+
+    // 3. Ajouter chaque article
+    foreach ($items as $item) {
+        $add_req = new WP_REST_Request('POST', '/wc/store/v1/cart/add-item');
+        $add_req->set_body_params([
+            'id' => (int) ($item['product_id'] ?? $item['id'] ?? 0),
+            'quantity' => (int) ($item['quantity'] ?? 1),
+            ...(!empty($item['variation_id']) ? ['variation_id' => (int) $item['variation_id']] : []),
+        ]);
+        $server->dispatch($add_req);
+    }
+
+    // 4. Checkout
+    $checkout_req = new WP_REST_Request('POST', '/wc/store/v1/checkout');
+    $checkout_req->set_body_params([
+        'billing_address' => $billing,
+        'shipping_address' => $shipping,
+        'payment_method' => $payment_method,
+        'customer_note' => $customer_note,
+    ]);
+    $response = $server->dispatch($checkout_req);
+    $data = $server->response_to_data($response, false);
+    http_response_code($response->get_status());
+    echo wp_json_encode($data);
+    exit;
+}
+
 // Query params à transmettre (hors endpoint et api)
 $query_params = $_GET;
 unset($query_params['endpoint'], $query_params['api']);

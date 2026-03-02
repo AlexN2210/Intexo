@@ -28,63 +28,23 @@ export default async function handler(req, res) {
   const proxy = `${wp}/store-proxy.php`;
 
   try {
-    // 1. GET cart → récupérer nonce + session cookie
-    const cartRes = await fetch(`${proxy}?endpoint=cart`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
-    const nonce = cartRes.headers.get("Nonce") || cartRes.headers.get("nonce") || "";
-    const cartToken = cartRes.headers.get("Cart-Token") || cartRes.headers.get("cart-token") || "";
-    // Récupérer le Set-Cookie pour maintenir la session
-    const setCookie = cartRes.headers.get("set-cookie") || "";
-
-    if (!nonce) {
-      return res.status(500).json({ error: "Impossible de récupérer le nonce" });
-    }
-
-    const sessionHeaders = {
-      "Content-Type": "application/json",
-      Nonce: nonce,
-      ...(cartToken && { "Cart-Token": cartToken }),
-      ...(setCookie && { Cookie: setCookie }),
-    };
-
-    // 2. Vider le panier
-    await fetch(`${proxy}?endpoint=cart/items`, {
-      method: "DELETE",
-      headers: sessionHeaders,
-    });
-
-    // 3. Ajouter chaque article
-    const items = body.items || [];
-    for (const item of items) {
-      await fetch(`${proxy}?endpoint=cart/add-item`, {
-        method: "POST",
-        headers: sessionHeaders,
-        body: JSON.stringify({
-          id: item.product_id,
-          quantity: item.quantity,
-          ...(item.variation_id ? { variation_id: item.variation_id } : {}),
-        }),
-      });
-    }
-
-    // 4. Checkout
-    const checkoutBody = {
-      billing_address: body.customer?.billing || body.billing_address,
-      shipping_address: body.customer?.shipping || body.shipping_address,
+    // Un seul appel PHP : checkout-full fait tout dans la même session (vider panier → ajouter articles → checkout)
+    const payload = {
+      items: body.items || [],
+      billing_address: body.customer?.billing || body.billing_address || {},
+      shipping_address: body.customer?.shipping || body.shipping_address || body.customer?.billing || {},
       payment_method: body.payment_method || "woocommerce_payments",
       customer_note: body.customer_note || "",
     };
 
-    const checkoutRes = await fetch(`${proxy}?endpoint=checkout`, {
+    const response = await fetch(`${proxy}?endpoint=checkout-full`, {
       method: "POST",
-      headers: sessionHeaders,
-      body: JSON.stringify(checkoutBody),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
 
-    const data = await checkoutRes.json().catch(() => ({}));
-    return res.status(checkoutRes.status).json(data);
+    const data = await response.json().catch(() => ({}));
+    return res.status(response.status).json(data);
   } catch (error) {
     return res.status(500).json({ error: "Erreur checkout", details: error.message });
   }
