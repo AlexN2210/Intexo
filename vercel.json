@@ -8,6 +8,7 @@
     "api/woocommerce/[...path].js": { "memory": 512, "maxDuration": 15 }
   },
   "rewrites": [
+    { "source": "/api/checkout/create-order", "destination": "/api/checkout/create-order.js" },
     { "source": "/api/woocommerce/:path*", "destination": "/api/woocommerce/[...path]" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
