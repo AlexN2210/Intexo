@@ -14,7 +14,7 @@ $allowed = ['https://www.impexo.fr', 'https://impexo.fr', 'http://localhost:5173
 header('Access-Control-Allow-Origin: ' . (in_array($origin, $allowed, true) ? $origin : 'https://www.impexo.fr'));
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Accept, Nonce, Cart-Token, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Accept, Nonce, Cart-Token, Authorization, X-WC-Proxy-Auth');
 header('Access-Control-Expose-Headers: Nonce, Cart-Token, Set-Cookie');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache');
@@ -43,10 +43,14 @@ $body_raw = file_get_contents('php://input');
 
 // Endpoint "checkout-full" : tout en une seule exécution PHP (même session)
 if ($endpoint === 'checkout-full') {
+    // Récupérer les identifiants : Authorization est souvent supprimé par Apache sur certains hébergeurs
     $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
     if ($auth_header === '' && function_exists('apache_request_headers')) {
         $headers = apache_request_headers();
         $auth_header = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    }
+    if ($auth_header === '' && !empty($_SERVER['HTTP_X_WC_PROXY_AUTH'])) {
+        $auth_header = 'Basic ' . trim($_SERVER['HTTP_X_WC_PROXY_AUTH']);
     }
     // Optionnel : exiger Basic Auth (mêmes clés que Vercel) pour accepter le POST
     $ck = defined('WC_PROXY_CK') ? WC_PROXY_CK : '';

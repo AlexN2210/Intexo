@@ -33,8 +33,8 @@ export default async function handler(req, res) {
     });
   }
 
-  const authorization =
-    "Basic " + Buffer.from(consumerKey + ":" + consumerSecret, "utf8").toString("base64");
+  const authB64 = Buffer.from(consumerKey + ":" + consumerSecret, "utf8").toString("base64");
+  const authorization = "Basic " + authB64;
 
   try {
     const response = await fetch(`${wp}/store-proxy.php?endpoint=checkout-full`, {
@@ -42,6 +42,8 @@ export default async function handler(req, res) {
       headers: {
         "Content-Type": "application/json",
         Authorization: authorization,
+        // En-tête de secours : certains hébergeurs (Apache) suppriment "Authorization"
+        "X-WC-Proxy-Auth": authB64,
       },
       body: JSON.stringify(body),
     });

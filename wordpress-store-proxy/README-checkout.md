@@ -27,3 +27,16 @@ Ancien : le script renvoie `payment_url` si le gateway Stripe WooCommerce l’ex
 ## CORS
 
 L’appel vient du front (www.impexo.fr) ou du proxy Vercel. Si vous appelez directement wp.impexo.fr depuis le navigateur, activer CORS sur ce namespace (ou passer par le proxy Vercel `/api/checkout/create-order` qui transmet déjà le body à WordPress).
+
+## Erreur 401 (Authentification)
+
+Si le checkout renvoie **401** alors que les clés sont correctes sur Vercel :
+
+1. **En-tête Authorization supprimé par Apache**  
+   Le proxy Vercel envoie aussi les identifiants dans l’en-tête **`X-WC-Proxy-Auth`** (Base64 de `ck:cs`). Le script `store-proxy.php` les utilise en secours. Aucune action côté serveur si ça suffit.
+
+2. **Si 401 persiste** (souvent sur hébergeurs mutualisés) : faire passer `Authorization` à PHP. À la racine du site (ou dans le répertoire où se trouve `store-proxy.php`), ajouter ou compléter le `.htaccess` :
+   ```apache
+   SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+   ```
+   Puis redéployer `store-proxy.php` et vérifier que `WC_PROXY_CK` / `WC_PROXY_CS` dans `wp-config.php` sont identiques à `WC_CONSUMER_KEY` / `WC_CONSUMER_SECRET` sur Vercel.
