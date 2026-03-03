@@ -1,5 +1,3 @@
-const WP_CHECKOUT_URL = process.env.WP_CHECKOUT_URL || "https://wp.impexo.fr/api/checkout/create-order";
-
 export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
@@ -11,22 +9,86 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  try {
-    const body = req.body != null
-      ? typeof req.body === "string" ? req.body : JSON.stringify(req.body)
-      : undefined;
+  // Parser le body
+  let body = req.body;
+  if (!body || typeof body === "string") {
+    try {
+      const raw = await new Promise((resolve, reject) => {
+        let data = "";
+        req.on("data", (chunk) => (data += chunk));
+        req.on("end", () => resolve(data));
+        req.on("error", reject);
+      });
+      body = raw ? JSON.parse(raw) : {};
+    } catch { body = {}; }
+  }
 
-    const response = await fetch(WP_CHECKOUT_URL, {
-      method: req.method,
-      headers: {
-        "Content-Type": req.headers["content-type"] || "application/json",
-      },
-      body,
+  const wp = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
+  const proxy = `${wp}/store-proxy.php`;
+
+  try {
+    // 1. GET cart → nonce + session
+    const cartRes = await fetch(`${proxy}?endpoint=cart`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    const nonce = cartRes.headers.get("Nonce") || cartRes.headers.get("nonce") || "";
+    const cartToken = cartRes.headers.get("Cart-Token") || cartRes.headers.get("cart-token") || "";
+    const setCookie = cartRes.headers.get("set-cookie") || "";
+
+    if (!nonce) {
+      return res.status(500).json({ error: "Impossible de récupérer le nonce WooCommerce" });
+    }
+
+    const sessionHeaders = {
+      "Content-Type": "application/json",
+      "Nonce": nonce,
+      ...(cartToken && { "Cart-Token": cartToken }),
+      ...(setCookie && { "Cookie": setCookie }),
+    };
+
+    // 2. Vider le panier
+    await fetch(`${proxy}?endpoint=cart/items`, {
+      method: "DELETE",
+      headers: sessionHeaders,
     });
 
-    const data = await response.json().catch(() => ({}));
-    res.status(response.status).json(data);
+    // 3. Ajouter chaque article
+    const items = body.items || [];
+    for (const item of items) {
+      const addRes = await fetch(`${proxy}?endpoint=cart/add-item`, {
+        method: "POST",
+        headers: sessionHeaders,
+        body: JSON.stringify({
+          id: item.product_id,
+          quantity: item.quantity,
+          ...(item.variation_id && item.variation_id !== 0 ? { variation_id: item.variation_id } : {}),
+        }),
+      });
+      const addData = await addRes.json().catch(() => ({}));
+      if (!addRes.ok) {
+        return res.status(400).json({ error: "Erreur ajout article", details: addData });
+      }
+    }
+
+    // 4. Checkout
+    const checkoutBody = {
+      billing_address: body.customer?.billing || body.billing_address || {},
+      shipping_address: body.customer?.shipping || body.shipping_address || {},
+      payment_method: body.payment_method || "woocommerce_payments",
+      customer_note: body.customer_note || "",
+    };
+
+    const checkoutRes = await fetch(`${proxy}?endpoint=checkout`, {
+      method: "POST",
+      headers: sessionHeaders,
+      body: JSON.stringify(checkoutBody),
+    });
+
+    const data = await checkoutRes.json().catch(() => ({}));
+    return res.status(checkoutRes.status).json(data);
+
   } catch (error) {
-    res.status(500).json({ error: "Erreur proxy checkout", details: error.message });
+    return res.status(500).json({ error: "Erreur checkout", details: error.message });
   }
 }
