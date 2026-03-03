@@ -31,10 +31,25 @@ export type CheckoutCustomer = {
   };
 };
 
+export type BillingAddress = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  address_1: string;
+  address_2?: string;
+  city: string;
+  postcode: string;
+  country: string;
+};
+
 export type CreateOrderPayload = {
   items: Array<{ product_id: number; variation_id: number; quantity: number }>;
-  customer: CheckoutCustomer;
-  payment_method?: string; // ex: "stripe"
+  /** WooPayments : billing_address à la racine */
+  billing_address?: BillingAddress;
+  /** Ancien format (optionnel) */
+  customer?: CheckoutCustomer;
+  payment_method?: string; // "woocommerce_payments" pour WooPayments
   customer_note?: string;
 };
 

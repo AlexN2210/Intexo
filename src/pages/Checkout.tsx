@@ -84,29 +84,18 @@ export default function Checkout() {
     try {
       const payload = {
         items: getCartPayloadForCheckout(items),
-        customer: {
-          billing: {
-            first_name: values.first_name,
-            last_name: values.last_name,
-            email: values.email,
-            phone: values.phone,
-            address_1: values.address_1,
-            address_2: values.address_2 ?? "",
-            city: values.city,
-            postcode: values.postcode,
-            country: values.country,
-          },
-          shipping: {
-            first_name: values.first_name,
-            last_name: values.last_name,
-            address_1: values.address_1,
-            address_2: values.address_2 ?? "",
-            city: values.city,
-            postcode: values.postcode,
-            country: values.country,
-          },
+        billing_address: {
+          first_name: values.first_name,
+          last_name: values.last_name,
+          email: values.email,
+          phone: values.phone,
+          address_1: values.address_1,
+          address_2: values.address_2 ?? "",
+          city: values.city,
+          postcode: values.postcode,
+          country: values.country,
         },
-        payment_method: "stripe",
+        payment_method: "woocommerce_payments",
       };
 
       const result = await createOrderFromCart(payload);
