@@ -49,6 +49,7 @@ if ($endpoint === 'checkout-full') {
     $shipping = $input['shipping_address'] ?? $input['customer']['shipping'] ?? $billing;
     $payment_method = $input['payment_method'] ?? 'woocommerce_payments';
     $customer_note = $input['customer_note'] ?? '';
+    $payment_data = $input['payment_data'] ?? [];
 
     $server = rest_get_server();
 
@@ -71,14 +72,18 @@ if ($endpoint === 'checkout-full') {
         $server->dispatch($add_req);
     }
 
-    // 4. Checkout
+    // 4. Checkout (payment_data = Stripe payment_method_id pour WooCommerce Payments)
     $checkout_req = new WP_REST_Request('POST', '/wc/store/v1/checkout');
-    $checkout_req->set_body_params([
+    $checkout_body = [
         'billing_address' => $billing,
         'shipping_address' => $shipping,
         'payment_method' => $payment_method,
         'customer_note' => $customer_note,
-    ]);
+    ];
+    if (!empty($payment_data)) {
+        $checkout_body['payment_data'] = $payment_data;
+    }
+    $checkout_req->set_body_params($checkout_body);
     $response = $server->dispatch($checkout_req);
     $data = $server->response_to_data($response, false);
     http_response_code($response->get_status());

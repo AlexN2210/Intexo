@@ -162,6 +162,8 @@ function CheckoutForm() {
         payment_data: [{ key: "payment_method_id", value: paymentMethod.id }],
       };
 
+      // Vérif : WooCommerce Payments exige payment_data: [{ key, value }]
+      console.log("Payload envoyé:", JSON.stringify(payload, null, 2));
       console.log("Envoi au backend...", payload);
       const result = await createOrderFromCart(payload);
       console.log("Réponse backend:", result);
