@@ -94,11 +94,16 @@ function CheckoutForm() {
   }, [items.length, isSubmitting, navigate]);
 
   const onSubmit = async (values: FormValues) => {
+    console.log("Submit lancé");
+
     if (items.length === 0) {
       toast({ title: "Panier vide", variant: "destructive" });
       return;
     }
-    if (!stripe || !elements) return;
+    if (!stripe || !elements) {
+      console.warn("Stripe ou elements null — stripe:", !!stripe, "elements:", !!elements);
+      return;
+    }
 
     setIsSubmitting(true);
     setCheckoutLoading(true);
@@ -106,6 +111,7 @@ function CheckoutForm() {
     try {
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) {
+        console.error("Champ carte manquant");
         toast({ title: "Erreur", description: "Champ carte manquant.", variant: "destructive" });
         setCheckoutLoading(false);
         setIsSubmitting(false);
@@ -129,7 +135,10 @@ function CheckoutForm() {
         },
       });
 
+      console.log("Stripe result:", error, paymentMethod);
+
       if (error) {
+        console.error("Stripe error:", error);
         toast({ title: "Carte refusée", description: error.message ?? "Vérifiez vos informations.", variant: "destructive" });
         setCheckoutLoading(false);
         setIsSubmitting(false);
@@ -153,7 +162,9 @@ function CheckoutForm() {
         payment_data: [{ key: "payment_method_id", value: paymentMethod.id }],
       };
 
+      console.log("Envoi au backend...", payload);
       const result = await createOrderFromCart(payload);
+      console.log("Réponse backend:", result);
 
       if (result.payment_url) {
         window.location.href = result.payment_url;
