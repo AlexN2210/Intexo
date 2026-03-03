@@ -23,70 +23,16 @@ export default async function handler(req, res) {
   }
 
   const wp = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
-  const proxy = `${wp}/store-proxy.php`;
 
   try {
-    // 1. GET cart → nonce + cart-token
-    const cartRes = await fetch(`${proxy}?endpoint=cart`);
-    let nonce = cartRes.headers.get("Nonce") || cartRes.headers.get("nonce") || "";
-    let cartToken = cartRes.headers.get("Cart-Token") || cartRes.headers.get("cart-token") || "";
-
-    if (!nonce || !cartToken) {
-      return res.status(500).json({ error: "Impossible de récupérer nonce/cart-token" });
-    }
-
-    const makeHeaders = (n, ct) => ({
-      "Content-Type": "application/json",
-      "Nonce": n,
-      "Cart-Token": ct,
-    });
-
-    // 2. Vider le panier
-    await fetch(`${proxy}?endpoint=cart/items`, {
-      method: "DELETE",
-      headers: makeHeaders(nonce, cartToken),
-    });
-
-    // 3. Ajouter chaque article — mettre à jour le cart-token après chaque ajout
-    const items = body.items || [];
-    for (const item of items) {
-      const addRes = await fetch(`${proxy}?endpoint=cart/add-item`, {
-        method: "POST",
-        headers: makeHeaders(nonce, cartToken),
-        body: JSON.stringify({
-          id: item.variation_id && item.variation_id !== 0 ? item.variation_id : item.product_id,
-          quantity: item.quantity,
-        }),
-      });
-
-      // Rafraîchir le cart-token retourné
-      const newCartToken = addRes.headers.get("Cart-Token") || addRes.headers.get("cart-token");
-      const newNonce = addRes.headers.get("Nonce") || addRes.headers.get("nonce");
-      if (newCartToken) cartToken = newCartToken;
-      if (newNonce) nonce = newNonce;
-
-      const addData = await addRes.json().catch(() => ({}));
-      if (!addRes.ok) {
-        return res.status(400).json({ error: "Erreur ajout article", details: addData });
-      }
-    }
-
-    // 4. Checkout
-    const checkoutBody = {
-      billing_address: body.billing_address || {},
-      payment_method: body.payment_method || "woocommerce_payments",
-      customer_note: body.customer_note || "",
-    };
-
-    const checkoutRes = await fetch(`${proxy}?endpoint=checkout`, {
+    const response = await fetch(`${wp}/store-proxy.php?endpoint=checkout-full`, {
       method: "POST",
-      headers: makeHeaders(nonce, cartToken),
-      body: JSON.stringify(checkoutBody),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
 
-    const data = await checkoutRes.json().catch(() => ({}));
-    return res.status(checkoutRes.status).json(data);
-
+    const data = await response.json().catch(() => ({}));
+    return res.status(response.status).json(data);
   } catch (error) {
     return res.status(500).json({ error: "Erreur checkout", details: error.message });
   }
