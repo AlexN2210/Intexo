@@ -53,17 +53,18 @@ export default async function handler(req, res) {
       headers: sessionHeaders,
     });
 
-    // 3. Ajouter chaque article
+    // 3. Ajouter chaque article (WooCommerce Store API accepte l'ID de variation directement comme id)
     const items = body.items || [];
     for (const item of items) {
+      const addBody = {
+        id: item.variation_id && item.variation_id !== 0 ? item.variation_id : item.product_id,
+        quantity: item.quantity,
+      };
+
       const addRes = await fetch(`${proxy}?endpoint=cart/add-item`, {
         method: "POST",
         headers: sessionHeaders,
-        body: JSON.stringify({
-          id: item.product_id,
-          quantity: item.quantity,
-          ...(item.variation_id && item.variation_id !== 0 ? { variation_id: item.variation_id } : {}),
-        }),
+        body: JSON.stringify(addBody),
       });
       const addData = await addRes.json().catch(() => ({}));
       if (!addRes.ok) {
