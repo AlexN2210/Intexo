@@ -50,6 +50,9 @@ export default async function handler(req, res) {
 
     const data = await response.json().catch(() => ({}));
 
+    // Log pour debug dans Vercel (Functions → Logs)
+    console.log("[checkout] WP status:", response.status, "body:", JSON.stringify(data).slice(0, 300));
+
     if (response.status === 401) {
       return res.status(401).json({
         error: "Authentification refusée",
