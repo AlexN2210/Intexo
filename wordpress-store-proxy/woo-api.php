@@ -174,8 +174,14 @@ if ($action === 'product-by-slug') {
         echo json_encode(['error' => 'Missing slug']);
         exit;
     }
-    $products = wc_get_products(['slug' => $slug, 'status' => isset($_GET['status']) ? sanitize_text_field($_GET['status']) : 'publish', 'limit' => 1]);
-    $product = $products[0] ?? null;
+
+    // Utiliser get_page_by_path qui est plus fiable que wc_get_products pour les slugs
+    $post = get_page_by_path($slug, OBJECT, 'product');
+    if (!$post) {
+        echo wp_json_encode([]);
+        exit;
+    }
+    $product = wc_get_product($post->ID);
     if (!$product) {
         echo wp_json_encode([]);
         exit;
