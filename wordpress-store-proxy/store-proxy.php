@@ -43,6 +43,23 @@ $body_raw = file_get_contents('php://input');
 
 // Endpoint "checkout-full" : tout en une seule exécution PHP (même session)
 if ($endpoint === 'checkout-full') {
+    $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if ($auth_header === '' && function_exists('apache_request_headers')) {
+        $headers = apache_request_headers();
+        $auth_header = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    }
+    // Optionnel : exiger Basic Auth (mêmes clés que Vercel) pour accepter le POST
+    $ck = defined('WC_PROXY_CK') ? WC_PROXY_CK : '';
+    $cs = defined('WC_PROXY_CS') ? WC_PROXY_CS : '';
+    if ($ck !== '' && $cs !== '') {
+        $expected = 'Basic ' . base64_encode($ck . ':' . $cs);
+        if ($auth_header !== $expected) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Authentification requise', 'code' => 'rest_forbidden']);
+            exit;
+        }
+    }
+
     $input = json_decode($body_raw, true) ?: [];
     $items = $input['items'] ?? [];
     $billing = $input['billing_address'] ?? $input['customer']['billing'] ?? [];
@@ -53,17 +70,32 @@ if ($endpoint === 'checkout-full') {
 
     $server = rest_get_server();
 
+    // Transmettre l’auth aux requêtes internes (au cas où le serveur REST l’utilise)
+    $request_headers = ['Content-Type' => 'application/json'];
+    if ($auth_header !== '') {
+        $request_headers['Authorization'] = $auth_header;
+    }
+
     // 1. GET cart pour initialiser la session
     $cart_req = new WP_REST_Request('GET', '/wc/store/v1/cart');
+    foreach ($request_headers as $k => $v) {
+        $cart_req->set_header($k, $v);
+    }
     $server->dispatch($cart_req);
 
     // 2. Vider le panier
     $clear_req = new WP_REST_Request('DELETE', '/wc/store/v1/cart/items');
+    foreach ($request_headers as $k => $v) {
+        $clear_req->set_header($k, $v);
+    }
     $server->dispatch($clear_req);
 
     // 3. Ajouter chaque article
     foreach ($items as $item) {
         $add_req = new WP_REST_Request('POST', '/wc/store/v1/cart/add-item');
+        foreach ($request_headers as $k => $v) {
+            $add_req->set_header($k, $v);
+        }
         $add_req->set_body_params([
             'id' => (int) ($item['product_id'] ?? $item['id'] ?? 0),
             'quantity' => (int) ($item['quantity'] ?? 1),
@@ -74,6 +106,9 @@ if ($endpoint === 'checkout-full') {
 
     // 4. Checkout (payment_data = Stripe payment_method_id pour WooCommerce Payments)
     $checkout_req = new WP_REST_Request('POST', '/wc/store/v1/checkout');
+    foreach ($request_headers as $k => $v) {
+        $checkout_req->set_header($k, $v);
+    }
     $checkout_body = [
         'billing_address' => $billing,
         'shipping_address' => $shipping,
