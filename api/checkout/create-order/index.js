@@ -23,11 +23,20 @@ export default async function handler(req, res) {
   }
 
   const wp = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
+  const consumerKey = process.env.WC_CONSUMER_KEY || process.env.VITE_WC_CONSUMER_KEY || "";
+  const consumerSecret = process.env.WC_CONSUMER_SECRET || process.env.VITE_WC_CONSUMER_SECRET || "";
+  const authHeader =
+    consumerKey && consumerSecret
+      ? { Authorization: "Basic " + Buffer.from(consumerKey + ":" + consumerSecret).toString("base64") }
+      : {};
 
   try {
     const response = await fetch(`${wp}/store-proxy.php?endpoint=checkout-full`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader,
+      },
       body: JSON.stringify(body),
     });
 
