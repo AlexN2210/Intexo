@@ -4,7 +4,6 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/woocommerce/:path*", "destination": "/api/woocommerce/[...path]" },
-    { "source": "/api/checkout/create-order", "destination": "/api/checkout/create-order" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
