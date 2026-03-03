@@ -2,7 +2,6 @@
   "version": 2,
   "buildCommand": "yarn build",
   "outputDirectory": "dist",
-  "framework": "vite",
   "rewrites": [
     { "source": "/api/woocommerce/:path*", "destination": "/api/woocommerce/[...path]" },
     { "source": "/api/checkout/create-order", "destination": "/api/checkout/create-order" },
