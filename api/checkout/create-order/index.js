@@ -9,7 +9,6 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // Parser le body
   let body = req.body;
   if (!body || typeof body === "string") {
     try {
@@ -27,45 +26,45 @@ export default async function handler(req, res) {
   const proxy = `${wp}/store-proxy.php`;
 
   try {
-    // 1. GET cart → nonce + session
-    const cartRes = await fetch(`${proxy}?endpoint=cart`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
-    const nonce = cartRes.headers.get("Nonce") || cartRes.headers.get("nonce") || "";
-    const cartToken = cartRes.headers.get("Cart-Token") || cartRes.headers.get("cart-token") || "";
-    const setCookie = cartRes.headers.get("set-cookie") || "";
+    // 1. GET cart → nonce + cart-token
+    const cartRes = await fetch(`${proxy}?endpoint=cart`);
+    let nonce = cartRes.headers.get("Nonce") || cartRes.headers.get("nonce") || "";
+    let cartToken = cartRes.headers.get("Cart-Token") || cartRes.headers.get("cart-token") || "";
 
-    if (!nonce) {
-      return res.status(500).json({ error: "Impossible de récupérer le nonce WooCommerce" });
+    if (!nonce || !cartToken) {
+      return res.status(500).json({ error: "Impossible de récupérer nonce/cart-token" });
     }
 
-    const sessionHeaders = {
+    const makeHeaders = (n, ct) => ({
       "Content-Type": "application/json",
-      "Nonce": nonce,
-      ...(cartToken && { "Cart-Token": cartToken }),
-      ...(setCookie && { "Cookie": setCookie }),
-    };
+      "Nonce": n,
+      "Cart-Token": ct,
+    });
 
     // 2. Vider le panier
     await fetch(`${proxy}?endpoint=cart/items`, {
       method: "DELETE",
-      headers: sessionHeaders,
+      headers: makeHeaders(nonce, cartToken),
     });
 
-    // 3. Ajouter chaque article (WooCommerce Store API accepte l'ID de variation directement comme id)
+    // 3. Ajouter chaque article — mettre à jour le cart-token après chaque ajout
     const items = body.items || [];
     for (const item of items) {
-      const addBody = {
-        id: item.variation_id && item.variation_id !== 0 ? item.variation_id : item.product_id,
-        quantity: item.quantity,
-      };
-
       const addRes = await fetch(`${proxy}?endpoint=cart/add-item`, {
         method: "POST",
-        headers: sessionHeaders,
-        body: JSON.stringify(addBody),
+        headers: makeHeaders(nonce, cartToken),
+        body: JSON.stringify({
+          id: item.variation_id && item.variation_id !== 0 ? item.variation_id : item.product_id,
+          quantity: item.quantity,
+        }),
       });
+
+      // Rafraîchir le cart-token retourné
+      const newCartToken = addRes.headers.get("Cart-Token") || addRes.headers.get("cart-token");
+      const newNonce = addRes.headers.get("Nonce") || addRes.headers.get("nonce");
+      if (newCartToken) cartToken = newCartToken;
+      if (newNonce) nonce = newNonce;
+
       const addData = await addRes.json().catch(() => ({}));
       if (!addRes.ok) {
         return res.status(400).json({ error: "Erreur ajout article", details: addData });
@@ -74,15 +73,14 @@ export default async function handler(req, res) {
 
     // 4. Checkout
     const checkoutBody = {
-      billing_address: body.customer?.billing || body.billing_address || {},
-      shipping_address: body.customer?.shipping || body.shipping_address || {},
+      billing_address: body.billing_address || {},
       payment_method: body.payment_method || "woocommerce_payments",
       customer_note: body.customer_note || "",
     };
 
     const checkoutRes = await fetch(`${proxy}?endpoint=checkout`, {
       method: "POST",
-      headers: sessionHeaders,
+      headers: makeHeaders(nonce, cartToken),
       body: JSON.stringify(checkoutBody),
     });
 
