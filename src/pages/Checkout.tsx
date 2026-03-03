@@ -13,12 +13,29 @@ import {
   useCartStore,
 } from "@/store/cartStore";
 import { formatEUR } from "@/utils/money";
+import { loadStripe } from "@stripe/stripe-js";
+import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
+
+const CARD_ELEMENT_OPTIONS = {
+  style: {
+    base: {
+      fontSize: "16px",
+      color: "hsl(var(--foreground))",
+      "::placeholder": { color: "hsl(var(--muted-foreground))" },
+    },
+    invalid: {
+      color: "hsl(var(--destructive))",
+    },
+  },
+};
 
 const schema = z.object({
   first_name: z.string().min(1, "Prénom requis"),
@@ -36,7 +53,9 @@ type FormValues = z.infer<typeof schema>;
 
 const DEFAULT_COUNTRY = "FR";
 
-export default function Checkout() {
+function CheckoutForm() {
+  const stripe = useStripe();
+  const elements = useElements();
   const { toast } = useToast();
   const navigate = useNavigate();
   const items = useCartStore((s) => s.items);
@@ -79,9 +98,44 @@ export default function Checkout() {
       toast({ title: "Panier vide", variant: "destructive" });
       return;
     }
+    if (!stripe || !elements) return;
+
     setIsSubmitting(true);
     setCheckoutLoading(true);
+
     try {
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) {
+        toast({ title: "Erreur", description: "Champ carte manquant.", variant: "destructive" });
+        setCheckoutLoading(false);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const { error, paymentMethod } = await stripe.createPaymentMethod({
+        type: "card",
+        card: cardElement,
+        billing_details: {
+          name: `${values.first_name} ${values.last_name}`.trim(),
+          email: values.email,
+          phone: values.phone,
+          address: {
+            line1: values.address_1,
+            line2: values.address_2 || undefined,
+            city: values.city,
+            postal_code: values.postcode,
+            country: values.country,
+          },
+        },
+      });
+
+      if (error) {
+        toast({ title: "Carte refusée", description: error.message ?? "Vérifiez vos informations.", variant: "destructive" });
+        setCheckoutLoading(false);
+        setIsSubmitting(false);
+        return;
+      }
+
       const payload = {
         items: getCartPayloadForCheckout(items),
         billing_address: {
@@ -96,6 +150,7 @@ export default function Checkout() {
           country: values.country,
         },
         payment_method: "woocommerce_payments",
+        payment_data: [{ key: "payment_method_id", value: paymentMethod.id }],
       };
 
       const result = await createOrderFromCart(payload);
@@ -107,14 +162,13 @@ export default function Checkout() {
 
       toast({
         title: "Commande créée",
-        description: result.order_id
-          ? `Commande #${result.order_id}. Paiement à finaliser.`
-          : "Redirection vers le paiement indisponible.",
+        description: result.order_id ? `Commande #${result.order_id}.` : "Paiement enregistré.",
       });
       navigate("/confirmation" + (result.order_id ? `?order_id=${result.order_id}` : ""), { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erreur lors de la création de la commande.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
+    } finally {
       setCheckoutLoading(false);
       setIsSubmitting(false);
     }
@@ -270,6 +324,14 @@ export default function Checkout() {
                     />
                   </div>
                 </FadeIn>
+
+                <FadeIn className="rounded-3xl border bg-card p-6">
+                  <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">CARTE BANCAIRE</div>
+                  <p className="mt-2 text-sm text-muted-foreground">Paiement sécurisé par Stripe.</p>
+                  <div className="mt-4 rounded-2xl border bg-muted/30 p-4">
+                    <CardElement options={CARD_ELEMENT_OPTIONS} />
+                  </div>
+                </FadeIn>
               </div>
 
               <FadeIn delay={0.05} className="rounded-3xl border bg-card p-6 lg:sticky lg:top-24 lg:self-start">
@@ -302,19 +364,19 @@ export default function Checkout() {
                 <Button
                   type="submit"
                   className="mt-6 h-12 w-full rounded-full"
-                  disabled={isSubmitting || items.length === 0}
+                  disabled={isSubmitting || !stripe || items.length === 0}
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Création de la commande...
+                      Traitement...
                     </>
                   ) : (
-                    "Aller au paiement Stripe"
+                    "Payer"
                   )}
                 </Button>
                 <p className="mt-3 text-center text-xs text-muted-foreground">
-                  Vous serez redirigé vers Stripe pour un paiement sécurisé.
+                  Paiement sécurisé par Stripe. Vos données carte ne transitent pas par notre serveur.
                 </p>
               </FadeIn>
             </div>
@@ -322,5 +384,13 @@ export default function Checkout() {
         </Form>
       </Container>
     </div>
+  );
+}
+
+export default function Checkout() {
+  return (
+    <Elements stripe={stripePromise}>
+      <CheckoutForm />
+    </Elements>
   );
 }

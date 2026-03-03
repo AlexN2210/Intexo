@@ -43,6 +43,9 @@ export type BillingAddress = {
   country: string;
 };
 
+/** WooCommerce Payments : payment_method_id issu de stripe.createPaymentMethod */
+export type PaymentDataItem = { key: string; value: string };
+
 export type CreateOrderPayload = {
   items: Array<{ product_id: number; variation_id: number; quantity: number }>;
   /** WooPayments : billing_address à la racine */
@@ -50,6 +53,8 @@ export type CreateOrderPayload = {
   /** Ancien format (optionnel) */
   customer?: CheckoutCustomer;
   payment_method?: string; // "woocommerce_payments" pour WooPayments
+  /** Stripe : [{ key: "payment_method_id", value: "pm_xxx" }] */
+  payment_data?: PaymentDataItem[];
   customer_note?: string;
 };
 
