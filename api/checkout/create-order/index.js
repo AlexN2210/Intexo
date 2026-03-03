@@ -23,24 +23,39 @@ export default async function handler(req, res) {
   }
 
   const wp = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
-  const consumerKey = process.env.WC_CONSUMER_KEY || process.env.VITE_WC_CONSUMER_KEY || "";
-  const consumerSecret = process.env.WC_CONSUMER_SECRET || process.env.VITE_WC_CONSUMER_SECRET || "";
-  const authHeader =
-    consumerKey && consumerSecret
-      ? { Authorization: "Basic " + Buffer.from(consumerKey + ":" + consumerSecret).toString("base64") }
-      : {};
+  const consumerKey = (process.env.WC_CONSUMER_KEY || process.env.VITE_WC_CONSUMER_KEY || "").trim();
+  const consumerSecret = (process.env.WC_CONSUMER_SECRET || process.env.VITE_WC_CONSUMER_SECRET || "").trim();
+
+  if (!consumerKey || !consumerSecret) {
+    return res.status(500).json({
+      error: "Authentification manquante",
+      details: "Définir WC_CONSUMER_KEY et WC_CONSUMER_SECRET dans Vercel (Environment Variables).",
+    });
+  }
+
+  const authorization =
+    "Basic " + Buffer.from(consumerKey + ":" + consumerSecret, "utf8").toString("base64");
 
   try {
     const response = await fetch(`${wp}/store-proxy.php?endpoint=checkout-full`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...authHeader,
+        Authorization: authorization,
       },
       body: JSON.stringify(body),
     });
 
     const data = await response.json().catch(() => ({}));
+
+    if (response.status === 401) {
+      return res.status(401).json({
+        error: "Authentification refusée",
+        details: "Clés WooCommerce invalides ou utilisateur sans droit. Vérifier WC_CONSUMER_KEY / WC_CONSUMER_SECRET (compte admin).",
+        ...data,
+      });
+    }
+
     return res.status(response.status).json(data);
   } catch (error) {
     return res.status(500).json({ error: "Erreur checkout", details: error.message });
