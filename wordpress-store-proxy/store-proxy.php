@@ -80,12 +80,22 @@ if ($endpoint === 'checkout-full') {
         $request_headers['Authorization'] = $auth_header;
     }
 
-    // 1. GET cart pour initialiser la session
+    // 1. GET cart pour initialiser la session et récupérer le nonce (requis par la Store API)
     $cart_req = new WP_REST_Request('GET', '/wc/store/v1/cart');
     foreach ($request_headers as $k => $v) {
         $cart_req->set_header($k, $v);
     }
-    $server->dispatch($cart_req);
+    $cart_response = $server->dispatch($cart_req);
+    $nonce = null;
+    if ($cart_response instanceof WP_REST_Response) {
+        $res_headers = $cart_response->get_headers();
+        $nonce = $res_headers['Nonce'] ?? $res_headers['nonce'] ?? null;
+    }
+    if ($nonce !== null && $nonce !== '') {
+        $request_headers['Nonce'] = $nonce;
+    } else {
+        $request_headers['Nonce'] = wp_create_nonce('wc_store_api');
+    }
 
     // 2. Vider le panier
     $clear_req = new WP_REST_Request('DELETE', '/wc/store/v1/cart/items');
