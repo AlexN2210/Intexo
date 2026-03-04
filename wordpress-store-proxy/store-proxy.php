@@ -216,6 +216,14 @@ if ($endpoint === 'create-order-stripe') {
 
         $stripe_key = defined('STRIPE_SECRET_KEY') ? STRIPE_SECRET_KEY : '';
         $autoload   = defined('STRIPE_VENDOR_AUTOLOAD') ? STRIPE_VENDOR_AUTOLOAD : (dirname(ABSPATH) . '/vendor/autoload.php');
+        if ($autoload === '' || !file_exists($autoload)) {
+            $autoload_alt = ABSPATH . 'vendor/autoload.php';
+            if (file_exists($autoload_alt)) {
+                $autoload = $autoload_alt;
+            } elseif (file_exists(__DIR__ . '/vendor/autoload.php')) {
+                $autoload = __DIR__ . '/vendor/autoload.php';
+            }
+        }
         if ($stripe_key !== '' && file_exists($autoload)) {
             try {
                 require_once $autoload;
@@ -288,6 +296,14 @@ if ($endpoint === 'confirm-order') {
 
     $stripe_key = defined('STRIPE_SECRET_KEY') ? STRIPE_SECRET_KEY : '';
     $autoload   = defined('STRIPE_VENDOR_AUTOLOAD') ? STRIPE_VENDOR_AUTOLOAD : (dirname(ABSPATH) . '/vendor/autoload.php');
+    if ($autoload === '' || !file_exists($autoload)) {
+        $autoload_alt = ABSPATH . 'vendor/autoload.php';
+        if (file_exists($autoload_alt)) {
+            $autoload = $autoload_alt;
+        } elseif (file_exists(__DIR__ . '/vendor/autoload.php')) {
+            $autoload = __DIR__ . '/vendor/autoload.php';
+        }
+    }
     if ($stripe_key === '' || !file_exists($autoload)) {
         http_response_code(500);
         echo json_encode(['error' => 'Stripe non configuré']);

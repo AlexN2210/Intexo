@@ -4,7 +4,6 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", process.env.CORS_ORIGIN || "https://www.impexo.fr");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -23,35 +22,15 @@ export default async function handler(req, res) {
   }
 
   const wp = (process.env.WP_BASE_URL || "https://wp.impexo.fr").replace(/\/+$/, "");
-  const consumerKey = (process.env.WC_CONSUMER_KEY || process.env.VITE_WC_CONSUMER_KEY || "").trim();
-  const consumerSecret = (process.env.WC_CONSUMER_SECRET || process.env.VITE_WC_CONSUMER_SECRET || "").trim();
-
-  if (!consumerKey || !consumerSecret) {
-    return res.status(500).json({
-      error: "Authentification manquante",
-      details: "Définir WC_CONSUMER_KEY et WC_CONSUMER_SECRET dans Vercel.",
-    });
-  }
-
-  const authB64 = Buffer.from(consumerKey + ":" + consumerSecret, "utf8").toString("base64");
 
   try {
-    const response = await fetch(`${wp}/store-proxy.php?endpoint=confirm-order`, {
+    const response = await fetch(`${wp}/confirm-order-stripe.php`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Basic " + authB64,
-        "X-WC-Proxy-Auth": authB64,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
 
     const data = await response.json().catch(() => ({}));
-
-    if (response.status === 401) {
-      return res.status(401).json({ error: "Authentification refusée", ...data });
-    }
-
     return res.status(response.status).json(data);
   } catch (error) {
     return res.status(500).json({ error: "Erreur confirmation", details: error.message });

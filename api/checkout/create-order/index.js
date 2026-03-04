@@ -36,30 +36,29 @@ export default async function handler(req, res) {
   const authB64 = Buffer.from(consumerKey + ":" + consumerSecret, "utf8").toString("base64");
   const authorization = "Basic " + authB64;
 
-  // Headless : endpoint create-order-stripe (commande WC + PaymentIntent, pas Store API)
-  const storeProxyUrl = `${wp}/store-proxy.php?endpoint=create-order-stripe`;
+  // Headless : create-order-stripe (commande WC + PaymentIntent, retourne client_secret)
+  const createOrderUrl = `${wp}/create-order-stripe.php`;
   try {
-    console.log("[checkout] create-order-stripe (wc/v3 style + PaymentIntent)");
-    const response = await fetch(storeProxyUrl, {
+    const response = await fetch(createOrderUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: authorization,
-        // En-tête de secours : certains hébergeurs (Apache) suppriment "Authorization"
         "X-WC-Proxy-Auth": authB64,
       },
       body: JSON.stringify(body),
     });
 
     const data = await response.json().catch(() => ({}));
-
     const hasClientSecret = data?.payment_result?.payment_intent_client_secret ?? data?.payment_intent_client_secret;
-    console.log("[checkout] WP status:", response.status, "has payment_intent_client_secret:", !!hasClientSecret, "body:", JSON.stringify(data).slice(0, 400));
+    if (response.status !== 200) {
+      console.log("[checkout] WP status:", response.status, "has client_secret:", !!hasClientSecret);
+    }
 
     if (response.status === 401) {
       return res.status(401).json({
         error: "Authentification refusée",
-        details: "Clés WooCommerce invalides ou utilisateur sans droit. Vérifier WC_CONSUMER_KEY / WC_CONSUMER_SECRET (compte admin).",
+        details: "Clés WooCommerce invalides. Vérifier WC_CONSUMER_KEY / WC_CONSUMER_SECRET.",
         ...data,
       });
     }

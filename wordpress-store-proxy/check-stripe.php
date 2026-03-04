@@ -26,9 +26,19 @@ require_once $wp_load;
 
 $stripe_key = defined('STRIPE_SECRET_KEY') ? STRIPE_SECRET_KEY : '';
 $autoload_path = defined('STRIPE_VENDOR_AUTOLOAD') ? STRIPE_VENDOR_AUTOLOAD : (dirname(ABSPATH) . '/vendor/autoload.php');
+$autoload_path_alt = ABSPATH . 'vendor/autoload.php';
+$autoload_path_same_dir = __DIR__ . '/vendor/autoload.php';
+if ($autoload_path === '' || !file_exists($autoload_path)) {
+    if (file_exists($autoload_path_same_dir)) {
+        $autoload_path = $autoload_path_same_dir;
+    } elseif (file_exists($autoload_path_alt)) {
+        $autoload_path = $autoload_path_alt;
+    }
+}
 $autoload_exists = $autoload_path !== '' && file_exists($autoload_path);
 $sdk_loaded = false;
 $sdk_version = null;
+$sdk_error = null;
 
 if ($autoload_exists) {
     try {
@@ -39,6 +49,7 @@ if ($autoload_exists) {
         }
     } catch (Throwable $e) {
         $sdk_loaded = false;
+        $sdk_error = $e->getMessage();
     }
 }
 
@@ -51,7 +62,10 @@ echo json_encode([
     'stripe_autoload_exists' => $autoload_exists,
     'stripe_sdk_loaded' => $sdk_loaded,
     'stripe_sdk_version' => $sdk_version,
+    'stripe_sdk_error' => $sdk_error,
+    'ou_placer_autoload' => 'Dans le MÊME dossier que check-stripe.php : ' . $autoload_path_same_dir,
+    'ce_chemin_existe' => file_exists($autoload_path_same_dir),
     'message' => $ok
         ? 'Stripe est prêt pour create-order-stripe.'
-        : 'Vérifier STRIPE_SECRET_KEY dans wp-config.php et composer require stripe/stripe-php (vendor/autoload.php).',
+        : ($sdk_error ? 'SDK Stripe : ' . $sdk_error : ($autoload_exists ? 'Vérifier STRIPE_SECRET_KEY.' : 'Mettre vendor/autoload.php dans le même dossier que check-stripe.php (voir ou_placer_autoload).')),
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);

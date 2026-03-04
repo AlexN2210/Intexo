@@ -2,6 +2,44 @@
 
 Sur hébergement mutualisé (o2switch, etc.), la racine WordPress est en général **`/public_html`**. Place **`check-stripe.php`** dans **`/public_html`** (à côté de `wp-config.php`, `wp-load.php`, `store-proxy.php`).
 
+---
+
+## Installation du SDK Stripe dans public_html (o2switch)
+
+Si `check-stripe.php` affiche **`stripe_autoload_exists: false`** avec un chemin du type `/home/ton_user/vendor/autoload.php`, le dossier `vendor` n’existe pas à cet endroit. Tu peux installer le SDK **dans public_html** :
+
+### Option A — Avec accès SSH (recommandé)
+
+```bash
+cd /home/yoge9230/public_html
+composer require stripe/stripe-php
+```
+
+Cela crée `public_html/vendor/` et `public_html/vendor/autoload.php`.  
+**Aucun changement dans wp-config** : le script cherche déjà ce chemin en secours.
+
+### Option B — Sans SSH : installer en local puis envoyer par FTP
+
+1. Sur ton PC, dans un dossier vide :
+   ```bash
+   composer require stripe/stripe-php
+   ```
+2. Tu obtiens un dossier **`vendor`** (avec `autoload.php`, `stripe/`, etc.).
+3. Envoie tout le dossier **`vendor`** dans **`/public_html`** (FTP ou gestionnaire de fichiers o2switch).  
+   Résultat : `public_html/vendor/autoload.php` doit exister.
+
+Après ça, **recharge** `https://wp.impexo.fr/check-stripe.php` : tu devrais avoir **`ok: true`**.
+
+### Option C — Forcer le chemin dans wp-config
+
+Si tu as mis `vendor` ailleurs (par ex. `/home/yoge9230/vendor`), indique le chemin dans **wp-config.php** :
+
+```php
+define( 'STRIPE_VENDOR_AUTOLOAD', '/home/yoge9230/chemin/complet/vers/vendor/autoload.php' );
+```
+
+---
+
 ## 1. Vérifier le SDK Stripe PHP
 
 Sur le serveur (o2switch, SSH ou gestionnaire de fichiers) :

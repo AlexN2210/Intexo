@@ -5,7 +5,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { createOrderFromCart, confirmOrderAfterPayment } from "@/services/checkout";
+import { createOrderFromCart } from "@/services/checkout";
 import {
   getCartPayloadForCheckout,
   selectCartDiscount,
@@ -22,7 +22,6 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 
-// Clé publique du même compte Stripe que WooPayments (wp.impexo.fr) pour confirmCardPayment
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
 
 const CARD_ELEMENT_OPTIONS = {
@@ -62,6 +61,7 @@ function CheckoutForm() {
   const items = useCartStore((s) => s.items);
   const packOfferId = useCartStore((s) => s.packOfferId);
   const setCheckoutLoading = useCartStore((s) => s.setCheckoutLoading);
+  const clearCart = useCartStore((s) => s.clear);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const subtotal = selectCartSubtotal(items);
@@ -116,7 +116,6 @@ function CheckoutForm() {
     }
 
     try {
-      // Payload minimal Store API : billing_address, shipping_address, payment_method (pas de payment_data)
       const billing = {
         first_name: values.first_name,
         last_name: values.last_name,
@@ -128,60 +127,70 @@ function CheckoutForm() {
         postcode: values.postcode,
         country: values.country,
       };
-      const payload = {
+
+      // Étape 1 : créer la commande WC + PaymentIntent → reçoit client_secret
+      const result = await createOrderFromCart({
         items: getCartPayloadForCheckout(items),
         billing_address: billing,
-        shipping_address: billing,
-        payment_method: "stripe",
-      };
+      });
 
-      const result = await createOrderFromCart(payload);
+      const clientSecret = (result as { client_secret?: string }).client_secret;
 
-      if (result.payment_url) {
-        window.location.href = result.payment_url;
+      if (!clientSecret) {
+        throw new Error(
+          (result as { error?: string }).error ?? "Pas de client_secret reçu du serveur."
+        );
+      }
+
+      // Étape 2 : confirmer le paiement avec Stripe.js
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: `${values.first_name} ${values.last_name}`.trim(),
+            email: values.email,
+            phone: values.phone,
+            address: {
+              line1: values.address_1,
+              line2: values.address_2 || undefined,
+              city: values.city,
+              postal_code: values.postcode,
+              country: values.country,
+            },
+          },
+        },
+      });
+
+      if (error) {
+        toast({
+          title: "Paiement refusé",
+          description: error.message ?? "Vérifiez vos informations carte.",
+          variant: "destructive",
+        });
+        setCheckoutLoading(false);
+        setIsSubmitting(false);
         return;
       }
 
-      const clientSecret =
-        result.payment_result?.payment_intent_client_secret ??
-        (result as { payment_intent_client_secret?: string }).payment_intent_client_secret;
+      if (paymentIntent?.status === "succeeded") {
+        // Étape 3 : notifier WordPress que le paiement est confirmé
+        await fetch(`${(import.meta.env.VITE_CHECKOUT_API_BASE_URL ?? "")}/api/checkout/confirm-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order_id: result.order_id,
+            payment_intent_id: paymentIntent.id,
+          }),
+        }).catch(() => null); // non bloquant
 
-      if (clientSecret) {
-        // Étape 2 : confirmer le paiement avec le client_secret renvoyé par WordPress
-        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              name: `${values.first_name} ${values.last_name}`.trim(),
-              email: values.email,
-            },
-          },
-        });
-
-        if (error) {
-          toast({
-            title: "Paiement refusé",
-            description: error.message ?? "Vérifiez vos informations carte.",
-            variant: "destructive",
-          });
-          setCheckoutLoading(false);
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Étape 3 : passer la commande en processing côté WordPress (vérif PaymentIntent puis mise à jour)
-        if (paymentIntent?.id && result.order_id) {
-          await confirmOrderAfterPayment(result.order_id, paymentIntent.id);
-        }
+        clearCart();
+        navigate(`/confirmation?order_id=${result.order_id}`, { replace: true });
+        return;
       }
 
-      toast({
-        title: "Commande créée",
-        description: result.order_id ? `Commande #${result.order_id}.` : "Paiement enregistré.",
-      });
-      navigate("/confirmation" + (result.order_id ? `?order_id=${result.order_id}` : ""), { replace: true });
+      throw new Error("Statut de paiement inattendu : " + paymentIntent?.status);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Erreur lors de la création de la commande.";
+      const message = err instanceof Error ? err.message : "Erreur lors du paiement.";
       toast({ title: "Erreur", description: message, variant: "destructive" });
     } finally {
       setCheckoutLoading(false);
