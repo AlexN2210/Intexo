@@ -22,6 +22,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 
+// Clé publique du même compte Stripe que WooPayments (wp.impexo.fr) pour confirmCardPayment
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
 
 const CARD_ELEMENT_OPTIONS = {
@@ -94,57 +95,41 @@ function CheckoutForm() {
   }, [items.length, isSubmitting, navigate]);
 
   const onSubmit = async (values: FormValues) => {
-    console.log("Submit lancé");
-
     if (items.length === 0) {
       toast({ title: "Panier vide", variant: "destructive" });
       return;
     }
     if (!stripe || !elements) {
-      console.warn("Stripe ou elements null — stripe:", !!stripe, "elements:", !!elements);
+      toast({ title: "Stripe non prêt", variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
     setCheckoutLoading(true);
 
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      toast({ title: "Erreur", description: "Champ carte manquant.", variant: "destructive" });
+      setCheckoutLoading(false);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const billingDetails = {
+      name: `${values.first_name} ${values.last_name}`.trim(),
+      email: values.email,
+      phone: values.phone,
+      address: {
+        line1: values.address_1,
+        line2: values.address_2 || undefined,
+        city: values.city,
+        postal_code: values.postcode,
+        country: values.country,
+      },
+    };
+
     try {
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
-        console.error("Champ carte manquant");
-        toast({ title: "Erreur", description: "Champ carte manquant.", variant: "destructive" });
-        setCheckoutLoading(false);
-        setIsSubmitting(false);
-        return;
-      }
-
-      const { error, paymentMethod } = await stripe.createPaymentMethod({
-        type: "card",
-        card: cardElement,
-        billing_details: {
-          name: `${values.first_name} ${values.last_name}`.trim(),
-          email: values.email,
-          phone: values.phone,
-          address: {
-            line1: values.address_1,
-            line2: values.address_2 || undefined,
-            city: values.city,
-            postal_code: values.postcode,
-            country: values.country,
-          },
-        },
-      });
-
-      console.log("Stripe result:", error, paymentMethod);
-
-      if (error) {
-        console.error("Stripe error:", error);
-        toast({ title: "Carte refusée", description: error.message ?? "Vérifiez vos informations.", variant: "destructive" });
-        setCheckoutLoading(false);
-        setIsSubmitting(false);
-        return;
-      }
-
+      // Étape 1 : créer la commande SANS payment_data — WooPayments crée le PaymentIntent et renvoie client_secret
       const payload = {
         items: getCartPayloadForCheckout(items),
         billing_address: {
@@ -159,18 +144,39 @@ function CheckoutForm() {
           country: values.country,
         },
         payment_method: "woocommerce_payments",
-        payment_data: [{ key: "payment_method_id", value: paymentMethod.id }],
+        // Pas de payment_data : on récupère payment_intent_client_secret puis on confirme avec confirmCardPayment
       };
 
-      // Vérif : WooCommerce Payments exige payment_data: [{ key, value }]
-      console.log("Payload envoyé:", JSON.stringify(payload, null, 2));
-      console.log("Envoi au backend...", payload);
       const result = await createOrderFromCart(payload);
-      console.log("Réponse backend:", result);
 
       if (result.payment_url) {
         window.location.href = result.payment_url;
         return;
+      }
+
+      const clientSecret =
+        result.payment_result?.payment_intent_client_secret ??
+        (result as { payment_intent_client_secret?: string }).payment_intent_client_secret;
+
+      if (clientSecret) {
+        // Étape 2 : confirmer le paiement avec le client_secret renvoyé par WooPayments
+        const { error } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: {
+            card: cardElement,
+            billing_details: billingDetails,
+          },
+        });
+
+        if (error) {
+          toast({
+            title: "Paiement refusé",
+            description: error.message ?? "Vérifiez vos informations carte.",
+            variant: "destructive",
+          });
+          setCheckoutLoading(false);
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       toast({

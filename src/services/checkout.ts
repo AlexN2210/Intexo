@@ -58,11 +58,20 @@ export type CreateOrderPayload = {
   customer_note?: string;
 };
 
+/** Réponse WooPayments Store API : PaymentIntent à confirmer côté client */
+export type PaymentResult = {
+  payment_intent_client_secret?: string;
+  payment_status?: string;
+  redirect_url?: string;
+};
+
 export type CreateOrderResult = {
-  order_id: number;
+  order_id?: number;
   order_key?: string;
-  payment_url?: string; // URL Stripe Checkout à ouvrir
+  payment_url?: string;
   status?: string;
+  /** WooPayments : contient payment_intent_client_secret pour confirmCardPayment */
+  payment_result?: PaymentResult;
 };
 
 /**
