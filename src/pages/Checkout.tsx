@@ -181,10 +181,11 @@ function CheckoutForm() {
             order_id: result.order_id,
             payment_intent_id: paymentIntent.id,
           }),
-        }).catch(() => null); // non bloquant
+        }).catch(() => null);
 
-        clearCart();
+        // Naviguer AVANT de vider le panier (évite la redirection /panier par le useEffect)
         navigate(`/confirmation?order_id=${result.order_id}`, { replace: true });
+        clearCart();
         return;
       }
 
