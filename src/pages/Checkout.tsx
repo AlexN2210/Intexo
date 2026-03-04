@@ -116,20 +116,22 @@ function CheckoutForm() {
     }
 
     try {
-      // Étape 1 : créer la commande (payment_method: "stripe", pas de payment_data / pm_)
+      // Payload minimal Store API : billing_address, shipping_address, payment_method (pas de payment_data)
+      const billing = {
+        first_name: values.first_name,
+        last_name: values.last_name,
+        email: values.email,
+        phone: values.phone,
+        address_1: values.address_1,
+        address_2: values.address_2 ?? "",
+        city: values.city,
+        postcode: values.postcode,
+        country: values.country,
+      };
       const payload = {
         items: getCartPayloadForCheckout(items),
-        billing_address: {
-          first_name: values.first_name,
-          last_name: values.last_name,
-          email: values.email,
-          phone: values.phone,
-          address_1: values.address_1,
-          address_2: values.address_2 ?? "",
-          city: values.city,
-          postcode: values.postcode,
-          country: values.country,
-        },
+        billing_address: billing,
+        shipping_address: billing,
         payment_method: "stripe",
       };
 

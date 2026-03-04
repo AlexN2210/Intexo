@@ -36,8 +36,11 @@ export default async function handler(req, res) {
   const authB64 = Buffer.from(consumerKey + ":" + consumerSecret, "utf8").toString("base64");
   const authorization = "Basic " + authB64;
 
+  // Store API uniquement : store-proxy dispatch en interne vers POST /wc/store/v1/checkout (pas wc/v3/orders)
+  const storeProxyUrl = `${wp}/store-proxy.php?endpoint=checkout-full`;
   try {
-    const response = await fetch(`${wp}/store-proxy.php?endpoint=checkout-full`, {
+    console.log("[checkout] Store API via proxy:", storeProxyUrl, "→ POST /wc/store/v1/checkout");
+    const response = await fetch(storeProxyUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -50,8 +53,8 @@ export default async function handler(req, res) {
 
     const data = await response.json().catch(() => ({}));
 
-    // Log pour debug dans Vercel (Functions → Logs)
-    console.log("[checkout] WP status:", response.status, "body:", JSON.stringify(data).slice(0, 300));
+    const hasClientSecret = data?.payment_result?.payment_intent_client_secret ?? data?.payment_intent_client_secret;
+    console.log("[checkout] WP status:", response.status, "has payment_intent_client_secret:", !!hasClientSecret, "body:", JSON.stringify(data).slice(0, 400));
 
     if (response.status === 401) {
       return res.status(401).json({

@@ -46,8 +46,9 @@ export type BillingAddress = {
 export type CreateOrderPayload = {
   items: Array<{ product_id: number; variation_id: number; quantity: number }>;
   billing_address?: BillingAddress;
+  shipping_address?: BillingAddress;
   customer?: CheckoutCustomer;
-  /** "stripe" pour flux PaymentIntent + confirmCardPayment (pas de payment_data / pm_) */
+  /** "stripe" → Store API crée le PaymentIntent, renvoie client_secret (pas de payment_data) */
   payment_method?: string;
   customer_note?: string;
 };
