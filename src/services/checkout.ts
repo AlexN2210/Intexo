@@ -76,6 +76,7 @@ export type CreateOrderResult = {
  */
 const CHECKOUT_API_BASE = (import.meta.env.VITE_CHECKOUT_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") ?? "";
 const CHECKOUT_API_URL = CHECKOUT_API_BASE ? `${CHECKOUT_API_BASE}/api/checkout/create-order` : "/api/checkout/create-order";
+const CONFIRM_ORDER_URL = CHECKOUT_API_BASE ? `${CHECKOUT_API_BASE}/api/checkout/confirm-order` : "/api/checkout/confirm-order";
 
 export async function createOrderFromCart(payload: CreateOrderPayload): Promise<CreateOrderResult> {
   const url = CHECKOUT_API_URL;
@@ -87,6 +88,20 @@ export async function createOrderFromCart(payload: CreateOrderPayload): Promise<
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
     throw new Error(err?.message ?? `Checkout failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+/** Après confirmCardPayment succès : vérifie le PaymentIntent côté WordPress et passe la commande en processing */
+export async function confirmOrderAfterPayment(orderId: number, paymentIntentId: string): Promise<{ success: boolean; order_id: number; status?: string }> {
+  const res = await fetch(CONFIRM_ORDER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ order_id: orderId, payment_intent_id: paymentIntentId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message ?? err?.error ?? `Confirmation failed: ${res.status}`);
   }
   return res.json();
 }

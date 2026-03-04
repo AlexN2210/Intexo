@@ -5,7 +5,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { createOrderFromCart } from "@/services/checkout";
+import { createOrderFromCart, confirmOrderAfterPayment } from "@/services/checkout";
 import {
   getCartPayloadForCheckout,
   selectCartDiscount,
@@ -148,7 +148,7 @@ function CheckoutForm() {
 
       if (clientSecret) {
         // Étape 2 : confirmer le paiement avec le client_secret renvoyé par WordPress
-        const { error } = await stripe.confirmCardPayment(clientSecret, {
+        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
           payment_method: {
             card: cardElement,
             billing_details: {
@@ -167,6 +167,11 @@ function CheckoutForm() {
           setCheckoutLoading(false);
           setIsSubmitting(false);
           return;
+        }
+
+        // Étape 3 : passer la commande en processing côté WordPress (vérif PaymentIntent puis mise à jour)
+        if (paymentIntent?.id && result.order_id) {
+          await confirmOrderAfterPayment(result.order_id, paymentIntent.id);
         }
       }
 
