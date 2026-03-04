@@ -115,21 +115,8 @@ function CheckoutForm() {
       return;
     }
 
-    const billingDetails = {
-      name: `${values.first_name} ${values.last_name}`.trim(),
-      email: values.email,
-      phone: values.phone,
-      address: {
-        line1: values.address_1,
-        line2: values.address_2 || undefined,
-        city: values.city,
-        postal_code: values.postcode,
-        country: values.country,
-      },
-    };
-
     try {
-      // Étape 1 : créer la commande SANS payment_data — WooPayments crée le PaymentIntent et renvoie client_secret
+      // Étape 1 : créer la commande (payment_method: "stripe", pas de payment_data / pm_)
       const payload = {
         items: getCartPayloadForCheckout(items),
         billing_address: {
@@ -143,8 +130,7 @@ function CheckoutForm() {
           postcode: values.postcode,
           country: values.country,
         },
-        payment_method: "woocommerce_payments",
-        // Pas de payment_data : on récupère payment_intent_client_secret puis on confirme avec confirmCardPayment
+        payment_method: "stripe",
       };
 
       const result = await createOrderFromCart(payload);
@@ -159,11 +145,14 @@ function CheckoutForm() {
         (result as { payment_intent_client_secret?: string }).payment_intent_client_secret;
 
       if (clientSecret) {
-        // Étape 2 : confirmer le paiement avec le client_secret renvoyé par WooPayments
+        // Étape 2 : confirmer le paiement avec le client_secret renvoyé par WordPress
         const { error } = await stripe.confirmCardPayment(clientSecret, {
           payment_method: {
             card: cardElement,
-            billing_details: billingDetails,
+            billing_details: {
+              name: `${values.first_name} ${values.last_name}`.trim(),
+              email: values.email,
+            },
           },
         });
 

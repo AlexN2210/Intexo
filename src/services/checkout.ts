@@ -43,18 +43,12 @@ export type BillingAddress = {
   country: string;
 };
 
-/** WooCommerce Payments : payment_method_id issu de stripe.createPaymentMethod */
-export type PaymentDataItem = { key: string; value: string };
-
 export type CreateOrderPayload = {
   items: Array<{ product_id: number; variation_id: number; quantity: number }>;
-  /** WooPayments : billing_address à la racine */
   billing_address?: BillingAddress;
-  /** Ancien format (optionnel) */
   customer?: CheckoutCustomer;
-  payment_method?: string; // "woocommerce_payments" pour WooPayments
-  /** Stripe : [{ key: "payment_method_id", value: "pm_xxx" }] */
-  payment_data?: PaymentDataItem[];
+  /** "stripe" pour flux PaymentIntent + confirmCardPayment (pas de payment_data / pm_) */
+  payment_method?: string;
   customer_note?: string;
 };
 
