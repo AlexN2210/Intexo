@@ -212,10 +212,10 @@ function CheckoutForm() {
         </FadeIn>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 sm:mt-8">
-            <div className="grid gap-6 sm:gap-8 lg:grid-cols-3">
-              <div className="space-y-4 sm:space-y-6 lg:col-span-2">
-                <FadeIn className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 sm:mt-8 min-w-0">
+            <div className="grid gap-6 sm:gap-8 lg:grid-cols-3 min-w-0">
+              <div className="space-y-4 sm:space-y-6 lg:col-span-2 min-w-0">
+                <FadeIn className="rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6">
                   <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">COORDONNÉES</div>
                   <div className="mt-3 grid gap-3 sm:mt-4 sm:grid-cols-2 sm:gap-4">
                     <FormField
@@ -347,7 +347,7 @@ function CheckoutForm() {
                   </div>
                 </FadeIn>
 
-                <FadeIn className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6">
+                <FadeIn className="rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6">
                   <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">CARTE BANCAIRE</div>
                   <p className="mt-2 text-sm text-muted-foreground">Paiement sécurisé par Stripe.</p>
                   <div className="mt-3 rounded-xl border bg-muted/30 p-3 sm:mt-4 sm:rounded-2xl sm:p-4">
@@ -356,7 +356,7 @@ function CheckoutForm() {
                 </FadeIn>
               </div>
 
-              <FadeIn delay={0.05} className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6 lg:sticky lg:top-24 lg:self-start impexo-safe-bottom">
+              <FadeIn delay={0.05} className="rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6 lg:sticky lg:top-24 lg:self-start impexo-safe-bottom min-w-0">
                 <div className="text-sm font-medium tracking-tight">Récapitulatif</div>
                 <Separator className="my-4" />
                 <ul className="space-y-2 text-sm">

@@ -100,7 +100,7 @@ export default function Cart() {
           <div className="mt-6 grid gap-6 sm:mt-8 sm:gap-8 lg:grid-cols-3">
             <div className="space-y-3 sm:space-y-4 lg:col-span-2">
               {items.map((it) => (
-                <FadeIn key={it.key} className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-5">
+                <FadeIn key={it.key} className="rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6">
                   <div className="flex gap-3 sm:gap-4">
                     <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted/40 sm:h-24 sm:w-24 sm:rounded-2xl">
                       {it.imageSrc ? (
@@ -167,7 +167,7 @@ export default function Cart() {
               ))}
             </div>
 
-            <FadeIn delay={0.05} className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6 lg:sticky lg:top-24 lg:self-start impexo-safe-bottom">
+            <FadeIn delay={0.05} className="rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6 lg:sticky lg:top-24 lg:self-start impexo-safe-bottom min-w-0">
               <div className="text-sm font-medium tracking-tight">Résumé</div>
               <Separator className="my-4" />
               <div className="flex items-center justify-between text-sm">
