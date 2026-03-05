@@ -1,56 +1,55 @@
 import { FadeIn } from "@/components/animations/FadeIn";
 import { Container } from "@/components/layout/Container";
 
+const LEGAL_PAGES = [
+  { slug: "mentions-legales", label: "Mentions légales" },
+  { slug: "cgv", label: "Conditions Générales de Vente (CGV)" },
+  { slug: "politique-confidentialite", label: "Politique de confidentialité (RGPD)" },
+  { slug: "politique-cookies", label: "Politique de cookies" },
+  { slug: "livraison", label: "Livraison" },
+  { slug: "paiement", label: "Paiement" },
+  { slug: "retours-retractation", label: "Retours & rétractation" },
+  { slug: "garanties-legales", label: "Garanties légales" },
+] as const;
+
+const BASE = "/mentions-legales";
+
 export default function Legal() {
   return (
-    <div className="bg-background min-h-screen">
-      <Container className="py-6 sm:py-10 md:py-12">
+    <div className="min-h-screen bg-background">
+      <Container className="py-10 sm:py-14 lg:py-16">
         <FadeIn>
           <div>
             <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">INFORMATIONS</div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-4xl">Mentions légales</h1>
+            <h1 className="mt-2 text-xl font-semibold tracking-tight sm:mt-3 sm:text-2xl lg:text-3xl">
+              Mentions légales & informations
+            </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Contenu “mock” pour validation design. Tu remplaceras ensuite par tes informations officielles.
+              Consultez les documents ci-dessous. Chaque lien s’ouvre dans un nouvel onglet.
             </p>
           </div>
         </FadeIn>
 
-        <FadeIn delay={0.05} className="mt-8 rounded-3xl border p-6 impexo-surface">
-          <div className="text-sm font-medium tracking-tight">Éditeur du site</div>
-          <div className="mt-2 text-sm text-muted-foreground">
-            Impexo (informations à compléter)
-            <br />
-            Adresse : …
-            <br />
-            Email : …
-            <br />
-            SIRET : …
-          </div>
-
-          <div className="mt-8 text-sm font-medium tracking-tight">Hébergement</div>
-          <div className="mt-2 text-sm text-muted-foreground">
-            Hébergeur : …
-            <br />
-            Adresse : …
-            <br />
-            Téléphone : …
-          </div>
-
-          <div className="mt-8 text-sm font-medium tracking-tight">Propriété intellectuelle</div>
-          <div className="mt-2 text-sm text-muted-foreground">
-            L’ensemble des contenus (textes, visuels, marques) est protégé. Toute reproduction est interdite sans
-            autorisation.
-          </div>
-
-          <div className="mt-8 text-sm font-medium tracking-tight">Marques & compatibilité</div>
-          <div className="mt-2 text-sm text-muted-foreground">
-            Les marques citées (ex. MagSafe) appartiennent à leurs propriétaires respectifs. Impexo est une marque
-            indépendante et n’est pas affiliée à Apple Inc. Les produits indiqués comme “compatibles MagSafe” le sont à
-            titre informatif.
-          </div>
+        <FadeIn delay={0.05} className="mt-8">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:gap-4">
+            {LEGAL_PAGES.map(({ slug, label }) => (
+              <li key={slug}>
+                <a
+                  href={`${BASE}/${slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-2xl border bg-card p-4 text-sm font-medium transition-colors hover:bg-muted/50 sm:rounded-3xl sm:p-5"
+                >
+                  <span className="flex-1">{label}</span>
+                  <span className="text-muted-foreground" aria-hidden>
+                    ↗
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
         </FadeIn>
       </Container>
     </div>
   );
 }
-

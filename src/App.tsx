@@ -13,6 +13,7 @@ import Checkout from "./pages/Checkout";
 import Confirmation from "./pages/Confirmation";
 import Contact from "./pages/Contact";
 import Legal from "./pages/Legal";
+import LegalContent from "./pages/LegalContent";
 import NotFound from "./pages/NotFound";
 
 /** Remonte Shop quand la requête (query string ou path collection) change. */
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/confirmation" element={<Confirmation />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/mentions-legales" element={<Legal />} />
+              <Route path="/mentions-legales/:slug" element={<LegalContent />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Route>
