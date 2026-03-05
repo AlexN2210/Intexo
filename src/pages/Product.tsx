@@ -75,6 +75,14 @@ export default function Product() {
 
   // Décaller la requête variations pour ne pas burst avec product by slug (rate limit)
   const [allowVariations, setAllowVariations] = useState(false);
+  const [lockedImage, setLockedImage] = useState<string | undefined>(undefined);
+  const [selectedImage, setSelectedImage] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (product?.images?.[0]?.src && lockedImage === undefined) {
+      setLockedImage(product.images[0].src);
+    }
+  }, [product?.images, lockedImage]);
+
   useEffect(() => {
     if (!product?.id || !hasVariations) {
       setAllowVariations(false);
@@ -257,22 +265,8 @@ export default function Product() {
   }, [matchedVariation, fallbackVariation, variations]);
 
   // ── image héro ───────────────────────────────────────────────────────────
-
-  const variationsLoaded = !varsQ.isLoading && variations.length > 0;
-
-  const heroImage = useMemo(
-    () => {
-      // Tant que les variations ne sont pas chargées, on garde l'image produit
-      if (!variationsLoaded) return product?.images?.[0]?.src ?? undefined;
-      return (
-        matchedVariation?.image?.src ??
-        fallbackVariation?.image?.src ??
-        product?.images?.[0]?.src ??
-        undefined
-      );
-    },
-    [variationsLoaded, matchedVariation, fallbackVariation, product?.images],
-  );
+  // Image figée au chargement ; ne change que si l'utilisateur clique sur une couleur dans la galerie.
+  const heroImage = selectedImage ?? lockedImage;
 
   // ── galerie ──────────────────────────────────────────────────────────────
 
@@ -442,6 +436,7 @@ export default function Product() {
                       type="button"
                       onClick={() => {
                         if (g.color) setColor(g.color);
+                        setSelectedImage(g.src);
                       }}
                       aria-label={g.color ? `Couleur ${g.color}` : g.alt}
                       aria-pressed={g.isActive}
