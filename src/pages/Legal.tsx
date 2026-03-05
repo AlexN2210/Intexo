@@ -2,14 +2,8 @@ import { FadeIn } from "@/components/animations/FadeIn";
 import { Container } from "@/components/layout/Container";
 
 const LEGAL_PAGES = [
-  { slug: "mentions-legales", label: "Mentions légales" },
-  { slug: "cgv", label: "Conditions Générales de Vente (CGV)" },
-  { slug: "politique-confidentialite", label: "Politique de confidentialité (RGPD)" },
-  { slug: "politique-cookies", label: "Politique de cookies" },
-  { slug: "livraison", label: "Livraison" },
-  { slug: "paiement", label: "Paiement" },
+  { slug: "legal", label: "Mentions légales | CGV | Politique de confidentialité" },
   { slug: "retours-retractation", label: "Retours & rétractation" },
-  { slug: "garanties-legales", label: "Garanties légales" },
 ] as const;
 
 const BASE = "/mentions-legales";
