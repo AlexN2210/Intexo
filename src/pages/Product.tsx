@@ -258,13 +258,20 @@ export default function Product() {
 
   // ── image héro ───────────────────────────────────────────────────────────
 
+  const variationsLoaded = !varsQ.isLoading && variations.length > 0;
+
   const heroImage = useMemo(
-    () =>
-      matchedVariation?.image?.src ??
-      fallbackVariation?.image?.src ??
-      product?.images?.[0]?.src ??
-      undefined,
-    [matchedVariation, fallbackVariation, product?.images],
+    () => {
+      // Tant que les variations ne sont pas chargées, on garde l'image produit
+      if (!variationsLoaded) return product?.images?.[0]?.src ?? undefined;
+      return (
+        matchedVariation?.image?.src ??
+        fallbackVariation?.image?.src ??
+        product?.images?.[0]?.src ??
+        undefined
+      );
+    },
+    [variationsLoaded, matchedVariation, fallbackVariation, product?.images],
   );
 
   // ── galerie ──────────────────────────────────────────────────────────────
@@ -396,6 +403,7 @@ export default function Product() {
                       <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(0,0,0,0.05),transparent_60%)] opacity-0 transition group-hover:opacity-100" />
                       {heroImage ? (
                         <img
+                          key={heroImage}
                           src={heroImage}
                           alt={product.images?.[0]?.alt || product.name}
                           loading="eager"
