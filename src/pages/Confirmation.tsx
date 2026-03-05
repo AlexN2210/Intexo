@@ -1,13 +1,20 @@
 import { FadeIn } from "@/components/animations/FadeIn";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/button";
+import { useCartStore } from "@/store/cartStore";
 import { CheckCircle2 } from "lucide-react";
+import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 export default function Confirmation() {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get("order_id");
   const sessionId = searchParams.get("session_id");
+  const clearCart = useCartStore((s) => s.clear);
+
+  useEffect(() => {
+    clearCart();
+  }, [clearCart]);
 
   return (
     <div className="bg-background">

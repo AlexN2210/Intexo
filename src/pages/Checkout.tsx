@@ -61,9 +61,7 @@ function CheckoutForm() {
   const items = useCartStore((s) => s.items);
   const packOfferId = useCartStore((s) => s.packOfferId);
   const setCheckoutLoading = useCartStore((s) => s.setCheckoutLoading);
-  const clearCart = useCartStore((s) => s.clear);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderCompleted, setOrderCompleted] = useState(false);
 
   const subtotal = selectCartSubtotal(items);
   const count = items.reduce((acc, i) => acc + i.quantity, 0);
@@ -90,10 +88,10 @@ function CheckoutForm() {
   }, [setCheckoutLoading]);
 
   useEffect(() => {
-    if (items.length === 0 && !isSubmitting && !orderCompleted) {
+    if (items.length === 0 && !isSubmitting) {
       navigate("/panier", { replace: true });
     }
-  }, [items.length, isSubmitting, orderCompleted, navigate]);
+  }, [items.length, isSubmitting, navigate]);
 
   const onSubmit = async (values: FormValues) => {
     if (items.length === 0) {
@@ -184,9 +182,7 @@ function CheckoutForm() {
           }),
         }).catch(() => null);
 
-        setOrderCompleted(true);
         navigate(`/confirmation?order_id=${result.order_id}`, { replace: true });
-        clearCart();
         return;
       }
 
