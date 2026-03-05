@@ -65,7 +65,7 @@ export function HeroShowcase({ products }: { products: WooProduct[] }) {
 
         {/* 4rem = header h-16, + safe-area iOS */}
         <div className="absolute inset-0 flex items-center pt-[calc(4rem+env(safe-area-inset-top))]">
-          <div className="mx-auto w-full max-w-7xl px-8 sm:px-10 md:px-12 lg:px-14 impexo-safe-x">
+          <div className="impexo-page-padding mx-auto w-full max-w-7xl">
             <div className="max-w-3xl text-white text-center md:text-left">
               <div className="text-xs font-medium tracking-[0.32em] text-white/70">IMPEXO</div>
               <h1 className="mt-5 text-balance font-semibold leading-[1.04] tracking-tight text-[clamp(2.05rem,5vw,4.15rem)]">

@@ -5,8 +5,7 @@ export function Container({ className, children }: PropsWithChildren<{ className
   return (
     <div
       className={cn(
-        "mx-auto w-full max-w-7xl min-w-0",
-        "px-8 sm:px-10 md:px-12 lg:px-14 impexo-safe-x",
+        "mx-auto w-full max-w-7xl min-w-0 impexo-page-padding",
         className,
       )}
     >
