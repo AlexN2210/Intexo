@@ -75,13 +75,12 @@ export default function Product() {
 
   // Décaller la requête variations pour ne pas burst avec product by slug (rate limit)
   const [allowVariations, setAllowVariations] = useState(false);
-  const [lockedImage, setLockedImage] = useState<string | undefined>(undefined);
   const [selectedImage, setSelectedImage] = useState<string | undefined>(undefined);
+
+  // Reset l'image sélectionnée quand on change de produit
   useEffect(() => {
-    if (product?.images?.[0]?.src && lockedImage === undefined) {
-      setLockedImage(product.images[0].src);
-    }
-  }, [product?.images, lockedImage]);
+    setSelectedImage(undefined);
+  }, [slug]);
 
   useEffect(() => {
     if (!product?.id || !hasVariations) {
@@ -265,8 +264,8 @@ export default function Product() {
   }, [matchedVariation, fallbackVariation, variations]);
 
   // ── image héro ───────────────────────────────────────────────────────────
-  // Image figée au chargement ; ne change que si l'utilisateur clique sur une couleur dans la galerie.
-  const heroImage = selectedImage ?? lockedImage;
+  // Image sélectionnée par l'utilisateur OU image produit (pas de saut au chargement des variations)
+  const heroImage = selectedImage ?? product?.images?.[0]?.src ?? undefined;
 
   // ── galerie ──────────────────────────────────────────────────────────────
 
