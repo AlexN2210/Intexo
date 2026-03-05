@@ -70,13 +70,13 @@ export default function Cart() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
             <div>
               <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">PANIER</div>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-4xl">Votre sélection</h1>
+              <h1 className="mt-2 text-xl font-semibold tracking-tight sm:mt-3 sm:text-2xl lg:text-3xl">Votre sélection</h1>
               <p className="mt-1.5 text-sm text-muted-foreground sm:mt-2">Simple. Clair. Premium.</p>
             </div>
             {items.length ? (
               <Button
                 variant="ghost"
-                className="rounded-full"
+                className="min-h-[44px] rounded-full px-4 text-sm sm:px-5"
                 onClick={handleClear}
                 disabled={isLoading}
               >
@@ -87,11 +87,11 @@ export default function Cart() {
         </FadeIn>
 
         {items.length === 0 ? (
-          <div className="mt-6 rounded-2xl border bg-card p-6 text-center sm:mt-8 sm:rounded-3xl sm:p-10">
+          <div className="mt-6 rounded-2xl border bg-card p-6 text-center sm:mt-8 sm:rounded-3xl sm:p-8 md:p-10">
             <div className="text-sm font-medium tracking-tight">Votre panier est vide.</div>
             <div className="mt-2 text-sm text-muted-foreground">Découvrez nos coques premium.</div>
             <div className="mt-6">
-              <Button asChild className="min-h-[48px] rounded-full px-6 text-base">
+              <Button asChild className="min-h-[48px] w-full rounded-full px-5 text-base sm:w-auto sm:px-6">
                 <Link to="/boutique">Aller à la boutique</Link>
               </Button>
             </div>
@@ -229,7 +229,7 @@ export default function Cart() {
                 Livraison & taxes calculées au checkout WooCommerce.
               </div>
               <Button
-                className="mt-6 min-h-[48px] w-full rounded-full text-base sm:h-12"
+                className="mt-6 min-h-[48px] w-full rounded-full px-5 text-base sm:h-12 sm:px-6"
                 onClick={checkout}
                 disabled={isLoading || items.length === 0}
               >

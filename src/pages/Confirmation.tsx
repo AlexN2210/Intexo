@@ -25,7 +25,7 @@ export default function Confirmation() {
               <CheckCircle2 className="h-10 w-10" />
             </div>
             <div className="mt-6 text-xs font-medium tracking-[0.2em] text-muted-foreground">MERCI</div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Commande confirmée</h1>
+            <h1 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl lg:text-3xl">Commande confirmée</h1>
             <p className="mt-3 text-sm text-muted-foreground">
               Votre paiement a bien été enregistré. Vous recevrez un email de confirmation sous peu.
             </p>
@@ -37,10 +37,10 @@ export default function Confirmation() {
               </p>
             )}
             <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:justify-center">
-              <Button asChild className="min-h-[48px] rounded-full text-base sm:min-h-0 sm:h-10">
+              <Button asChild className="min-h-[48px] w-full rounded-full px-5 text-base sm:w-auto sm:min-h-0 sm:h-10 sm:px-6">
                 <Link to="/boutique">Continuer mes achats</Link>
               </Button>
-              <Button asChild variant="outline" className="min-h-[48px] rounded-full text-base sm:min-h-0 sm:h-10">
+              <Button asChild variant="outline" className="min-h-[48px] w-full rounded-full px-5 text-base sm:w-auto sm:min-h-0 sm:h-10 sm:px-6">
                 <Link to="/">Retour à l&apos;accueil</Link>
               </Button>
             </div>
