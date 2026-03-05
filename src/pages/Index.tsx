@@ -29,12 +29,12 @@ const Index = () => {
 
       {/* Manifesto / storytelling */}
       <section className="bg-background">
-        <Container className="py-14 sm:py-16">
+        <Container className="py-10 sm:py-14 lg:py-16">
           <FadeIn>
-            <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
+            <div className="grid gap-8 md:grid-cols-2">
               <div>
                 <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">MANIFESTE</div>
-                <h2 className="mt-3 text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h2 className="mt-3 text-balance text-xl font-semibold tracking-tight sm:text-2xl lg:text-3xl">
                   Le luxe n’est pas un logo.
                   <span className="block text-muted-foreground">C’est une sensation.</span>
                 </h2>
@@ -43,7 +43,7 @@ const Index = () => {
                   impeccables. Tout est pensé pour sublimer l’iPhone, sans le surcharger.
                 </p>
                 <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                  <Button asChild className="h-12 rounded-full px-6">
+                  <Button asChild className="h-11 rounded-full px-5 text-sm sm:h-12 sm:px-6">
                     <Link to="/boutique">
                       Voir les collections <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
@@ -51,7 +51,7 @@ const Index = () => {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
                 {[
                   {
                     title: "Finition studio",
@@ -82,12 +82,12 @@ const Index = () => {
 
       {/* Collections */}
       <section className="bg-background">
-        <Container className="py-14 sm:py-16">
+        <Container className="py-10 sm:py-14 lg:py-16">
           <FadeIn>
             <div className="flex items-end justify-between gap-6">
               <div>
                 <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">COLLECTIONS</div>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Choisis une signature.</h2>
+                <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl lg:text-3xl">Choisis une signature.</h2>
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                   Transparence premium, compatibilité magnétique, métal, finition mate… une sélection pensée pour l’iPhone 17 Series.
                 </p>
@@ -100,7 +100,7 @@ const Index = () => {
             </div>
           </FadeIn>
 
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {impexoCollections.map((c) => (
               <FadeIn key={c.id} className="h-full">
                 <Link
@@ -132,11 +132,11 @@ const Index = () => {
       </section>
 
       <section className="bg-background">
-        <Container className="py-14 sm:py-16">
+        <Container className="py-10 sm:py-14 lg:py-16">
           <div className="flex items-end justify-between gap-6">
             <div>
               <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">SÉLECTION</div>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Best‑sellers</h2>
+              <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl lg:text-3xl">Best‑sellers</h2>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 Les coques préférées de nos clients, pensées pour sublimer l’iPhone sans le dénaturer.
               </p>
@@ -148,7 +148,7 @@ const Index = () => {
             </Button>
           </div>
 
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {best.isLoading
               ? Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="overflow-hidden rounded-3xl border bg-card">
@@ -168,12 +168,12 @@ const Index = () => {
 
       {/* Section éditoriale visuelle */}
       <section className="bg-secondary/30">
-        <Container className="py-14 sm:py-16">
+        <Container className="py-10 sm:py-14 lg:py-16">
           <FadeIn>
             <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
               <div className="order-2 lg:order-1">
                 <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">SAVOIR‑FAIRE</div>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl lg:text-3xl">
                   Une esthétique sobre,
                   <span className="block text-muted-foreground">des détails qui se sentent.</span>
                 </h2>
@@ -198,7 +198,7 @@ const Index = () => {
                     alt="Impexo — finitions premium"
                     loading="lazy"
                     decoding="async"
-                    className="aspect-[4/3] w-full object-contain p-6 sm:p-10"
+                    className="aspect-[4/3] w-full object-contain p-4 sm:p-8"
                   />
                 </div>
               </div>
@@ -209,12 +209,12 @@ const Index = () => {
 
       {/* Compatibilité & confiance */}
       <section className="bg-background">
-        <Container className="py-14 sm:py-16">
+        <Container className="py-10 sm:py-14 lg:py-16">
           <FadeIn>
             <div className="grid gap-6 lg:grid-cols-2 lg:items-end">
               <div>
                 <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">COMPATIBILITÉ</div>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl lg:text-3xl">
                   iPhone 17 Series.
                   <span className="block text-muted-foreground">Choix clair, fit précis.</span>
                 </h2>
@@ -246,11 +246,11 @@ const Index = () => {
       </section>
 
       <section className="bg-secondary/40">
-        <Container className="py-14 sm:py-16">
+        <Container className="py-10 sm:py-14 lg:py-16">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div>
               <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">POURQUOI IMPEXO ?</div>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Le luxe, c’est la précision.</h2>
+              <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl lg:text-3xl">Le luxe, c’est la précision.</h2>
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
                 Chez Impexo, chaque coque est pensée comme un objet de design&nbsp;: lignes pures, textures maîtrisées,
                 ajustement impeccable. Le résultat&nbsp;: une protection fine, élégante, qui respecte l’iPhone.
@@ -275,7 +275,7 @@ const Index = () => {
                   Une esthétique sobre, un confort quotidien, une signature luxueuse.
                 </p>
                 <div className="mt-6">
-                  <Button asChild className="rounded-full px-6">
+                  <Button asChild className="h-11 rounded-full px-5 text-sm sm:h-12 sm:px-6">
                     <Link to="/boutique">
                       Explorer les coques <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
@@ -289,25 +289,25 @@ const Index = () => {
 
       {/* CTA final */}
       <section className="bg-background">
-        <Container className="py-14 sm:py-16">
+        <Container className="py-10 sm:py-14 lg:py-16">
           <FadeIn>
-            <div className="relative overflow-hidden rounded-3xl border p-10 text-center impexo-surface impexo-sheen">
+            <div className="relative overflow-hidden rounded-3xl border p-6 text-center impexo-surface impexo-sheen sm:p-10">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(0,0,0,0.08),transparent_60%)]" />
               <div className="relative">
                 <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">IMPEXO</div>
-                <div className="mt-3 text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
+                <div className="mt-3 text-balance text-xl font-semibold tracking-tight sm:text-2xl lg:text-3xl">
                   Prêt à passer au premium ?
                 </div>
                 <div className="mt-3 text-sm text-muted-foreground">
                   Découvre la collection iPhone 17 Series et choisis la finition qui te ressemble.
                 </div>
                 <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <Button asChild className="h-12 rounded-full px-6">
+                  <Button asChild className="h-11 rounded-full px-5 text-sm sm:h-12 sm:px-6">
                     <Link to="/boutique">
                       Accéder à la boutique <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
-                  <Button asChild variant="ghost" className="h-12 rounded-full px-6">
+                  <Button asChild variant="ghost" className="h-11 rounded-full px-5 text-sm sm:h-12 sm:px-6">
                     <Link to="/contact">Support & FAQ</Link>
                   </Button>
                 </div>
