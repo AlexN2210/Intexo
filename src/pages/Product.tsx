@@ -76,9 +76,11 @@ export default function Product() {
   // Décaller la requête variations pour ne pas burst avec product by slug (rate limit)
   const [allowVariations, setAllowVariations] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | undefined>(undefined);
+  const [userPickedImage, setUserPickedImage] = useState(false);
 
-  // Reset l'image sélectionnée quand on change de produit
+  // Reset quand on change de produit
   useEffect(() => {
+    setUserPickedImage(false);
     setSelectedImage(undefined);
   }, [slug]);
 
@@ -264,8 +266,11 @@ export default function Product() {
   }, [matchedVariation, fallbackVariation, variations]);
 
   // ── image héro ───────────────────────────────────────────────────────────
-  // Image sélectionnée par l'utilisateur OU image produit (pas de saut au chargement des variations)
-  const heroImage = selectedImage ?? product?.images?.[0]?.src ?? undefined;
+  // Sync avec la variation matchée seulement après interaction utilisateur (clic galerie)
+  const heroImage = useMemo(() => {
+    if (userPickedImage) return selectedImage ?? product?.images?.[0]?.src;
+    return product?.images?.[0]?.src ?? undefined;
+  }, [userPickedImage, selectedImage, product?.images]);
 
   // ── galerie ──────────────────────────────────────────────────────────────
 
@@ -436,6 +441,7 @@ export default function Product() {
                       onClick={() => {
                         if (g.color) setColor(g.color);
                         setSelectedImage(g.src);
+                        setUserPickedImage(true);
                       }}
                       aria-label={g.color ? `Couleur ${g.color}` : g.alt}
                       aria-pressed={g.isActive}
