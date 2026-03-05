@@ -65,7 +65,7 @@ export default function Cart() {
 
   return (
     <div className="bg-background min-h-screen impexo-safe-bottom">
-      <Container className="py-6 sm:py-10 md:py-12">
+      <Container className="py-10 sm:py-14 lg:py-16">
         <FadeIn>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
             <div>
@@ -88,7 +88,7 @@ export default function Cart() {
 
         {items.length === 0 ? (
           <div className="mt-6 rounded-2xl border bg-card p-6 text-center sm:mt-8 sm:rounded-3xl sm:p-8 md:p-10">
-            <div className="text-sm font-medium tracking-tight">Votre panier est vide.</div>
+            <div className="text-base font-medium tracking-tight">Votre panier est vide.</div>
             <div className="mt-2 text-sm text-muted-foreground">Découvrez nos coques premium.</div>
             <div className="mt-6">
               <Button asChild className="min-h-[48px] w-full rounded-full px-5 text-base sm:w-auto sm:px-6">
@@ -97,8 +97,8 @@ export default function Cart() {
             </div>
           </div>
         ) : (
-          <div className="mt-6 grid gap-6 sm:mt-8 sm:gap-8 lg:grid-cols-3">
-            <div className="space-y-3 sm:space-y-4 lg:col-span-2">
+          <div className="mt-6 grid min-w-0 grid-cols-1 gap-6 sm:mt-8 sm:gap-8 lg:grid-cols-3">
+            <div className="min-w-0 space-y-3 lg:col-span-2 sm:space-y-4">
               {items.map((it) => (
                 <FadeIn key={it.key} className="rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6">
                   <div className="flex gap-3 sm:gap-4">
@@ -150,13 +150,13 @@ export default function Cart() {
                           </Button>
                         </div>
 
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="rounded-full text-muted-foreground hover:text-foreground"
-                          onClick={() => handleRemoveItem(it.key)}
-                          disabled={isLoading}
-                        >
+<Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-[44px] rounded-full px-4 text-sm text-muted-foreground hover:text-foreground sm:px-5"
+                        onClick={() => handleRemoveItem(it.key)}
+                        disabled={isLoading}
+                      >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Retirer
                         </Button>
@@ -167,7 +167,7 @@ export default function Cart() {
               ))}
             </div>
 
-            <FadeIn delay={0.05} className="rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6 lg:sticky lg:top-24 lg:self-start impexo-safe-bottom min-w-0">
+            <FadeIn delay={0.05} className="min-w-0 rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6 impexo-safe-bottom lg:sticky lg:top-24 lg:self-start">
               <div className="text-sm font-medium tracking-tight">Résumé</div>
               <Separator className="my-4" />
               <div className="flex items-center justify-between text-sm">
