@@ -109,6 +109,7 @@ All colors MUST be HSL.
   html {
     scroll-behavior: smooth;
     overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
@@ -204,6 +205,24 @@ All colors MUST be HSL.
   .impexo-sheen:hover::after {
     transform: translateX(35%) rotate(12deg);
     opacity: 1;
+  }
+
+  /* Cibles tactiles minimales 44px (WCAG / mobile) */
+  .impexo-touch {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Safe area pour encoches / barre d’accueil (mobile) */
+  .impexo-safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  .impexo-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .impexo-safe-x {
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
   }
 }
 

@@ -70,8 +70,8 @@ export default function Shop() {
   }, [products, model, color, material, inferredAttrNames]);
 
   return (
-    <div className="bg-background min-h-[60vh]">
-      <Container className="py-10 sm:py-12">
+    <div className="bg-background min-h-screen">
+      <Container className="py-6 sm:py-10 md:py-12">
         {/* Pas d'animation opacity ici : contenu toujours visible au chargement (évite page blanche) */}
         <div>
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">

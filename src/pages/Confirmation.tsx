@@ -17,10 +17,10 @@ export default function Confirmation() {
   }, [clearCart]);
 
   return (
-    <div className="bg-background">
-      <Container className="py-10 sm:py-12">
+    <div className="bg-background min-h-screen impexo-safe-bottom">
+      <Container className="py-6 sm:py-10 md:py-12">
         <FadeIn className="mx-auto max-w-xl text-center">
-          <div className="rounded-3xl border bg-card p-8 sm:p-10">
+          <div className="rounded-2xl border bg-card p-6 sm:rounded-3xl sm:p-8 md:p-10">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
               <CheckCircle2 className="h-10 w-10" />
             </div>
@@ -36,11 +36,11 @@ export default function Confirmation() {
                 {sessionId && <>Session : {sessionId.slice(0, 20)}…</>}
               </p>
             )}
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button asChild className="rounded-full">
+            <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:justify-center">
+              <Button asChild className="min-h-[48px] rounded-full text-base sm:min-h-0 sm:h-10">
                 <Link to="/boutique">Continuer mes achats</Link>
               </Button>
-              <Button asChild variant="outline" className="rounded-full">
+              <Button asChild variant="outline" className="min-h-[48px] rounded-full text-base sm:min-h-0 sm:h-10">
                 <Link to="/">Retour à l&apos;accueil</Link>
               </Button>
             </div>

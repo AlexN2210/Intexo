@@ -38,8 +38,8 @@ export function Header() {
   const navActive = transparent ? "text-white bg-white/10" : "text-foreground bg-muted";
 
   return (
-    <header className={headerClassName}>
-      <Container className="flex h-16 items-center justify-between">
+    <header className={cn(headerClassName, "impexo-safe-top")}>
+      <Container className="flex h-14 min-h-[44px] items-center justify-between sm:h-16">
         <div className="flex items-center gap-6">
           <Link to="/" className="group -mt-0.5 flex flex-col leading-none">
             <div className={cn("text-base font-semibold tracking-tight sm:text-lg", transparent ? "text-white" : "")}>

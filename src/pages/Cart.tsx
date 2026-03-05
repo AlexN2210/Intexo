@@ -64,14 +64,14 @@ export default function Cart() {
   };
 
   return (
-    <div className="bg-background">
-      <Container className="py-10 sm:py-12">
+    <div className="bg-background min-h-screen impexo-safe-bottom">
+      <Container className="py-6 sm:py-10 md:py-12">
         <FadeIn>
-          <div className="flex items-end justify-between gap-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
             <div>
               <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">PANIER</div>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Votre sélection</h1>
-              <p className="mt-2 text-sm text-muted-foreground">Simple. Clair. Premium.</p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-4xl">Votre sélection</h1>
+              <p className="mt-1.5 text-sm text-muted-foreground sm:mt-2">Simple. Clair. Premium.</p>
             </div>
             {items.length ? (
               <Button
@@ -87,22 +87,22 @@ export default function Cart() {
         </FadeIn>
 
         {items.length === 0 ? (
-          <div className="mt-8 rounded-3xl border bg-card p-10 text-center">
+          <div className="mt-6 rounded-2xl border bg-card p-6 text-center sm:mt-8 sm:rounded-3xl sm:p-10">
             <div className="text-sm font-medium tracking-tight">Votre panier est vide.</div>
             <div className="mt-2 text-sm text-muted-foreground">Découvrez nos coques premium.</div>
             <div className="mt-6">
-              <Button asChild className="rounded-full px-6">
+              <Button asChild className="min-h-[48px] rounded-full px-6 text-base">
                 <Link to="/boutique">Aller à la boutique</Link>
               </Button>
             </div>
           </div>
         ) : (
-          <div className="mt-8 grid gap-8 lg:grid-cols-3">
-            <div className="space-y-4 lg:col-span-2">
+          <div className="mt-6 grid gap-6 sm:mt-8 sm:gap-8 lg:grid-cols-3">
+            <div className="space-y-3 sm:space-y-4 lg:col-span-2">
               {items.map((it) => (
-                <FadeIn key={it.key} className="rounded-3xl border bg-card p-5">
-                  <div className="flex gap-4">
-                    <div className="h-24 w-24 overflow-hidden rounded-2xl bg-muted/40">
+                <FadeIn key={it.key} className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-5">
+                  <div className="flex gap-3 sm:gap-4">
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted/40 sm:h-24 sm:w-24 sm:rounded-2xl">
                       {it.imageSrc ? (
                         <img
                           src={it.imageSrc}
@@ -126,22 +126,22 @@ export default function Cart() {
                       </div>
 
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 sm:gap-2">
                           <Button
                             type="button"
                             variant="ghost"
-                            className="h-10 w-10 rounded-full"
+                            className="impexo-touch h-11 w-11 min-w-[44px] rounded-full sm:h-10 sm:w-10"
                             onClick={() => handleSetQuantity(it.key, it.quantity - 1)}
                             aria-label="Diminuer la quantité"
                             disabled={isLoading}
                           >
                             <Minus className="h-4 w-4" />
                           </Button>
-                          <div className="w-10 text-center text-sm font-medium tabular-nums">{it.quantity}</div>
+                          <div className="min-w-[2.5rem] text-center text-sm font-medium tabular-nums">{it.quantity}</div>
                           <Button
                             type="button"
                             variant="ghost"
-                            className="h-10 w-10 rounded-full"
+                            className="impexo-touch h-11 w-11 min-w-[44px] rounded-full sm:h-10 sm:w-10"
                             onClick={() => handleSetQuantity(it.key, it.quantity + 1)}
                             aria-label="Augmenter la quantité"
                             disabled={isLoading}
@@ -167,7 +167,7 @@ export default function Cart() {
               ))}
             </div>
 
-            <FadeIn delay={0.05} className="rounded-3xl border bg-card p-6 lg:sticky lg:top-24 lg:self-start">
+            <FadeIn delay={0.05} className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6 lg:sticky lg:top-24 lg:self-start impexo-safe-bottom">
               <div className="text-sm font-medium tracking-tight">Résumé</div>
               <Separator className="my-4" />
               <div className="flex items-center justify-between text-sm">
@@ -184,7 +184,7 @@ export default function Cart() {
                     type="button"
                     onClick={() => setPackOfferId(packOfferId === "pack2" ? null : "pack2")}
                     className={[
-                      "rounded-2xl border px-4 py-3 text-left text-sm transition",
+                      "min-h-[44px] rounded-2xl border px-4 py-3 text-left text-sm transition",
                       packOfferId === "pack2" ? "bg-foreground text-background" : "bg-background hover:bg-muted/60",
                       count < 2 ? "opacity-50" : "",
                     ].join(" ")}
@@ -200,7 +200,7 @@ export default function Cart() {
                     type="button"
                     onClick={() => setPackOfferId(packOfferId === "pack3" ? null : "pack3")}
                     className={[
-                      "rounded-2xl border px-4 py-3 text-left text-sm transition",
+                      "min-h-[44px] rounded-2xl border px-4 py-3 text-left text-sm transition",
                       packOfferId === "pack3" ? "bg-foreground text-background" : "bg-background hover:bg-muted/60",
                       count < 3 ? "opacity-50" : "",
                     ].join(" ")}
@@ -229,7 +229,7 @@ export default function Cart() {
                 Livraison & taxes calculées au checkout WooCommerce.
               </div>
               <Button
-                className="mt-6 h-12 w-full rounded-full"
+                className="mt-6 min-h-[48px] w-full rounded-full text-base sm:h-12"
                 onClick={checkout}
                 disabled={isLoading || items.length === 0}
               >

@@ -34,20 +34,20 @@ export default function Contact() {
   };
 
   return (
-    <div className="bg-background">
-      <Container className="py-10 sm:py-12">
+    <div className="bg-background min-h-screen">
+      <Container className="py-6 sm:py-10 md:py-12">
         <FadeIn>
           <div>
             <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">SUPPORT</div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Contact & assistance</h1>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-4xl">Contact & assistance</h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
               Un style sobre, un échange clair. L’équipe Impexo est là pour vous conseiller.
             </p>
           </div>
         </FadeIn>
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-2">
-          <FadeIn className="rounded-3xl border bg-card p-6">
+        <div className="mt-6 grid gap-6 sm:mt-8 sm:gap-8 lg:grid-cols-2">
+          <FadeIn className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6">
             <div className="text-sm font-medium tracking-tight">Nous écrire</div>
             <div className="mt-2 text-sm text-muted-foreground">
               Réponse sous 24–48h ouvrées (à adapter selon votre organisation).
@@ -62,7 +62,7 @@ export default function Contact() {
                     <FormItem>
                       <FormLabel>Nom</FormLabel>
                       <FormControl>
-                        <Input className="h-11 rounded-2xl bg-muted/40" placeholder="Votre nom" {...field} />
+                        <Input className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11" placeholder="Votre nom" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -77,7 +77,7 @@ export default function Contact() {
                       <FormLabel>Email</FormLabel>
                       <FormControl>
                         <Input
-                          className="h-11 rounded-2xl bg-muted/40"
+                          className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11"
                           placeholder="vous@exemple.com"
                           {...field}
                         />
@@ -105,14 +105,14 @@ export default function Contact() {
                   )}
                 />
 
-                <Button type="submit" className="h-12 w-full rounded-full">
+                <Button type="submit" className="min-h-[48px] w-full rounded-full text-base sm:h-12">
                   Envoyer
                 </Button>
               </form>
             </Form>
           </FadeIn>
 
-          <FadeIn delay={0.05} className="rounded-3xl border bg-card p-6">
+          <FadeIn delay={0.05} className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6">
             <div className="text-sm font-medium tracking-tight">FAQ</div>
             <div className="mt-2 text-sm text-muted-foreground">Réponses rapides, ton premium, zéro bruit.</div>
 

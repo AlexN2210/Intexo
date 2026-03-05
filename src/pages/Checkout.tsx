@@ -201,23 +201,23 @@ function CheckoutForm() {
   }
 
   return (
-    <div className="bg-background">
-      <Container className="py-10 sm:py-12">
+    <div className="bg-background min-h-screen impexo-safe-bottom">
+      <Container className="py-6 sm:py-10 md:py-12">
         <FadeIn>
           <div>
             <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">CHECKOUT</div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Finaliser la commande</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Vos informations et paiement sécurisé Stripe.</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-4xl">Finaliser la commande</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground sm:mt-2">Vos informations et paiement sécurisé Stripe.</p>
           </div>
         </FadeIn>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8">
-            <div className="grid gap-8 lg:grid-cols-3">
-              <div className="space-y-6 lg:col-span-2">
-                <FadeIn className="rounded-3xl border bg-card p-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 sm:mt-8">
+            <div className="grid gap-6 sm:gap-8 lg:grid-cols-3">
+              <div className="space-y-4 sm:space-y-6 lg:col-span-2">
+                <FadeIn className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6">
                   <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">COORDONNÉES</div>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div className="mt-3 grid gap-3 sm:mt-4 sm:grid-cols-2 sm:gap-4">
                     <FormField
                       control={form.control}
                       name="first_name"
@@ -225,7 +225,7 @@ function CheckoutForm() {
                         <FormItem>
                           <FormLabel>Prénom</FormLabel>
                           <FormControl>
-                            <Input className="h-11 rounded-2xl bg-muted/40" placeholder="Prénom" {...field} />
+                            <Input className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11" placeholder="Prénom" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -238,7 +238,7 @@ function CheckoutForm() {
                         <FormItem>
                           <FormLabel>Nom</FormLabel>
                           <FormControl>
-                            <Input className="h-11 rounded-2xl bg-muted/40" placeholder="Nom" {...field} />
+                            <Input className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11" placeholder="Nom" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -255,7 +255,7 @@ function CheckoutForm() {
                           <FormControl>
                             <Input
                               type="email"
-                              className="h-11 rounded-2xl bg-muted/40"
+                              className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11"
                               placeholder="email@exemple.fr"
                               {...field}
                             />
@@ -271,7 +271,7 @@ function CheckoutForm() {
                         <FormItem>
                           <FormLabel>Téléphone</FormLabel>
                           <FormControl>
-                            <Input className="h-11 rounded-2xl bg-muted/40" placeholder="+33 6 12 34 56 78" {...field} />
+                            <Input className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11" placeholder="+33 6 12 34 56 78" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -285,7 +285,7 @@ function CheckoutForm() {
                       <FormItem className="mt-4">
                         <FormLabel>Adresse</FormLabel>
                         <FormControl>
-                          <Input className="h-11 rounded-2xl bg-muted/40" placeholder="Numéro et rue" {...field} />
+                          <Input className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11" placeholder="Numéro et rue" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -298,13 +298,13 @@ function CheckoutForm() {
                       <FormItem className="mt-4">
                         <FormLabel>Complément d&apos;adresse (optionnel)</FormLabel>
                         <FormControl>
-                          <Input className="h-11 rounded-2xl bg-muted/40" placeholder="Bât, étage, etc." {...field} />
+                          <Input className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11" placeholder="Bât, étage, etc." {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  <div className="mt-4 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
                     <FormField
                       control={form.control}
                       name="city"
@@ -312,7 +312,7 @@ function CheckoutForm() {
                         <FormItem>
                           <FormLabel>Ville</FormLabel>
                           <FormControl>
-                            <Input className="h-11 rounded-2xl bg-muted/40" placeholder="Ville" {...field} />
+                            <Input className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11" placeholder="Ville" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -325,7 +325,7 @@ function CheckoutForm() {
                         <FormItem>
                           <FormLabel>Code postal</FormLabel>
                           <FormControl>
-                            <Input className="h-11 rounded-2xl bg-muted/40" placeholder="75001" {...field} />
+                            <Input className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11" placeholder="75001" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -338,7 +338,7 @@ function CheckoutForm() {
                         <FormItem>
                           <FormLabel>Pays</FormLabel>
                           <FormControl>
-                            <Input className="h-11 rounded-2xl bg-muted/40" placeholder="FR" {...field} />
+                            <Input className="min-h-[44px] rounded-xl bg-muted/40 sm:rounded-2xl sm:h-11" placeholder="FR" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -347,16 +347,16 @@ function CheckoutForm() {
                   </div>
                 </FadeIn>
 
-                <FadeIn className="rounded-3xl border bg-card p-6">
+                <FadeIn className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6">
                   <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">CARTE BANCAIRE</div>
                   <p className="mt-2 text-sm text-muted-foreground">Paiement sécurisé par Stripe.</p>
-                  <div className="mt-4 rounded-2xl border bg-muted/30 p-4">
+                  <div className="mt-3 rounded-xl border bg-muted/30 p-3 sm:mt-4 sm:rounded-2xl sm:p-4">
                     <CardElement options={CARD_ELEMENT_OPTIONS} />
                   </div>
                 </FadeIn>
               </div>
 
-              <FadeIn delay={0.05} className="rounded-3xl border bg-card p-6 lg:sticky lg:top-24 lg:self-start">
+              <FadeIn delay={0.05} className="rounded-2xl border bg-card p-4 sm:rounded-3xl sm:p-6 lg:sticky lg:top-24 lg:self-start impexo-safe-bottom">
                 <div className="text-sm font-medium tracking-tight">Récapitulatif</div>
                 <Separator className="my-4" />
                 <ul className="space-y-2 text-sm">
@@ -385,7 +385,7 @@ function CheckoutForm() {
                 </div>
                 <Button
                   type="submit"
-                  className="mt-6 h-12 w-full rounded-full"
+                  className="mt-6 min-h-[48px] w-full rounded-full text-base sm:h-12"
                   disabled={isSubmitting || !stripe || items.length === 0}
                 >
                   {isSubmitting ? (
