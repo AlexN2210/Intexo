@@ -9,6 +9,7 @@
   },
   "rewrites": [
     { "source": "/api/woocommerce/:path*", "destination": "/api/woocommerce/[...path]" },
+    { "source": "/product/:path*", "destination": "https://wp.impexo.fr/product/:path*" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
