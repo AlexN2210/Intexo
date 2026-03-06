@@ -23,10 +23,6 @@ const norm = (s?: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-/**
- * Récupère l’option d’un attribut par son libellé ou slug.
- * WooCommerce peut renvoyer "Modèle"/"Couleur" ou "pa_modele"/"pa_couleur".
- */
 const getAttr = (
   attrs: Array<{ name: string; option: string }> | undefined,
   name: string,
@@ -51,38 +47,27 @@ export default function Product() {
   const [qty, setQty] = useState(1);
   const [model, setModel] = useState<string>("");
   const [color, setColor] = useState<string>("");
+  const [selectedImage, setSelectedImage] = useState<string | undefined>(undefined);
+  const [userPickedImage, setUserPickedImage] = useState(false);
 
   // ── données produit ──────────────────────────────────────────────────────
 
   const q = useProductBySlugQuery(slug);
   const rawProduct = q.data ?? null;
-
-  /**
-   * Utiliser le produit renvoyé par l'API : la requête est indexée par slug (queryKey inclut slug),
-   * donc rawProduct correspond à l'URL. On affiche le produit dès que l'API en renvoie un.
-   */
   const product = rawProduct && slug ? rawProduct : null;
 
-  // Réinitialiser modèle/couleur quand on change de produit (slug ou product.id)
   useEffect(() => {
     setModel("");
     setColor("");
+    setUserPickedImage(false);
+    setSelectedImage(undefined);
   }, [slug, product?.id]);
 
   const hasVariations = Boolean(
     product && product.type === "variable" && product.variations?.length,
   );
 
-  // Décaller la requête variations pour ne pas burst avec product by slug (rate limit)
   const [allowVariations, setAllowVariations] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | undefined>(undefined);
-  const [userPickedImage, setUserPickedImage] = useState(false);
-
-  // Reset quand on change de produit
-  useEffect(() => {
-    setUserPickedImage(false);
-    setSelectedImage(undefined);
-  }, [slug]);
 
   useEffect(() => {
     if (!product?.id || !hasVariations) {
@@ -95,10 +80,6 @@ export default function Product() {
 
   const varsQ = useProductVariationsQuery(product?.id, hasVariations && allowVariations);
 
-  /**
-   * Variations filtrées (uniquement celles de ce produit) et triées
-   * de façon stable par modèle puis couleur.
-   */
   const variations = useMemo(() => {
     const raw = varsQ.data ?? [];
     if (!product?.id || !Array.isArray(raw)) return [];
@@ -111,7 +92,6 @@ export default function Product() {
       filtered = raw.filter((v) => v.attributes?.length);
     }
 
-    // Tri stable : modèle puis couleur → galerie et sélecteurs toujours dans le même ordre
     return [...filtered].sort((a, b) => {
       const modelA = getAttr(a.attributes, "Modèle") ?? "";
       const modelB = getAttr(b.attributes, "Modèle") ?? "";
@@ -127,20 +107,11 @@ export default function Product() {
     () => (product ? getAttributeOptions(product, "model") : []),
     [product],
   );
-  const colors = useMemo(
-    () => (product ? getAttributeOptions(product, "color") : []),
-    [product],
-  );
 
-  /**
-   * Map : modèle normalisé → couleurs réellement disponibles.
-   * Construite depuis les variations réelles — garantit qu'on ne propose
-   * jamais une combinaison modèle+couleur inexistante dans WooCommerce.
-   */
+  // Map modèle → couleur(s) disponibles
   const colorsByModel = useMemo(() => {
     const map = new Map<string, string[]>();
     if (!hasVariations) return map;
-
     variations.forEach((v) => {
       const m = getAttr(v.attributes, "Modèle");
       const c = getAttr(v.attributes, "Couleur");
@@ -150,23 +121,20 @@ export default function Product() {
       if (!list.some((x) => norm(x) === norm(c))) list.push(c);
       map.set(k, list);
     });
-
-    // Tri alphabétique stable pour chaque liste de couleurs
-    map.forEach((list, k) =>
-      map.set(k, [...list].sort((a, b) => a.localeCompare(b))),
-    );
-
     return map;
   }, [hasVariations, variations]);
+
+  // Détecter si chaque modèle n'a qu'une seule couleur (nouvelle structure)
+  const isOneColorPerModel = useMemo(() => {
+    if (!hasVariations || colorsByModel.size === 0) return false;
+    return Array.from(colorsByModel.values()).every((colors) => colors.length === 1);
+  }, [hasVariations, colorsByModel]);
 
   const currentModel = model || models[0] || "";
 
   const allowedColors = useMemo(
-    () =>
-      hasVariations
-        ? (colorsByModel.get(norm(currentModel)) ?? [])
-        : colors,
-    [hasVariations, colorsByModel, currentModel, colors],
+    () => colorsByModel.get(norm(currentModel)) ?? [],
+    [colorsByModel, currentModel],
   );
 
   // ── sélection courante ───────────────────────────────────────────────────
@@ -179,7 +147,7 @@ export default function Product() {
   const preferredModel = searchParams.get("model") ?? "";
   const preferredColor = searchParams.get("color") ?? "";
 
-  // Initialisation depuis les query params ou valeurs par défaut
+  // Initialisation : modèle + couleur automatique
   useEffect(() => {
     if (!product) return;
 
@@ -190,18 +158,16 @@ export default function Product() {
       "";
     if (initModel && initModel !== model) setModel(initModel);
 
-    const allowed = hasVariations
-      ? (colorsByModel.get(norm(initModel)) ?? [])
-      : colors;
+    const allowed = colorsByModel.get(norm(initModel)) ?? [];
     const preferred = preferredColor
       ? allowed.find((c) => norm(c) === norm(preferredColor))
       : undefined;
-    const initColor = preferred || color || allowed[0] || colors[0] || "";
+    const initColor = preferred || color || allowed[0] || "";
     if (initColor && initColor !== color) setColor(initColor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, models.join("|"), colors.join("|"), preferredModel, preferredColor]);
+  }, [product?.id, models.join("|"), preferredModel, preferredColor, colorsByModel]);
 
-  // Quand le modèle change, reset la couleur si elle n'est plus disponible
+  // Quand le modèle change → auto-sélectionner la couleur du nouveau modèle
   useEffect(() => {
     if (!hasVariations || !currentModel) return;
     const allowed = colorsByModel.get(norm(currentModel)) ?? [];
@@ -213,23 +179,26 @@ export default function Product() {
 
   // ── variation correspondante ─────────────────────────────────────────────
 
-  /**
-   * Recherche exacte modèle + couleur après normalisation.
-   * S'il y a plusieurs résultats (cas rare), on prend le premier.
-   */
   const matchedVariation = useMemo(() => {
-    if (!hasVariations || !selected.model || !selected.color) return undefined;
-    return variations.find((v) => {
-      const m = getAttr(v.attributes, "Modèle");
-      const c = getAttr(v.attributes, "Couleur");
-      return (
-        m && norm(m) === norm(selected.model) &&
-        c && norm(c) === norm(selected.color)
-      );
-    });
+    if (!hasVariations || !selected.model) return undefined;
+    // Si une couleur est sélectionnée, chercher modèle + couleur
+    if (selected.color) {
+      const exact = variations.find((v) => {
+        const m = getAttr(v.attributes, "Modèle");
+        const c = getAttr(v.attributes, "Couleur");
+        return (
+          m && norm(m) === norm(selected.model) &&
+          c && norm(c) === norm(selected.color)
+        );
+      });
+      if (exact) return exact;
+    }
+    // Fallback : première variation du modèle sélectionné
+    return variations.find(
+      (v) => norm(getAttr(v.attributes, "Modèle") ?? "") === norm(selected.model),
+    );
   }, [hasVariations, variations, selected]);
 
-  // Fallback : première variation du même modèle (pour l'image héro si couleur pas encore choisie)
   const fallbackVariation = useMemo(() => {
     if (!hasVariations || !selected.model) return undefined;
     return variations.find(
@@ -243,21 +212,14 @@ export default function Product() {
     const fromAttrs = (attrs: Array<{ name: string; option: string }> | undefined) =>
       attrs?.find((a) => /mat[ée]riau|material/i.test(a.name))?.option ?? null;
 
-    // 1. Attributs de la variation sélectionnée (importés via CSV)
     if (matchedVariation) {
       const m = fromAttrs(matchedVariation.attributes);
       if (m) return m;
-      const meta = matchedVariation.meta_data?.find((m) =>
-        /mat[ée]riau|material/i.test(m.key),
-      );
-      if (meta?.value) return String(meta.value);
     }
-    // 2. Variation fallback (même modèle)
     if (fallbackVariation) {
       const m = fromAttrs(fallbackVariation.attributes);
       if (m) return m;
     }
-    // 3. Première variation disponible
     for (const v of variations) {
       const m = fromAttrs(v.attributes);
       if (m) return m;
@@ -266,23 +228,18 @@ export default function Product() {
   }, [matchedVariation, fallbackVariation, variations]);
 
   // ── image héro ───────────────────────────────────────────────────────────
-  // Sync avec la variation matchée seulement après interaction utilisateur (clic galerie)
+
   const heroImage = useMemo(() => {
-    if (userPickedImage) return selectedImage ?? product?.images?.[0]?.src;
+    // Si l'utilisateur a cliqué sur la galerie, utiliser son choix
+    if (userPickedImage && selectedImage) return selectedImage;
+    // Sinon, utiliser l'image de la variation matchée (changement auto selon modèle)
+    if (matchedVariation?.image?.src) return matchedVariation.image.src;
+    // Fallback : image principale du produit
     return product?.images?.[0]?.src ?? undefined;
-  }, [userPickedImage, selectedImage, product?.images]);
+  }, [userPickedImage, selectedImage, matchedVariation, product?.images]);
 
   // ── galerie ──────────────────────────────────────────────────────────────
 
-  /**
-   * Galerie filtrée STRICTEMENT par modèle sélectionné.
-   *
-   * Chaque entrée correspond à une variation précise (modèle + couleur).
-   * Le clic sur une miniature change uniquement la couleur — le modèle
-   * reste celui du sélecteur du dessus.
-   *
-   * isActive est vrai pour la variation exactement sélectionnée (modèle + couleur).
-   */
   const gallery = useMemo(() => {
     if (!product) return [];
 
@@ -292,12 +249,26 @@ export default function Product() {
         alt: im.alt || `${product.name} — ${idx + 1}`,
         variationId: 0,
         color: null as string | null,
+        model: null as string | null,
         isActive: idx === 0,
       }));
     }
 
-    // Filtre strict : on ne garde que les variations dont le Modèle
-    // correspond EXACTEMENT au modèle actuellement sélectionné
+    // Nouvelle structure : une image par modèle (toutes les variations)
+    if (isOneColorPerModel) {
+      return variations
+        .filter((v) => Boolean(v.image?.src))
+        .map((v) => ({
+          src: v.image!.src,
+          alt: [product.name, getAttr(v.attributes, "Modèle")].filter(Boolean).join(" — "),
+          variationId: v.id,
+          color: getAttr(v.attributes, "Couleur"),
+          model: getAttr(v.attributes, "Modèle"),
+          isActive: matchedVariation?.id === v.id,
+        }));
+    }
+
+    // Ancienne structure : filtrer par modèle sélectionné
     return variations
       .filter((v) => {
         const m = getAttr(v.attributes, "Modèle");
@@ -310,22 +281,21 @@ export default function Product() {
           .join(" — "),
         variationId: v.id,
         color: getAttr(v.attributes, "Couleur"),
-        // isActive : cette miniature correspond-elle exactement à la sélection courante ?
+        model: null as string | null,
         isActive: matchedVariation?.id === v.id,
       }));
-  }, [product, hasVariations, variations, selected.model, matchedVariation]);
+  }, [product, hasVariations, isOneColorPerModel, variations, selected.model, matchedVariation]);
 
   // ── prix & panier ────────────────────────────────────────────────────────
 
   const price = parsePrice(
     matchedVariation?.price ??
-      fallbackVariation?.price ??
-      product?.price ??
-      product?.regular_price,
+    fallbackVariation?.price ??
+    product?.price ??
+    product?.regular_price,
   );
 
-  const canAdd =
-    Boolean(product) && qty > 0 && (!hasVariations || Boolean(matchedVariation));
+  const canAdd = Boolean(product) && qty > 0 && (!hasVariations || Boolean(matchedVariation));
 
   const mentionsMagSafe = useMemo(() => {
     const blob = `${product?.name ?? ""} ${product?.short_description ?? ""} ${product?.description ?? ""}`;
@@ -337,7 +307,7 @@ export default function Product() {
     if (hasVariations && !matchedVariation) {
       toast({
         title: "Sélection incomplète",
-        description: "Choisis un modèle et une couleur disponibles.",
+        description: "Choisis un modèle iPhone.",
       });
       return;
     }
@@ -380,7 +350,7 @@ export default function Product() {
           <div className="rounded-3xl border bg-card p-10 text-center">
             <div className="text-sm font-medium tracking-tight">Produit introuvable.</div>
             <div className="mt-2 text-sm text-muted-foreground">
-              Ce produit n’existe pas ou le lien est incorrect. Vérifie l’URL ou retourne à la boutique.
+              Ce produit n'existe pas ou le lien est incorrect. Vérifie l'URL ou retourne à la boutique.
             </div>
             <div className="mt-6">
               <Button asChild variant="outline" className="rounded-full">
@@ -393,7 +363,6 @@ export default function Product() {
 
             {/* ── Colonne gauche : image principale + galerie ── */}
             <FadeIn>
-              {/* Image héro */}
               <div className="overflow-hidden">
                 <Dialog>
                   <DialogTrigger asChild>
@@ -427,11 +396,7 @@ export default function Product() {
                 </Dialog>
               </div>
 
-              {/*
-                Galerie des couleurs — filtrée par modèle sélectionné.
-                Chaque miniature = une couleur disponible pour ce modèle.
-                Clic → change la couleur (le modèle reste fixe).
-              */}
+              {/* Galerie */}
               {gallery.length > 1 && (
                 <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5">
                   {gallery.map((g) => (
@@ -439,11 +404,18 @@ export default function Product() {
                       key={g.variationId}
                       type="button"
                       onClick={() => {
-                        if (g.color) setColor(g.color);
+                        // Si nouvelle structure : clic change le modèle
+                        if (isOneColorPerModel && g.model) {
+                          setModel(g.model);
+                          const allowed = colorsByModel.get(norm(g.model)) ?? [];
+                          setColor(allowed[0] ?? "");
+                        } else {
+                          if (g.color) setColor(g.color);
+                        }
                         setSelectedImage(g.src);
                         setUserPickedImage(true);
                       }}
-                      aria-label={g.color ? `Couleur ${g.color}` : g.alt}
+                      aria-label={isOneColorPerModel ? `Modèle ${g.model}` : `Couleur ${g.color}`}
                       aria-pressed={g.isActive}
                       className={[
                         "group flex flex-col items-center gap-1 rounded-xl border p-1.5 transition-all duration-200",
@@ -459,7 +431,13 @@ export default function Product() {
                         decoding="async"
                         className="impexo-cutout aspect-square w-full object-contain transition duration-300 ease-out group-hover:scale-[1.05]"
                       />
-                      {g.color && (
+                      {/* Nouvelle structure : afficher le modèle sous l'image */}
+                      {isOneColorPerModel && g.model && (
+                        <span className="w-full truncate text-center text-[10px] leading-tight text-muted-foreground">
+                          {g.model.replace("iPhone ", "")}
+                        </span>
+                      )}
+                      {!isOneColorPerModel && g.color && (
                         <span className="w-full truncate text-center text-[10px] leading-tight text-muted-foreground">
                           {g.color}
                         </span>
@@ -478,7 +456,6 @@ export default function Product() {
             {/* ── Colonne droite : infos produit + sélecteurs ── */}
             <FadeIn delay={0.05}>
               <div className="space-y-6">
-                {/* En-tête */}
                 <div>
                   <div className="text-xs font-medium tracking-[0.2em] text-muted-foreground">
                     IMPEXO
@@ -494,9 +471,8 @@ export default function Product() {
                 <Separator />
 
                 {/* Sélecteurs */}
-                <div className="grid gap-4 sm:grid-cols-2">
-
-                  {/* Sélecteur modèle */}
+                <div className="space-y-4">
+                  {/* Sélecteur modèle — toujours affiché */}
                   <div className="space-y-2">
                     <div className="text-xs font-medium text-muted-foreground">
                       Modèle d'iPhone
@@ -505,11 +481,10 @@ export default function Product() {
                       value={model || models[0]}
                       onValueChange={(next) => {
                         setModel(next);
+                        setUserPickedImage(false);
                         if (!hasVariations) return;
                         const allowed = colorsByModel.get(norm(next)) ?? [];
-                        // Conserver la couleur actuelle si elle existe pour ce modèle
-                        const kept = allowed.find((c) => norm(c) === norm(color));
-                        setColor(kept ?? allowed[0] ?? "");
+                        setColor(allowed[0] ?? "");
                       }}
                     >
                       <SelectTrigger className="h-11 rounded-full">
@@ -525,16 +500,12 @@ export default function Product() {
                     </Select>
                   </div>
 
-                  {/* Sélecteur couleur — uniquement les couleurs du modèle sélectionné */}
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Couleur
-                    </div>
-                    {allowedColors.length === 0 ? (
-                      <span className="text-xs text-muted-foreground">
-                        Couleurs non renseignées
-                      </span>
-                    ) : (
+                  {/* Sélecteur couleur — uniquement si plusieurs couleurs par modèle */}
+                  {!isOneColorPerModel && allowedColors.length > 1 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground">
+                        Couleur
+                      </div>
                       <Select value={color} onValueChange={setColor}>
                         <SelectTrigger className="h-11 rounded-full">
                           <SelectValue placeholder="Choisir une couleur" />
@@ -547,8 +518,8 @@ export default function Product() {
                           ))}
                         </SelectContent>
                       </Select>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Quantité + bouton panier */}
@@ -588,9 +559,6 @@ export default function Product() {
                   >
                     Ajouter au panier
                   </Button>
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    Paiement & livraison à brancher côté WooCommerce / checkout.
-                  </div>
                 </div>
 
                 {/* Points forts */}
@@ -649,7 +617,7 @@ export default function Product() {
                     </div>
                   </div>
 
-                  {/* Boutons modèles cliquables (changent le modèle sélectionné) */}
+                  {/* Boutons modèles cliquables */}
                   {models.length > 0 && (
                     <div className="mt-5">
                       <div className="text-xs font-medium tracking-[0.18em] text-muted-foreground">
@@ -662,10 +630,10 @@ export default function Product() {
                             type="button"
                             onClick={() => {
                               setModel(m);
+                              setUserPickedImage(false);
                               if (hasVariations) {
                                 const allowed = colorsByModel.get(norm(m)) ?? [];
-                                const kept = allowed.find((c) => norm(c) === norm(color));
-                                setColor(kept ?? allowed[0] ?? "");
+                                setColor(allowed[0] ?? "");
                               }
                             }}
                             className={[
@@ -695,7 +663,6 @@ export default function Product() {
                     />
                   )}
 
-                  {/* Mentions légales */}
                   <div className="mt-4 space-y-1 text-xs text-muted-foreground">
                     <div>
                       Produit compatible avec les modèles iPhone 17, 17 Air, 17 Pro et 17 Pro Max.
